@@ -1,0 +1,4 @@
+# Xaihi / DSH bundle patch for @hibernalglow/xaihi-shiin
+- insert:
+    - id: xaihi-shiin
+      name: '@hibernalglow/xaihi-shiin'
