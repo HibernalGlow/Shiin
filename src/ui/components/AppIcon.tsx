@@ -1,14 +1,6 @@
-<template>
-  <svg class="app-icon" :width="size" :height="size" viewBox="0 0 24 24" :fill="filled ? 'currentColor' : 'none'"
-    :stroke="filled ? 'none' : 'currentColor'" :stroke-width="filled ? 0 : strokeWidth" stroke-linecap="round"
-    stroke-linejoin="round" aria-hidden="true">
-    <path v-for="(d, i) in paths" :key="i" :d="d" />
-  </svg>
-</template>
+import * as React from 'react'
 
-<script>
-// 统一线性图标集（24×24，颜色继承 currentColor）
-const ICONS = {
+const ICONS: Record<string, string[]> = {
   camera: ['M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z', 'M12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z'],
   gamepad: ['M8 8h8a4 4 0 0 1 4 4v3a3 3 0 0 1-5.2 2L13 15h-2l-1.8 2A3 3 0 0 1 4 15v-3a4 4 0 0 1 4-4Z', 'M7 11h2', 'M8 10v2', 'M16 11h.01', 'M18 13h.01'],
   settings: ['M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z', 'M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.5-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 3.4a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 21 11a2 2 0 1 1 0 4Z'],
@@ -56,35 +48,50 @@ const ICONS = {
   square: ['M6 6h12v12H6Z'],
   restore: ['M9 4h11v11', 'M4 9h11v11H4Z'],
   textSize: ['M3 6V4h13v2', 'M9.5 4v16', 'M7 20h5', 'M15 20l3-8 3 8', 'M16.2 17h3.6'],
-  database: ['M4 6.5C4 5.1 7.6 4 12 4s8 1.1 8 2.5S16.4 9 12 9 4 7.9 4 6.5Z', 'M4 6.5v11C4 18.9 7.6 20 12 20s8-1.1 8-2.5v-11', 'M4 12c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5']
+  database: ['M4 6.5C4 5.1 7.6 4 12 4s8 1.1 8 2.5S16.4 9 12 9 4 7.9 4 6.5Z', 'M4 6.5v11C4 18.9 7.6 20 12 20s8-1.1 8-2.5v-11', 'M4 12c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5'],
 }
 
-// 实心图标（品牌 Logo 等），直接用 fill 渲染，不走描边
-const FILLED_ICONS = {
-  github: ['M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12']
+const FILLED_ICONS: Record<string, string[]> = {
+  github: ['M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12'],
 }
 
-export default {
-  name: 'AppIcon',
-  props: {
-    name: { type: String, required: true },
-    size: { type: [Number, String], default: 16 },
-    strokeWidth: { type: [Number, String], default: 1.7 }
-  },
-  computed: {
-    filled() {
-      return !!FILLED_ICONS[this.name]
-    },
-    paths() {
-      return FILLED_ICONS[this.name] || ICONS[this.name] || ICONS.info
-    }
-  }
+export interface AppIconProps extends React.SVGProps<SVGSVGElement> {
+  name: string
+  size?: number | string
+  strokeWidth?: number | string
 }
-</script>
 
-<style scoped>
-.app-icon {
-  display: block;
-  flex: 0 0 auto;
+export const AppIcon: React.FC<AppIconProps> = ({
+  name,
+  size = 16,
+  strokeWidth = 1.7,
+  className = '',
+  style,
+  ...rest
+}) => {
+  const isFilled = Boolean(FILLED_ICONS[name])
+  const paths = FILLED_ICONS[name] || ICONS[name] || ICONS.info
+
+  return (
+    <svg
+      className={`app-icon ${className}`}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={isFilled ? 'currentColor' : 'none'}
+      stroke={isFilled ? 'none' : 'currentColor'}
+      strokeWidth={isFilled ? 0 : strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ display: 'block', flexShrink: 0, ...style }}
+      {...rest}
+    >
+      {paths.map((d, i) => (
+        <path key={i} d={d} />
+      ))}
+    </svg>
+  )
 }
-</style>
+
+export default AppIcon
