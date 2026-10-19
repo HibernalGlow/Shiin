@@ -69,20 +69,26 @@ export function resolveScreenshotSaveDir(configuredPath?: string): string {
     candidate = macFallback
   }
 
+  const safeFallback = path.join(home, 'screenshots')
+
   try {
     if (!fs.existsSync(candidate)) {
       fs.mkdirSync(candidate, { recursive: true })
     }
+    // 测试是否真正具备写入权限（防止 Windows 坏死 Junction 或只读目录）
+    const testFile = path.join(candidate, `.shiin_probe_${Date.now()}`)
+    fs.writeFileSync(testFile, '')
+    fs.unlinkSync(testFile)
     return candidate
   } catch {
     try {
-      if (!fs.existsSync(macFallback)) {
-        fs.mkdirSync(macFallback, { recursive: true })
+      if (!fs.existsSync(safeFallback)) {
+        fs.mkdirSync(safeFallback, { recursive: true })
       }
     } catch {
       // ignore
     }
-    return macFallback
+    return safeFallback
   }
 }
 
@@ -565,8 +571,15 @@ export async function performScreenshot(
       saveDir = path.join(saveDir, subFolder)
     }
 
-    if (!fs.existsSync(saveDir)) {
-      fs.mkdirSync(saveDir, { recursive: true })
+    try {
+      if (!fs.existsSync(saveDir)) {
+        fs.mkdirSync(saveDir, { recursive: true })
+      }
+    } catch {
+      saveDir = path.join(os.homedir(), 'screenshots')
+      if (!fs.existsSync(saveDir)) {
+        fs.mkdirSync(saveDir, { recursive: true })
+      }
     }
 
     const activeWinInfo = await getActiveWindowInfo()
