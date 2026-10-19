@@ -1,0 +1,57 @@
+name: Build and Validate Xaihi Plugin
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+jobs:
+  build-plugin:
+    name: Build & Validate Xaihi Plugin Bundle
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Run unit tests
+        run: pnpm test
+
+      - name: Build Xaihi Plugin Bundle
+        run: pnpm build:plugin
+
+      - name: Verify Plugin Artifacts
+        run: |
+          test -f lib/index.mjs || { echo "lib/index.mjs missing"; exit 1; }
+          test -f dist/remoteEntry.js || { echo "dist/remoteEntry.js missing"; exit 1; }
+          test -f cordis.patch.yml || { echo "cordis.patch.yml missing"; exit 1; }
+          echo "Plugin artifacts verified successfully."
+
+      - name: Pack Plugin Package
+        run: pnpm pack --pack-destination .
+
+      - name: Upload Plugin Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shiin-xaihi-plugin
+          path: '*.tgz'
