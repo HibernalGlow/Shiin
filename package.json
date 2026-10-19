@@ -304,6 +304,7 @@
   "build": {
     "appId": "com.amagisakuya.shiin",
     "productName": "Shiin",
+    "npmRebuild": false,
     "extraMetadata": {
       "main": "lib/main.mjs"
     },
