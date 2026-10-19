@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-import './react-shim.js'
+import { ensureReactShim } from './react-shim.js'
 import path from 'node:path'
 import { ScreenshotManager, getScreenDisplays } from '../../core/index.js'
 
 async function main() {
+  ensureReactShim()
   const args = process.argv.slice(2)
   const execName = process.argv[1] ? path.basename(process.argv[1]).toLowerCase() : ''
   const isDirectTui = execName.includes('tui')
@@ -14,6 +15,7 @@ async function main() {
   await manager.init()
 
   if (cmd === 'tui') {
+    ensureReactShim()
     // OpenTUI native FFI requires Bun if available on current system
     if (typeof (process.versions as any).bun === 'undefined') {
       try {

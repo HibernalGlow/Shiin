@@ -2,6 +2,7 @@ import * as React from 'react'
 import { AppIcon } from './AppIcon.js'
 import { ALIAS, MD3E_ALIAS } from '../md3e.js'
 import { LANGUAGES, getLanguage } from '../i18n.js'
+import type { MacOSPermissionsStatus } from '../adapter/types.js'
 
 export interface TitleBarProps {
   listening: boolean
@@ -22,6 +23,8 @@ export interface TitleBarProps {
   isMac?: boolean
   onOpenUpdate?: () => void
   hasUpdate?: boolean
+  permissions?: MacOSPermissionsStatus | null
+  onOpenPermissions?: () => void
 }
 
 const ACCENT_COLORS = [
@@ -147,6 +150,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   isMac = false,
   onOpenUpdate,
   hasUpdate = false,
+  permissions,
+  onOpenPermissions,
 }) => {
   const isZh = locale.startsWith('zh')
   const currentLang = getLanguage(locale)

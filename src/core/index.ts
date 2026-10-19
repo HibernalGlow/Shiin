@@ -33,6 +33,7 @@ export * from './gamepad.js'
 export * from './screenshot.js'
 export * from './obs.js'
 export * from './keyboard.js'
+export * from './permissions.js'
 
 export type ScreenshotManagerListener = (event: {
   type: 'screenshot' | 'replayBuffer' | 'deviceChanged' | 'statusChanged'

@@ -1,4 +1,10 @@
-import type { IHostBridge } from './types.js'
+import type {
+  IHostBridge,
+  MacOSPermissionsStatus,
+  ScreenshotPermissionTestResult,
+  MacPermissionPane,
+  PermissionTargetType,
+} from './types.js'
 import type {
   ScreenshotConfig,
   GamepadDeviceInfo,
@@ -10,6 +16,21 @@ import type {
 declare global {
   interface Window {
     electronAPI?: any
+  }
+}
+
+async function fetchLocalApi<T>(endpoint: string, body?: unknown): Promise<T | null> {
+  if (typeof fetch === 'undefined') return null
+  try {
+    const res = await fetch(endpoint, {
+      method: body !== undefined ? 'POST' : 'GET',
+      headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    })
+    if (!res.ok) return null
+    return (await res.json()) as T
+  } catch {
+    return null
   }
 }
 
@@ -50,7 +71,7 @@ export class ElectronHostBridge implements IHostBridge {
     }
     if (mainDevices.length > 0) return mainDevices
 
-    // Web Gamepad API Fallback (适用于无原生 SDL 的 Electron 桌面窗口)
+    // Web Gamepad API Fallback (适用于无原生 SDL 的 Electron 桌面窗口或浏览器预览)
     if (typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function') {
       const raw = Array.from(navigator.getGamepads() || []).filter(Boolean) as Gamepad[]
       if (raw.length > 0) {
@@ -62,6 +83,9 @@ export class ElectronHostBridge implements IHostBridge {
         }))
       }
     }
+
+    const apiDevs = await fetchLocalApi<GamepadDeviceInfo[]>('/api/gamepads')
+    if (apiDevs && apiDevs.length > 0) return apiDevs
 
     return []
   }
@@ -120,15 +144,20 @@ export class ElectronHostBridge implements IHostBridge {
 
   public async getScreenSources(): Promise<CaptureDisplayInfo[]> {
     if (this.api.getScreenSources) {
-      return await this.api.getScreenSources()
+      const list = await this.api.getScreenSources()
+      if (Array.isArray(list) && list.length > 0) return list
     }
-    return [{ id: '', name: 'Primary Display' }]
+    const apiScreens = await fetchLocalApi<CaptureDisplayInfo[]>('/api/screens')
+    if (apiScreens && apiScreens.length > 0) return apiScreens
+    return [{ id: 0, name: 'Primary Display (主显示器)' }]
   }
 
   public async getCaptureWindows(): Promise<CaptureWindowInfo[]> {
     if (this.api.getCaptureWindows) {
       return await this.api.getCaptureWindows()
     }
+    const apiWins = await fetchLocalApi<CaptureWindowInfo[]>('/api/windows')
+    if (apiWins) return apiWins
     return []
   }
 
@@ -145,20 +174,31 @@ export class ElectronHostBridge implements IHostBridge {
         format: config.imageFormat,
       }
     }
-    return null
+    const apiRes = await fetchLocalApi<ScreenshotResult>('/api/capture', { config })
+    return apiRes
   }
 
   public async selectFolder(): Promise<string | null> {
     if (this.api.selectFolder) {
       return await this.api.selectFolder()
     }
-    return null
+    const apiRes = await fetchLocalApi<{ path: string | null }>('/api/select-folder', {})
+    return apiRes?.path ?? null
   }
 
-  public async openFolder(path: string): Promise<void> {
+  public async openFolder(folderPath: string): Promise<{ ok: boolean; path?: string; error?: string }> {
     if (this.api.openFolder) {
-      await this.api.openFolder(path || '')
+      const res = await this.api.openFolder(folderPath || '')
+      if (res && typeof res === 'object') {
+        return res
+      }
+      return { ok: true, path: folderPath }
     }
+    const apiRes = await fetchLocalApi<{ ok: boolean; path?: string; error?: string }>('/api/open-folder', {
+      path: folderPath || '',
+    })
+    if (apiRes) return apiRes
+    return { ok: false, error: 'Host bridge unavailable' }
   }
 
   public async startListening(config: ScreenshotConfig): Promise<boolean> {
@@ -263,17 +303,86 @@ export class ElectronHostBridge implements IHostBridge {
     return this.api.platform === 'darwin' || /Macintosh|Mac OS X/i.test(navigator.userAgent)
   }
 
-  public async getMacOSPermissions(): Promise<{ isMac: boolean; screenCapture: boolean; accessibility: boolean }> {
+  public async getMacOSPermissions(options?: { activeProbe?: boolean }): Promise<MacOSPermissionsStatus> {
     if (this.api.getMacOSPermissions) {
-      return await this.api.getMacOSPermissions()
+      return await this.api.getMacOSPermissions(options)
     }
-    return { isMac: this.isMac, screenCapture: true, accessibility: true }
+    const apiRes = await fetchLocalApi<MacOSPermissionsStatus>('/api/permissions', options || {})
+    if (apiRes) return apiRes
+    return {
+      isMac: this.isMac,
+      platform: this.isMac ? 'darwin' : 'unknown',
+      screenCapture: true,
+      screenCaptureStatus: 'granted',
+      accessibility: true,
+      inputMonitoring: true,
+      folderAccess: true,
+      resolvedSavePath: './screenshots',
+      windowRecognition: true,
+      detectedWindowsCount: 0,
+      gamepadAccess: true,
+      detectedGamepadsCount: 0,
+      allGranted: true,
+      checkedAt: Date.now(),
+    }
   }
 
-  public async openMacOSPreference(pane: 'screen' | 'accessibility'): Promise<void> {
+  public async requestMacOSPermission(
+    target: PermissionTargetType = 'all',
+    options?: { openSettingsIfDenied?: boolean }
+  ): Promise<MacOSPermissionsStatus> {
+    if (this.api.requestMacOSPermission) {
+      return await this.api.requestMacOSPermission(target, options)
+    }
+    const apiRes = await fetchLocalApi<MacOSPermissionsStatus>('/api/request-permission', {
+      target,
+      options,
+    })
+    if (apiRes) return apiRes
+    if (target === 'screen' || target === 'accessibility' || target === 'input' || target === 'files' || target === 'folder') {
+      await this.openMacOSPreference(
+        target === 'input'
+          ? 'input'
+          : target === 'accessibility'
+          ? 'accessibility'
+          : target === 'files' || target === 'folder'
+          ? 'files'
+          : 'screen'
+      )
+    }
+    return await this.getMacOSPermissions({ activeProbe: true })
+  }
+
+  public async testScreenshotPermission(config?: ScreenshotConfig): Promise<ScreenshotPermissionTestResult> {
+    if (this.api.testScreenshotPermission) {
+      return await this.api.testScreenshotPermission(config)
+    }
+    const apiRes = await fetchLocalApi<ScreenshotPermissionTestResult>('/api/test-screenshot', { config })
+    if (apiRes) return apiRes
+
+    if (config) {
+      const start = Date.now()
+      const cap = await this.capture(config)
+      const perms = await this.getMacOSPermissions({ activeProbe: true })
+      return {
+        ok: Boolean(cap?.ok),
+        granted: Boolean(cap?.ok),
+        filePath: cap?.filePath,
+        sizeBytes: cap?.sizeBytes,
+        latencyMs: Date.now() - start,
+        error: cap?.error,
+        permissions: perms,
+      }
+    }
+    return { ok: false, granted: false, error: 'Host bridge unavailable' }
+  }
+
+  public async openMacOSPreference(pane: MacPermissionPane): Promise<void> {
     if (this.api.openMacOSPreference) {
       await this.api.openMacOSPreference(pane)
+      return
     }
+    await fetchLocalApi('/api/open-preference', { pane })
   }
 
   public async getAutoStart(): Promise<boolean> {
@@ -290,11 +399,18 @@ export class ElectronHostBridge implements IHostBridge {
     return enable
   }
 
-  public async showItemInFolder(path: string): Promise<void> {
+  public async showItemInFolder(fullPath: string): Promise<void> {
     if (this.api.showItemInFolder) {
-      await this.api.showItemInFolder(path)
-    } else if (this.api.openFolder) {
-      await this.api.openFolder(path)
+      await this.api.showItemInFolder(fullPath)
+    } else {
+      await this.openFolder(fullPath)
     }
+  }
+
+  public onOpenPermissionDialog(cb: (data?: any) => void): () => void {
+    if (this.api.onOpenPermissionDialog) {
+      return this.api.onOpenPermissionDialog(cb)
+    }
+    return () => {}
   }
 }

@@ -1,5 +1,6 @@
 /* @jsxImportSource @opentui/react */
-import './react-shim.js'
+import { ensureReactShim } from './react-shim.js'
+ensureReactShim()
 import * as React from 'react'
 
 import { createCliRenderer } from '@opentui/core'

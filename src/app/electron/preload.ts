@@ -48,13 +48,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getMacOSPermissions: (options?: { activeProbe?: boolean }) =>
     ipcRenderer.invoke('get-macos-permissions', options),
   requestMacOSPermission: (
-    target: 'screen' | 'accessibility' | 'input' | 'folder' | 'all',
+    target: 'screen' | 'accessibility' | 'input' | 'folder' | 'files' | 'all',
     options?: { openSettingsIfDenied?: boolean }
   ) => ipcRenderer.invoke('request-macos-permission', target, options),
   testScreenshotPermission: (config?: any) =>
     ipcRenderer.invoke('test-screenshot-permission', config),
   openMacOSPreference: (pane: 'screen' | 'accessibility' | 'input' | 'files') =>
     ipcRenderer.invoke('open-macos-preference', pane),
+  onOpenPermissionDialog: (callback: (data?: any) => void) => {
+    const handler = (_: any, data: any) => callback(data)
+    ipcRenderer.on('open-permission-dialog', handler)
+    return () => ipcRenderer.removeListener('open-permission-dialog', handler)
+  },
   getAutoStart: () => ipcRenderer.invoke('get-auto-start'),
   setAutoStart: (enable: boolean) => ipcRenderer.invoke('set-auto-start', enable),
   showItemInFolder: (fullPath: string) => ipcRenderer.invoke('show-item-in-folder', fullPath),

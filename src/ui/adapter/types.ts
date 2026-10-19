@@ -4,42 +4,19 @@ import type {
   CaptureDisplayInfo,
   CaptureWindowInfo,
   ScreenshotResult,
-} from '../../core/types.js'
+  MacPermissionPane,
+  PermissionTargetType,
+  MissingPermissionInfo,
+  MacOSPermissionsStatus,
+  ScreenshotPermissionTestResult,
+} from '../../core/index.js'
 
-export type MacPermissionPane = 'screen' | 'accessibility' | 'input' | 'files'
-
-export interface MacOSPermissionsStatus {
-  isMac: boolean
-  platform: string
-  screenCapture: boolean
-  screenCaptureStatus?: string
-  accessibility: boolean
-  inputMonitoring?: boolean
-  folderAccess?: boolean
-  resolvedSavePath?: string
-  folderError?: string
-  windowRecognition?: boolean
-  detectedWindowsCount?: number
-  activeWindowTitle?: string
-  windowError?: string
-  gamepadAccess?: boolean
-  detectedGamepadsCount?: number
-  allGranted?: boolean
-  checkedAt?: number
-}
-
-export interface ScreenshotPermissionTestResult {
-  ok: boolean
-  granted: boolean
-  filePath?: string | null
-  previewDataUrl?: string
-  width?: number
-  height?: number
-  sizeBytes?: number
-  latencyMs?: number
-  isBlackFrame?: boolean
-  error?: string
-  permissions?: MacOSPermissionsStatus
+export type {
+  MacPermissionPane,
+  PermissionTargetType,
+  MissingPermissionInfo,
+  MacOSPermissionsStatus,
+  ScreenshotPermissionTestResult,
 }
 
 export interface IHostBridge {
@@ -88,11 +65,12 @@ export interface IHostBridge {
   readonly isMac?: boolean
   getMacOSPermissions?(options?: { activeProbe?: boolean }): Promise<MacOSPermissionsStatus>
   requestMacOSPermission?(
-    target: 'screen' | 'accessibility' | 'input' | 'folder' | 'all',
+    target: PermissionTargetType,
     options?: { openSettingsIfDenied?: boolean }
   ): Promise<MacOSPermissionsStatus>
   testScreenshotPermission?(config?: ScreenshotConfig): Promise<ScreenshotPermissionTestResult>
   openMacOSPreference?(pane: MacPermissionPane): Promise<void>
+  onOpenPermissionDialog?(cb: (data?: any) => void): () => void
   getAutoStart?(): Promise<boolean>
   setAutoStart?(enable: boolean): Promise<boolean>
   showItemInFolder?(path: string): Promise<void>
