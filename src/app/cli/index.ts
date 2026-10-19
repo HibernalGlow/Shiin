@@ -1,9 +1,14 @@
 #!/usr/bin/env node
+import './react-shim.js'
+import path from 'node:path'
 import { ScreenshotManager, getScreenDisplays } from '../../core/index.js'
 
 async function main() {
   const args = process.argv.slice(2)
-  const cmd = args[0] || 'help'
+  const execName = process.argv[1] ? path.basename(process.argv[1]).toLowerCase() : ''
+  const isDirectTui = execName.includes('tui')
+  const defaultCmd = isDirectTui ? 'tui' : 'help'
+  const cmd = args[0] || defaultCmd
 
   const manager = new ScreenshotManager()
   await manager.init()
@@ -71,6 +76,7 @@ async function main() {
 
 用法:
   shiin <command> [options]
+  shiin-tui                直接启动终端交互仪表盘
 
 常用命令:
   tui         进入 OpenTUI 终端交互仪表盘（实时按键监控、快速测试与操作）
@@ -80,7 +86,9 @@ async function main() {
   help        显示本帮助信息
 
 示例:
+  shiin
   shiin tui
+  shiin-tui
   shiin capture
   shiin listen
 `)
