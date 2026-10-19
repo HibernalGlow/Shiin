@@ -180,6 +180,11 @@ export class GamepadCore {
     this.releaseDeviceHandle()
     this.activeDeviceIndex = targetIndex
 
+    if (this.hasWorkerState) {
+      this.deviceInstance = { index: targetIndex, virtual: true }
+      return true
+    }
+
     const sdlInstance = getSdl()
     if (!sdlInstance || !sdlInstance.joystick) {
       // 在无直接原生 SDL 的宿主进程（例如 Electron 主进程）下，以虚拟设备模式接管，保留已有 Worker 注入的状态

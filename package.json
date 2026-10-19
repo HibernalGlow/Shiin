@@ -10,7 +10,7 @@
   "bin": {
     "shiin": "./lib/cli.mjs",
     "shiin-cli": "./lib/cli.mjs",
-    "shiin-tui": "./lib/cli.mjs"
+    "shiin-tui": "./lib/tui-bin.mjs"
   },
   "exports": {
     ".": {
@@ -247,7 +247,10 @@
     "build": "pnpm build:node && rspack build && cross-env BUILD_TARGET=app rspack build",
     "pack:app": "tsdown && cross-env BUILD_TARGET=app rspack build && electron-builder --dir",
     "dist:app": "tsdown && cross-env BUILD_TARGET=app rspack build && electron-builder",
+    "start": "electron lib/main.mjs",
+    "dev": "pnpm build:app && electron lib/main.mjs",
     "electron:start": "electron lib/main.mjs",
+    "preview": "node src/app/preview.mjs",
     "cli": "node lib/cli.mjs",
     "tui": "node lib/cli.mjs tui",
     "typecheck": "tsc --noEmit",

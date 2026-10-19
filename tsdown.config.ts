@@ -4,6 +4,7 @@ export default defineConfig({
   entry: {
     index: 'src/xaihi/index.ts',
     cli: 'src/app/cli/index.ts',
+    'tui-bin': 'src/app/cli/tui-bin.ts',
     core: 'src/core/index.ts',
     main: 'src/app/electron/main.ts',
     preload: 'src/app/electron/preload.ts',

@@ -33,15 +33,15 @@ import {
 } from '../../core/index.js'
 import { SOUND_DATA_URIS } from '../../ui/audio-data.js'
 
-import zhLocale from '../../locales/zh.json'
-import zhTWLocale from '../../locales/zh-TW.json'
-import enLocale from '../../locales/en.json'
-import jaLocale from '../../locales/ja.json'
-import koLocale from '../../locales/ko.json'
-import deLocale from '../../locales/de.json'
-import frLocale from '../../locales/fr.json'
-import esLocale from '../../locales/es.json'
-import ruLocale from '../../locales/ru.json'
+import zhLocale from '../../locales/zh.json' with { type: 'json' }
+import zhTWLocale from '../../locales/zh-TW.json' with { type: 'json' }
+import enLocale from '../../locales/en.json' with { type: 'json' }
+import jaLocale from '../../locales/ja.json' with { type: 'json' }
+import koLocale from '../../locales/ko.json' with { type: 'json' }
+import deLocale from '../../locales/de.json' with { type: 'json' }
+import frLocale from '../../locales/fr.json' with { type: 'json' }
+import esLocale from '../../locales/es.json' with { type: 'json' }
+import ruLocale from '../../locales/ru.json' with { type: 'json' }
 
 const execFileAsync = promisify(execFile)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -72,16 +72,33 @@ let gamepadWorker: Electron.UtilityProcess | null = null
 let gamepadWorkerRestartTimer: NodeJS.Timeout | null = null
 
 // 载入多语言包，用于托盘菜单和原生提示（编译期静态内联入 bundle，消除运行时 nodeRequire 缺失）
+function loadLocaleJson(name: string): Record<string, any> {
+  const candidatePaths = [
+    path.join(__dirname, `../../src/locales/${name}.json`),
+    path.join(__dirname, `../src/locales/${name}.json`),
+    path.join(__dirname, `../locales/${name}.json`),
+    path.join(process.cwd(), `src/locales/${name}.json`),
+  ]
+  for (const p of candidatePaths) {
+    if (fs.existsSync(p)) {
+      try {
+        return JSON.parse(fs.readFileSync(p, 'utf8'))
+      } catch {}
+    }
+  }
+  return {}
+}
+
 const LOCALE_MESSAGES: Record<string, any> = {
-  zh: zhLocale,
-  'zh-TW': zhTWLocale,
-  en: enLocale,
-  ja: jaLocale,
-  ko: koLocale,
-  de: deLocale,
-  fr: frLocale,
-  es: esLocale,
-  ru: ruLocale,
+  zh: loadLocaleJson('zh'),
+  'zh-TW': loadLocaleJson('zh-TW'),
+  en: loadLocaleJson('en'),
+  ja: loadLocaleJson('ja'),
+  ko: loadLocaleJson('ko'),
+  de: loadLocaleJson('de'),
+  fr: loadLocaleJson('fr'),
+  es: loadLocaleJson('es'),
+  ru: loadLocaleJson('ru'),
 }
 
 function getI18nText(key: string, defaultText: string, locale?: string): string {
@@ -219,6 +236,7 @@ function stopGamepadWorker(): void {
 const gotTheLock = app.requestSingleInstanceLock()
 if (!gotTheLock) {
   app.quit()
+  process.exit(0)
 }
 
 app.on('second-instance', () => {
