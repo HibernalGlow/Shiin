@@ -616,16 +616,41 @@ function registerIpcHandlers() {
 
   ipcMain.handle('screen-shot', async (_, cfg) => {
     if (cfg) manager.config = { ...manager.config, ...cfg }
-    // 如果在 macOS 下尚未获得录屏权限，尝试主动触发一次权限请求
+    // 如果在 macOS 下尚未获得录屏权限，尝试主动触发权限请求并主动打开系统设置界面
     if (process.platform === 'darwin' && systemPreferences.getMediaAccessStatus) {
       const st = systemPreferences.getMediaAccessStatus('screen')
       if (st !== 'granted') {
         try {
           await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 32, height: 32 } })
         } catch {}
+        // 主动打开 macOS 系统设置对应的屏幕录制界面
+        void openMacSystemPreferencePane('screen')
+        // 主动通知前端打开权限自检中心引导
+        win?.webContents.send('open-permission-dialog', {
+          reason: 'missing_screen_permission',
+          message: '截取屏幕画面需要 macOS「屏幕录制」权限，已主动为您打开系统设置进行授权。',
+        })
+        return {
+          ok: false,
+          filePath: null,
+          error: '缺少 macOS 屏幕录制权限，已主动打开系统设置界面。请在列表中开启 Shiin 权限后重试。',
+          timestamp: Date.now(),
+          format: manager.config.imageFormat,
+          sizeBytes: 0,
+        }
       }
     }
     const res = await manager.capture()
+    if (!res.ok && process.platform === 'darwin' && systemPreferences.getMediaAccessStatus) {
+      const st = systemPreferences.getMediaAccessStatus('screen')
+      if (st !== 'granted') {
+        void openMacSystemPreferencePane('screen')
+        win?.webContents.send('open-permission-dialog', {
+          reason: 'missing_screen_permission',
+          message: '截图失败：检测到缺少 macOS「屏幕录制」权限，已主动为您打开系统设置进行授权。',
+        })
+      }
+    }
     return {
       ok: res.ok,
       filePath: res.filePath || null,

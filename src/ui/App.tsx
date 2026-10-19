@@ -43,12 +43,15 @@ import {
 } from '../core/types.js'
 import { playCaptureSound } from './audio.js'
 import { UpdateDialog } from './components/UpdateDialog.js'
+import { PermissionTestView } from './components/PermissionTestView.js'
+import { SettingsView } from './components/SettingsView.js'
+import type { MacOSPermissionsStatus } from './adapter/types.js'
 
 export const App: React.FC = () => {
   const bridge = React.useMemo(() => new ElectronHostBridge(), [])
 
   // 镜头视图 (仿照 shellect Lens 切换设计)
-  const [lens, setLens] = React.useState<'studio' | 'combos' | 'capture' | 'tester' | 'settings'>('studio')
+  const [lens, setLens] = React.useState<'studio' | 'combos' | 'capture' | 'tester' | 'permissions' | 'settings'>('studio')
 
   const [config, setConfig] = React.useState<ScreenshotConfig>({ ...DEFAULT_CONFIG })
   const [listening, setListening] = React.useState<boolean>(false)
@@ -78,7 +81,7 @@ export const App: React.FC = () => {
   const [updateDialogOpen, setUpdateDialogOpen] = React.useState<boolean>(false)
   const [hasUpdate, setHasUpdate] = React.useState<boolean>(false)
   const [maximized, setMaximized] = React.useState<boolean>(false)
-  const [macPermissions, setMacPermissions] = React.useState<{ screenCapture: boolean; accessibility: boolean } | null>(null)
+  const [macPermissions, setMacPermissions] = React.useState<MacOSPermissionsStatus | null>(null)
   const [lastNotice, setLastNotice] = React.useState<string>('')
 
   // 注册全局 MD3E 样式并初始化配置
@@ -106,8 +109,17 @@ export const App: React.FC = () => {
       }
 
       if (bridge.isMac && bridge.getMacOSPermissions) {
-        const perms = await bridge.getMacOSPermissions()
+        const perms = await bridge.getMacOSPermissions({ activeProbe: false })
         setMacPermissions(perms)
+        // 关键主动行为：在 macOS 下若缺失屏幕录制核心权限，主动打开权限检查界面引导用户授权
+        if (!perms.screenCapture) {
+          setLens('permissions')
+          setLastNotice(
+            (savedLocale || 'zh').startsWith('zh')
+              ? '⚠️ 检测到屏幕录制权限尚未授予，已为您主动打开权限检查界面'
+              : '⚠️ Screen recording permission not granted'
+          )
+        }
       }
 
       const savedGlobal = await bridge.getStore('globalConfig', '')
@@ -137,9 +149,35 @@ export const App: React.FC = () => {
       }
     })
 
+    // 监听主进程主动触发的权限弹窗 / 引导请求
+    const unbindPermDialog = bridge.onOpenPermissionDialog?.((data) => {
+      setLens('permissions')
+      if (data?.message) {
+        setLastNotice(data.message)
+      }
+      if (bridge.getMacOSPermissions) {
+        void bridge.getMacOSPermissions({ activeProbe: true }).then((p) => setMacPermissions(p))
+      }
+    })
+
+    // 当用户从 macOS 系统设置切换回本应用窗口时，自动重新自检权限状态
+    const handleWindowFocus = () => {
+      if (bridge.isMac && bridge.getMacOSPermissions) {
+        void bridge.getMacOSPermissions({ activeProbe: true }).then((p) => {
+          setMacPermissions(p)
+          if (p?.screenCapture) {
+            setLastNotice(locale === 'zh' ? '✅ 系统权限检测通过，屏幕录制已就绪' : '✅ Screen recording permission granted')
+          }
+        })
+      }
+    }
+    window.addEventListener('focus', handleWindowFocus)
+
     return () => {
       unbindListen()
       if (typeof unbindScreenshot === 'function') unbindScreenshot()
+      if (typeof unbindPermDialog === 'function') unbindPermDialog()
+      window.removeEventListener('focus', handleWindowFocus)
       unregisterStyles()
     }
   }, [bridge])
@@ -313,6 +351,33 @@ export const App: React.FC = () => {
     if (now - lastCaptureTimeRef.current < 350) return
     lastCaptureTimeRef.current = now
 
+    // 预检 macOS 屏幕录制核心权限：缺失时主动打开系统设置界面并切换至权限自检中心
+    if (bridge.isMac) {
+      let curPerms = macPermissions
+      if (!curPerms && bridge.getMacOSPermissions) {
+        curPerms = await bridge.getMacOSPermissions({ activeProbe: true })
+        setMacPermissions(curPerms)
+      }
+      if (curPerms && !curPerms.screenCapture) {
+        setLens('permissions')
+        if (bridge.openMacOSPreference) {
+          void bridge.openMacOSPreference('screen')
+        }
+        setLastNotice(
+          locale.startsWith('zh')
+            ? '⚠️ 缺失 macOS 屏幕录制权限，已主动为您打开系统设置与权限检查界面！'
+            : '⚠️ Missing Screen Recording permission. Opening System Settings...'
+        )
+        bridge.showNotification?.(
+          locale.startsWith('zh') ? '缺少屏幕录制权限' : 'Screen Recording Required',
+          locale.startsWith('zh')
+            ? '已主动为您打开 macOS 系统设置界面，请在列表中勾选开启 Shiin 权限'
+            : 'Opening macOS System Settings...'
+        )
+        return
+      }
+    }
+
     const res = await bridge.capture(config)
     if (res?.ok) {
       if (config.sound && config.sound !== 'None') {
@@ -325,6 +390,12 @@ export const App: React.FC = () => {
         res.filePath || undefined
       )
     } else {
+      if (bridge.isMac) {
+        setLens('permissions')
+        if (bridge.openMacOSPreference) {
+          void bridge.openMacOSPreference('screen')
+        }
+      }
       setLastNotice(locale.startsWith('zh') ? `截图失败: ${res?.error || '无法截取屏幕'}` : `Failed: ${res?.error}`)
       bridge.showNotification?.(
         locale.startsWith('zh') ? '截图失败' : 'Capture Failed',
@@ -339,6 +410,17 @@ export const App: React.FC = () => {
       setListening(false)
       setLastNotice(locale === 'zh' ? '后台手柄监听已停止' : 'Listener stopped')
     } else {
+      if (bridge.isMac && config.keyboardTrigger && macPermissions && !macPermissions.accessibility) {
+        if (bridge.requestMacOSPermission) {
+          void bridge.requestMacOSPermission('accessibility', { openSettingsIfDenied: true })
+        }
+        setLens('permissions')
+        setLastNotice(
+          locale === 'zh'
+            ? '⚠️ 全局键盘监听需要辅助功能权限，已主动打开权限检查界面'
+            : '⚠️ Global keyboard hotkeys require Accessibility permission'
+        )
+      }
       const ok = await bridge.startListening(config)
       if (ok) {
         setListening(true)
@@ -420,12 +502,19 @@ export const App: React.FC = () => {
       icon: 'target',
     },
     {
+      id: 'permissions' as const,
+      label: isZh ? '权限自检中心' : 'Permissions',
+      shortLabel: isZh ? '权限' : 'Permissions',
+      icon: 'shield',
+      badge: macPermissions && !macPermissions.allGranted ? '!' : undefined,
+    },
+    {
       id: 'settings' as const,
       label: isZh ? '系统设置' : 'Settings',
       shortLabel: isZh ? '设置' : 'Settings',
       icon: 'settings',
     },
-  ], [isZh, config.comboKeys.length])
+  ], [isZh, config.comboKeys.length, macPermissions])
 
   return (
     <div
@@ -485,6 +574,8 @@ export const App: React.FC = () => {
         }}
         onClose={() => bridge.closeWindow?.()}
         isMac={bridge.isMac}
+        permissions={macPermissions}
+        onOpenPermissions={() => setLens('permissions')}
       />
 
       {/* 主响应式工作区架构：宽屏 Rossi 侧栏 + 节点视口 + 窄屏浮动 Dock */}
@@ -608,6 +699,25 @@ export const App: React.FC = () => {
                 <AppIcon name="folder" size={13} />
                 {isZh ? '打开目录' : 'Folder'}
               </XButton>
+              {bridge.isMac && (
+                <XButton
+                  variant={macPermissions && !macPermissions.allGranted ? 'danger' : 'ghost'}
+                  onClick={() => setLens('permissions')}
+                  style={{
+                    color: macPermissions && !macPermissions.allGranted ? '#fb5f76' : undefined,
+                    borderColor: macPermissions && !macPermissions.allGranted ? 'rgba(251, 95, 118, 0.45)' : undefined,
+                  }}
+                >
+                  <AppIcon name="shield" size={13} />
+                  {isZh
+                    ? macPermissions && !macPermissions.allGranted
+                      ? '⚠️ 权限缺失'
+                      : '权限自检'
+                    : macPermissions && !macPermissions.allGranted
+                    ? '⚠️ Permissions'
+                    : 'Permissions'}
+                </XButton>
+              )}
             </XMd3eActionGroup>
           </XMd3eHeroBanner>
 
@@ -634,7 +744,7 @@ export const App: React.FC = () => {
         {/* 主内容双翼排版 */}
         <div className="xaihi-md3e-main-grid" data-single-column={lens !== 'studio' ? 'true' : 'false'}>
           {/* 左翼：平台与捕获引擎控制 */}
-          {(lens === 'studio' || lens === 'capture' || lens === 'settings') && (
+          {(lens === 'studio' || lens === 'capture') && (
             <div style={{ display: 'grid', gap: 12 }}>
               {/* 渲染管线与捕获目标 */}
               <XMd3eSection
@@ -1273,6 +1383,82 @@ export const App: React.FC = () => {
                   </div>
                 )}
               </XMd3eSection>
+            </div>
+          )}
+
+          {/* 权限自检中心主视图 */}
+          {lens === 'permissions' && (
+            <div style={{ gridColumn: '1 / -1' }}>
+              <PermissionTestView
+                config={config}
+                locale={isZh ? 'zh' : 'en'}
+                isMac={bridge.isMac}
+                permissions={macPermissions}
+                gamepads={gamepads}
+                onRefreshPermissions={async (activeProbe) => {
+                  if (bridge.getMacOSPermissions) {
+                    const next = await bridge.getMacOSPermissions({ activeProbe })
+                    setMacPermissions(next)
+                    return next
+                  }
+                  return null
+                }}
+                onRequestPermission={async (target, options) => {
+                  if (bridge.requestMacOSPermission) {
+                    const next = await bridge.requestMacOSPermission(target, options)
+                    setMacPermissions(next)
+                    return next
+                  }
+                  return null
+                }}
+                onTestScreenshot={async () => {
+                  if (bridge.testScreenshotPermission) {
+                    const res = await bridge.testScreenshotPermission(config)
+                    if (res?.permissions) setMacPermissions(res.permissions)
+                    return res
+                  }
+                  return null
+                }}
+                onOpenPreference={async (pane) => {
+                  if (bridge.openMacOSPreference) {
+                    await bridge.openMacOSPreference(pane)
+                  }
+                }}
+                onOpenFolder={async (customPath) => {
+                  const res = await bridge.openFolder(customPath || config.path || '')
+                  return res && typeof res === 'object' ? res : { ok: true, path: customPath || config.path }
+                }}
+                onSelectFolder={handleSelectFolder}
+                onShowItemInFolder={async (p) => {
+                  if (bridge.showItemInFolder) await bridge.showItemInFolder(p)
+                }}
+                onRefreshGamepads={async () => {
+                  const devs = await bridge.getConnectedGamepads()
+                  setGamepads(devs)
+                }}
+                onNavigateLens={(target) => setLens(target as any)}
+              />
+            </div>
+          )}
+
+          {/* 系统设置完整视图 */}
+          {lens === 'settings' && (
+            <div style={{ gridColumn: '1 / -1' }}>
+              <SettingsView
+                config={config}
+                onChange={patchConfig}
+                locale={isZh ? 'zh' : 'en'}
+                isMac={bridge.isMac}
+                macPermissions={macPermissions}
+                onOpenMacPreference={(pane) => bridge.openMacOSPreference?.(pane)}
+                onOpenPermissionsView={() => setLens('permissions')}
+                onToggleAutoStart={(enable) => {
+                  patchConfig({ autoStart: enable })
+                  if (bridge.setAutoStart) void bridge.setAutoStart(enable)
+                }}
+                onCheckUpdate={() => setUpdateDialogOpen(true)}
+                onOpenGithub={() => bridge.openExternal?.('https://github.com/AmagiSakuya/GamePad-ScreenShot-Windows')}
+              />
             </div>
           )}
         </div>

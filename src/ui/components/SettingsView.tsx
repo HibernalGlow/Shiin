@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { AppIcon } from './AppIcon.js'
 import type { ScreenshotConfig } from '../../core/types.js'
+import type { MacOSPermissionsStatus, MacPermissionPane } from '../adapter/types.js'
 
 export interface SettingsViewProps {
   config: ScreenshotConfig
@@ -11,8 +12,9 @@ export interface SettingsViewProps {
   appVersion?: string
   locale?: 'zh' | 'en'
   isMac?: boolean
-  macPermissions?: { screenCapture: boolean; accessibility: boolean } | null
-  onOpenMacPreference?: (pane: 'screen' | 'accessibility') => void
+  macPermissions?: MacOSPermissionsStatus | null
+  onOpenMacPreference?: (pane: MacPermissionPane) => void
+  onOpenPermissionsView?: () => void
   onToggleAutoStart?: (enable: boolean) => void
 }
 
@@ -27,6 +29,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   isMac = false,
   macPermissions,
   onOpenMacPreference,
+  onOpenPermissionsView,
   onToggleAutoStart,
 }) => {
   const isZh = locale === 'zh'
@@ -40,10 +43,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* macOS 专用系统权限与集成卡片 */}
       {isMac && (
         <div className="shiin-card" style={{ gap: 12, border: '1px solid rgba(110, 227, 240, 0.25)', background: 'rgba(110, 227, 240, 0.03)' }}>
-          <span style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent, #b4f461)' }}>
-            <AppIcon name="cpu" size={14} />
-            {isZh ? 'macOS 系统权限与环境检测' : 'macOS System Permissions & Environment'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent, #b4f461)' }}>
+              <AppIcon name="cpu" size={14} />
+              {isZh ? 'macOS 系统权限与环境检测' : 'macOS System Permissions & Environment'}
+            </span>
+            {onOpenPermissionsView && (
+              <button
+                className="shiin-btn"
+                data-variant="filled"
+                style={{ height: 26, fontSize: 11, padding: '0 10px', gap: 4 }}
+                onClick={onOpenPermissionsView}
+              >
+                <AppIcon name="shield" size={12} />
+                {isZh ? '打开权限自检中心' : 'Open Diagnostics'}
+              </button>
+            )}
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>
             {/* 屏幕录制权限 */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

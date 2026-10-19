@@ -284,6 +284,55 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 
       {/* 右侧控制 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, WebkitAppRegion: 'no-drag' as any } as React.CSSProperties}>
+        {/* 系统权限自检与状态入口 */}
+        {onOpenPermissions && (
+          <TitleBarButton
+            onClick={onOpenPermissions}
+            title={
+              permissions?.isMac && !permissions?.allGranted
+                ? isZh
+                  ? '⚠️ 存在未授权的核心权限（屏幕录制等），点击打开检查'
+                  : '⚠️ Missing system permissions, click to inspect and grant'
+                : isZh
+                  ? '系统权限正常 (点击打开权限自检中心)'
+                  : 'Permissions OK (click to view diagnostics)'
+            }
+            style={{
+              position: 'relative',
+              color:
+                permissions?.isMac && !permissions?.allGranted
+                  ? '#fb5f76'
+                  : permissions?.isMac && permissions?.allGranted
+                  ? '#4ade80'
+                  : undefined,
+              borderColor:
+                permissions?.isMac && !permissions?.allGranted
+                  ? 'rgba(251, 95, 118, 0.45)'
+                  : undefined,
+              background:
+                permissions?.isMac && !permissions?.allGranted
+                  ? 'rgba(251, 95, 118, 0.14)'
+                  : undefined,
+            }}
+          >
+            <AppIcon name="shield" size={15} />
+            {permissions?.isMac && !permissions?.allGranted && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: 2,
+                  right: 2,
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: '#fb5f76',
+                  boxShadow: '0 0 6px #fb5f76',
+                }}
+              />
+            )}
+          </TitleBarButton>
+        )}
+
         {/* 深浅色切换 */}
         <TitleBarButton
           onClick={onToggleTheme}
