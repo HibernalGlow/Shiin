@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { AppIcon } from './AppIcon.js'
 import { ALIAS, MD3E_ALIAS } from '../md3e.js'
+import { LANGUAGES, getLanguage } from '../i18n.js'
 
 export interface TitleBarProps {
   listening: boolean
@@ -10,14 +11,17 @@ export interface TitleBarProps {
   onSetAccent: (accent: string) => void
   uiScale: number
   onSetUiScale: (scale: number) => void
-  locale: 'zh' | 'en'
-  onToggleLocale: () => void
+  locale?: string
+  onSelectLocale?: (locale: string) => void
+  onToggleLocale?: () => void
   maximized: boolean
   onMinimize: () => void
   onToggleMaximize: () => void
   onClose: () => void
   version?: string
   isMac?: boolean
+  onOpenUpdate?: () => void
+  hasUpdate?: boolean
 }
 
 const ACCENT_COLORS = [
@@ -132,7 +136,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   onSetAccent,
   uiScale,
   onSetUiScale,
-  locale,
+  locale = 'zh',
+  onSelectLocale,
   onToggleLocale,
   maximized,
   onMinimize,
@@ -140,17 +145,22 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   onClose,
   version = '2.0.0',
   isMac = false,
+  onOpenUpdate,
+  hasUpdate = false,
 }) => {
-  const isZh = locale === 'zh'
+  const isZh = locale.startsWith('zh')
+  const currentLang = getLanguage(locale)
   const [accentOpen, setAccentOpen] = React.useState(false)
   const [scaleOpen, setScaleOpen] = React.useState(false)
+  const [langOpen, setLangOpen] = React.useState(false)
 
   const accentWrapperRef = React.useRef<HTMLDivElement>(null)
   const scaleWrapperRef = React.useRef<HTMLDivElement>(null)
+  const langWrapperRef = React.useRef<HTMLDivElement>(null)
 
   // 点击外部自动收起浮层
   React.useEffect(() => {
-    if (!accentOpen && !scaleOpen) return
+    if (!accentOpen && !scaleOpen && !langOpen) return
 
     const handlePointerDown = (e: PointerEvent) => {
       const target = e.target as Node
@@ -160,13 +170,16 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       if (scaleOpen && scaleWrapperRef.current && !scaleWrapperRef.current.contains(target)) {
         setScaleOpen(false)
       }
+      if (langOpen && langWrapperRef.current && !langWrapperRef.current.contains(target)) {
+        setLangOpen(false)
+      }
     }
 
     document.addEventListener('pointerdown', handlePointerDown)
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown)
     }
-  }, [accentOpen, scaleOpen])
+  }, [accentOpen, scaleOpen, langOpen])
 
   const currentColor = ACCENT_COLORS.find((c) => c.key === accent)?.color || '#b4f461'
 
@@ -192,28 +205,53 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           <span style={{ fontWeight: 800, fontSize: 13.5, letterSpacing: '-0.02em', color: ALIAS.onSurface }}>
             Shiin
           </span>
-          <span style={{
-            fontSize: 10,
-            fontWeight: 700,
-            padding: '1.5px 6px',
-            borderRadius: 999,
-            background: MD3E_ALIAS.surfaceHigh,
-            color: ALIAS.onSurfaceVariant,
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
-          }}>
-            v{version}
-          </span>
+          <button
+            type="button"
+            onClick={onOpenUpdate}
+            title={hasUpdate ? (isZh ? '发现新版本，点击查看' : 'New version available') : (isZh ? '检查更新' : 'Check for updates')}
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              padding: '1.5px 6px',
+              borderRadius: 999,
+              background: hasUpdate ? 'rgba(59, 130, 246, 0.2)' : MD3E_ALIAS.surfaceHigh,
+              color: hasUpdate ? '#60a5fa' : ALIAS.onSurfaceVariant,
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              border: `1px solid ${hasUpdate ? 'rgba(96, 165, 250, 0.4)' : 'rgba(255, 255, 255, 0.06)'}`,
+              cursor: onOpenUpdate ? 'pointer' : 'default',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              WebkitAppRegion: 'no-drag' as any,
+            } as React.CSSProperties}
+          >
+            <span>v{version}</span>
+            {hasUpdate && (
+              <span style={{
+                fontSize: 8.5,
+                background: '#3b82f6',
+                color: '#ffffff',
+                padding: '0.5px 4px',
+                borderRadius: 4,
+                fontWeight: 800,
+              }}>
+                NEW
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
       {/* 居中状态药丸 */}
-      <div style={{
-        position: 'absolute',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        pointerEvents: 'none',
-      }}>
+      <div
+        className="xaihi-titlebar-status-pill"
+        style={{
+          position: 'absolute',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          pointerEvents: 'none',
+        }}
+      >
         <span style={{
           height: 24,
           display: 'inline-flex',
@@ -373,15 +411,71 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           )}
         </div>
 
-        {/* 语言切换 */}
-        <TitleBarButton
-          onClick={onToggleLocale}
-          title={isZh ? 'Switch to English' : '切换为简体中文'}
-        >
-          <span style={{ fontSize: 11.5, fontWeight: 800, fontFamily: 'inherit', letterSpacing: '0.02em' }}>
-            {isZh ? '中' : 'EN'}
-          </span>
-        </TitleBarButton>
+        {/* 语言选择下拉 */}
+        <div style={{ position: 'relative' }} ref={langWrapperRef}>
+          <TitleBarButton
+            active={langOpen}
+            onClick={() => setLangOpen((prev) => !prev)}
+            title={currentLang.native}
+          >
+            <span style={{ fontSize: 11.5, fontWeight: 800, fontFamily: 'inherit', letterSpacing: '0.02em' }}>
+              {currentLang.short}
+            </span>
+          </TitleBarButton>
+          {langOpen && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              right: 0,
+              marginTop: 8,
+              padding: 6,
+              borderRadius: 14,
+              background: MD3E_ALIAS.surfaceHigh,
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+              boxShadow: '0 16px 36px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.4)',
+              backdropFilter: 'blur(20px)',
+              zIndex: 100,
+              minWidth: 110,
+            }}>
+              {LANGUAGES.map((lang) => {
+                const isSelected = locale === lang.code
+                return (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    onClick={() => {
+                      if (onSelectLocale) onSelectLocale(lang.code)
+                      else if (onToggleLocale) onToggleLocale()
+                      setLangOpen(false)
+                    }}
+                    style={{
+                      height: 28,
+                      padding: '0 10px',
+                      borderRadius: 8,
+                      border: 'none',
+                      background: isSelected ? MD3E_ALIAS.primary : 'transparent',
+                      color: isSelected ? MD3E_ALIAS.onPrimary : ALIAS.onSurfaceVariant,
+                      fontWeight: 700,
+                      fontSize: 11.5,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      transition: 'all 120ms ease',
+                    }}
+                  >
+                    <span>{lang.native}</span>
+                    <span style={{ fontSize: 10, opacity: 0.7 }}>{lang.short}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
         {/* 窗口操作按钮（Windows / Linux 显示，macOS 由原生红绿灯接管） */}
         {!isMac ? (

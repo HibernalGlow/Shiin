@@ -1,7 +1,13 @@
 export enum ScreenshotSoundEnum {
   None = 'None',
-  NS2 = 'NS2',
-  PS = 'PS',
+  Sound1 = 'Sound1',
+  Sound2 = 'Sound2',
+  Sound3 = 'Sound3',
+  Sound4 = 'Sound4',
+  Sound5 = 'Sound5',
+  // 向后兼容旧版本存档
+  NS2 = 'Sound1',
+  PS = 'Sound2',
 }
 
 export enum CommonButtonEnum {
@@ -107,7 +113,7 @@ export interface ScreenshotConfig {
   theme?: 'dark' | 'light'
   accentColor?: string
   uiScale?: number
-  locale?: 'zh' | 'en'
+  locale?: string
 
   // OBS 凭据
   obsIp?: string
@@ -118,7 +124,7 @@ export interface ScreenshotConfig {
 export const DEFAULT_CONFIG: ScreenshotConfig = {
   path: '',
   comboKeys: [],
-  sound: ScreenshotSoundEnum.NS2,
+  sound: ScreenshotSoundEnum.Sound1,
   soundPower: 1,
   screenshotWay: ScreenShotWayEnum.DesktopCapturer,
   captureTargetType: CaptureTargetTypeEnum.Screen,

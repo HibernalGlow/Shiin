@@ -52,4 +52,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showItemInFolder: (fullPath: string) => ipcRenderer.invoke('show-item-in-folder', fullPath),
   syncWebGamepad: (devices: any[], buttons: boolean[], axes: number[]) =>
     ipcRenderer.invoke('sync-web-gamepad', devices, buttons, axes),
+  // 2.0 语言热切换
+  applyLocale: (locale: string) => ipcRenderer.invoke('apply-locale', locale),
+  // 2.0 热更新
+  getUpdateState: () => ipcRenderer.invoke('updater:get-state'),
+  checkUpdate: (options?: any) => ipcRenderer.invoke('updater:check', options),
+  downloadUpdate: () => ipcRenderer.invoke('updater:download'),
+  cancelUpdate: () => ipcRenderer.invoke('updater:cancel'),
+  applyUpdate: () => ipcRenderer.invoke('updater:apply'),
+  openUpdateReleasePage: (url?: string) => ipcRenderer.invoke('updater:open-release', url),
+  onUpdaterState: (callback: (state: any) => void) => {
+    const listener = (_: any, state: any) => callback(state)
+    ipcRenderer.on('updater:state', listener)
+    return () => ipcRenderer.removeListener('updater:state', listener)
+  },
+  offUpdaterState: () => {
+    ipcRenderer.removeAllListeners('updater:state')
+  },
 })

@@ -635,9 +635,28 @@ button {
   }
   .xaihi-md3e-dock-wrapper {
     display: block !important;
+    max-width: calc(100vw - 16px);
+    box-sizing: border-box;
   }
   .xaihi-md3e-node-frame {
     padding-bottom: 84px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .xaihi-titlebar-status-pill {
+    display: none !important;
+  }
+}
+
+@media (max-width: 460px) {
+  .xaihi-md3e-navigation-item {
+    min-width: 44px !important;
+    padding: 3px 2px !important;
+  }
+  .xaihi-md3e-nav-indicator {
+    width: 38px !important;
+    height: 24px !important;
   }
 }
 

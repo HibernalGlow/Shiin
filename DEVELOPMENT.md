@@ -1,0 +1,36 @@
+# 开发与构建指南 (Development Guide)
+
+## 📦 包管理规范（Package Manager Policy）
+
+> **重要声明**：本项目由团队与自动化工具统一维护，**唯一受支持的包管理工具为 `pnpm`**。
+> **严禁使用 `yarn`、`npm`、`bun` 或其他工具提交 lockfile 或运行构建**。
+
+- 推荐版本：`pnpm >= 9.0.0`（开发环境推荐 `pnpm 12.x`）
+- 引擎锁配置：已在 `package.json` 声明 `"packageManager": "pnpm@12.11.2"`
+- 依赖安装：
+  ```bash
+  pnpm install
+  ```
+
+---
+
+## 🚀 常用构建脚本 (Scripts)
+
+| 脚本命令 | 说明 |
+| :--- | :--- |
+| `pnpm build:node` | 编译核心库 `src/core` 及相关 Node.js / Electron 入口到 `lib/` |
+| `pnpm build:app-ui` | 使用 Rspack 编译独立客户端 UI 资源 |
+| `pnpm build:app` | 一键编译核心库 + 独立客户端 UI 资源 |
+| `pnpm electron:start` | 启动开发环境桌面端 Electron |
+| `pnpm pack:app` | 打包当前平台免安装可执行程序目录（Windows / macOS） |
+| `pnpm dist:app` | 生成安装包（exe 安装器 / dmg 镜像） |
+| `pnpm test` | 执行核心单元测试（Vitest） |
+| `pnpm typecheck` | 执行全工程 TypeScript 类型检查 |
+
+---
+
+## 🎮 双端开发环境 (Windows & macOS)
+
+- **macOS 工作区**：`/Users/glow/Base/Code/Prometheus/Shiin`
+- **Windows 工作区**：`D:\Base\Code\Prometheus\Shiin`
+- 双端同步与构建时均必须在终端中调用 `pnpm`。

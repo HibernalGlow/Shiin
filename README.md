@@ -103,8 +103,31 @@
 5. 连接成功后，在下拉列表中选择要截取的 **场景**。
 6. 按住快捷键即可截取该场景。开启“长按保存回放缓存”后，**长按** 会把 OBS 回放缓存保存为片段。
 
+## 🛠️ 开发与构建规范 (Development)
+
+> **⚠️ 必须使用 pnpm：**
+> 本项目**严格且唯一**使用 **`pnpm`** 管理依赖与运行脚本。**严禁**使用 `yarn`、`npm` 或 `bun`！
+> 仓库根目录已配置 `"packageManager": "pnpm@12.11.2"`。
+
+### 常用命令
+
+```bash
+# 1. 安装依赖
+pnpm install
+
+# 2. 构建核心与应用界面
+pnpm build:app
+
+# 3. 启动桌面客户端开发预览
+pnpm electron:start
+
+# 4. 打包 Windows / macOS 独立可执行程序
+pnpm pack:app
+```
+
 ---
 
 ## 📄 许可协议
 
 本程序基于 [GNU GPL v3](../LICENSE) 协议发布。
+

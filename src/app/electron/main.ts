@@ -14,6 +14,7 @@ import {
 import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 import {
   ScreenshotManager,
   getScreenDisplays,
@@ -23,10 +24,32 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const isDev = process.env.NODE_ENV !== 'production'
+const nodeRequire = createRequire(import.meta.url)
 
 let win: BrowserWindow | null = null
 let tray: Tray | null = null
 let manager!: ScreenshotManager
+let updater: any = null
+
+// 载入多语言包，用于托盘菜单和原生提示
+const LOCALE_MESSAGES: Record<string, any> = {
+  zh: nodeRequire('../../locales/zh.json'),
+  'zh-TW': nodeRequire('../../locales/zh-TW.json'),
+  en: nodeRequire('../../locales/en.json'),
+  ja: nodeRequire('../../locales/ja.json'),
+  ko: nodeRequire('../../locales/ko.json'),
+  de: nodeRequire('../../locales/de.json'),
+  fr: nodeRequire('../../locales/fr.json'),
+  es: nodeRequire('../../locales/es.json'),
+  ru: nodeRequire('../../locales/ru.json'),
+}
+
+function getI18nText(key: string, defaultText: string, locale?: string): string {
+  const curLocale = locale || manager?.config?.locale || 'zh'
+  const dict = LOCALE_MESSAGES[curLocale] || LOCALE_MESSAGES.zh || {}
+  const text = key.split('.').reduce((acc, p) => (acc ? acc[p] : undefined), dict)
+  return typeof text === 'string' ? text : defaultText
+}
 
 // 单实例锁
 const gotTheLock = app.requestSingleInstanceLock()
@@ -55,8 +78,6 @@ async function createWindow(show = true) {
     title: 'Gamepad Screenshot Tool (Shiin)',
     width: 1240,
     height: 880,
-    minWidth: 980,
-    minHeight: 700,
     frame: isMac ? true : false,
     titleBarStyle: isMac ? 'hiddenInset' : undefined,
     trafficLightPosition: isMac ? { x: 16, y: 14 } : undefined,
@@ -212,10 +233,10 @@ function showScreenshotNotification(options: {
 }
 
 function updateTrayMenu(isListening: boolean) {
-  if (!tray) return
+  if (!tray || tray.isDestroyed()) return
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: '打开截图目录',
+      label: getI18nText('TrayMenu.openScreenshotFolder', '打开截图文件夹'),
       click: async () => {
         const target = manager.config.path?.trim() || path.join(process.cwd(), 'screenshots')
         if (!fs.existsSync(target)) {
@@ -225,7 +246,9 @@ function updateTrayMenu(isListening: boolean) {
       },
     },
     {
-      label: isListening ? '停止监听' : '开始监听',
+      label: isListening
+        ? getI18nText('TrayMenu.stopListen', '停止监听')
+        : getI18nText('TrayMenu.startListen', '开始监听'),
       click: async () => {
         if (isListening) {
           manager.stopListening()
@@ -236,7 +259,7 @@ function updateTrayMenu(isListening: boolean) {
     },
     { type: 'separator' },
     {
-      label: '显示主窗口',
+      label: getI18nText('TrayMenu.show', '显示主窗口'),
       click: () => {
         if (win) {
           win.isVisible() ? win.focus() : win.show()
@@ -244,7 +267,7 @@ function updateTrayMenu(isListening: boolean) {
       },
     },
     {
-      label: '退出',
+      label: getI18nText('TrayMenu.exit', '退出'),
       click: () => {
         ;(app as any).isQuiting = true
         app.quit()
@@ -252,6 +275,14 @@ function updateTrayMenu(isListening: boolean) {
     },
   ])
   tray.setContextMenu(contextMenu)
+  tray.setToolTip(`Gamepad Screenshot Tool ver.2.0.0`)
+}
+
+function applyLanguageToShell(locale?: string) {
+  if (win && !win.isDestroyed()) {
+    win.setTitle(getI18nText('gamepadScreenShotTool', 'Gamepad Screenshot Tool', locale) + ' ver.2.0.0')
+  }
+  updateTrayMenu(manager?.listening ?? false)
 }
 
 function createTray() {
@@ -423,11 +454,87 @@ function registerIpcHandlers() {
       void shell.openPath(path.dirname(fullPath))
     }
   })
+
+  // 语言热切换
+  ipcMain.handle('apply-locale', (_, locale: string) => {
+    if (typeof locale !== 'string' || !locale) return false
+    if (manager?.config) {
+      manager.config.locale = locale
+    }
+    applyLanguageToShell(locale)
+    return true
+  })
+
+  // ===== 热更新（GitHub + 国内镜像） =====
+  ipcMain.handle('updater:get-state', () => {
+    return updater ? updater.getState() : { status: 'idle', currentVersion: '2.0.0' }
+  })
+  ipcMain.handle('updater:check', async (_, options) => {
+    if (!updater) return { status: 'idle', currentVersion: '2.0.0' }
+    return await updater.check({ quiet: !!(options && options.quiet) })
+  })
+  ipcMain.handle('updater:download', async () => {
+    if (!updater) return { status: 'error', error: 'Updater not ready' }
+    try {
+      updater.assertSaneSize()
+    } catch (error: any) {
+      return { ...updater.getState(), status: 'error', error: error?.message || String(error) }
+    }
+    return await updater.download()
+  })
+  ipcMain.handle('updater:cancel', () => updater?.cancel())
+  ipcMain.handle('updater:apply', () => updater?.apply())
+  ipcMain.handle('updater:open-release', async (_, url) => {
+    const target =
+      url || (updater ? updater.getState().releaseUrl : 'https://github.com/AmagiSakuya/GamePad-ScreenShot-Windows/releases')
+    if (target) shell.openExternal(target)
+  })
+  ipcMain.handle('check-for-updates', async () => {
+    if (!updater) {
+      return { hasUpdate: false, latestVersion: '2.0.0', currentVersion: '2.0.0' }
+    }
+    const state = await updater.check().catch(() => updater.getState())
+    const hasUpdate = state.status === 'available' || state.status === 'manual'
+    return {
+      hasUpdate,
+      latestVersion: state.latestVersion,
+      currentVersion: state.currentVersion,
+      releaseUrl: state.releaseUrl,
+      mode: state.mode,
+      notes: state.notes,
+      status: state.status,
+      error: state.error,
+    }
+  })
 }
 
 app.on('ready', async () => {
   manager = new ScreenshotManager()
   await manager.init()
+
+  // 初始化热更新器
+  try {
+    const updaterModulePath = path.resolve(__dirname, '../../lib/updater/index.js')
+    const fallbackPath = path.resolve(process.cwd(), 'src/lib/updater/index.js')
+    const targetPath = fs.existsSync(updaterModulePath) ? updaterModulePath : fallbackPath
+    const { createUpdater } = nodeRequire(targetPath)
+    updater = createUpdater({
+      app,
+      configStore: {
+        get: (k: string, def: any) => (manager?.config ? (manager.config as any)[k] ?? def : def),
+        set: (k: string, val: any) => {
+          if (manager?.config) (manager.config as any)[k] = val
+        },
+      },
+      log: console,
+      packageJson: { version: '2.0.0' },
+      isDevelopment: isDev,
+      getWindow: () => win,
+    })
+    updater.init()
+  } catch (err) {
+    console.warn('[Main] Updater initialize error:', err)
+  }
 
   // 剪贴板自动写入支持
   manager.defaultCaptureOptions = {

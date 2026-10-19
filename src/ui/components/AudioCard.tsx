@@ -4,12 +4,13 @@ import {
   type ScreenshotConfig,
   ScreenshotSoundEnum,
 } from '../../core/types.js'
+import { SOUND_DEFINITIONS, playCaptureSound } from '../audio.js'
 
 export interface AudioCardProps {
   config: ScreenshotConfig
   onChange: (patch: Partial<ScreenshotConfig>) => void
-  onPlayTestSound: () => void
-  locale?: 'zh' | 'en'
+  onPlayTestSound?: () => void
+  locale?: string
 }
 
 export const AudioCard: React.FC<AudioCardProps> = ({
@@ -18,7 +19,15 @@ export const AudioCard: React.FC<AudioCardProps> = ({
   onPlayTestSound,
   locale = 'zh',
 }) => {
-  const isZh = locale === 'zh'
+  const isZh = locale.startsWith('zh')
+
+  const handleTestSound = () => {
+    if (onPlayTestSound) {
+      onPlayTestSound()
+    } else {
+      void playCaptureSound(config.sound, config.soundPower)
+    }
+  }
 
   return (
     <div className="shiin-card" style={{ gap: 10 }}>
@@ -36,7 +45,7 @@ export const AudioCard: React.FC<AudioCardProps> = ({
           background: 'var(--surface-2)',
           color: 'var(--ink-2)',
         }}>
-          {config.sound}
+          {config.sound === ScreenshotSoundEnum.None ? (isZh ? '已静音' : 'Muted') : config.sound}
         </span>
       </div>
 
@@ -44,15 +53,25 @@ export const AudioCard: React.FC<AudioCardProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ink-2)' }}>
             <AppIcon name="wave" size={13} />
-            {isZh ? '提示声音效' : 'Shutter Sound'}
+            {isZh ? '快门音效' : 'Shutter Sound'}
           </span>
           <select
             className="shiin-select"
             value={config.sound}
-            onChange={(e) => onChange({ sound: e.target.value as ScreenshotSoundEnum })}
+            onChange={(e) => {
+              const nextSound = e.target.value as ScreenshotSoundEnum
+              onChange({ sound: nextSound })
+              // 用户切换音效时自动试听一下，提升用户体验
+              if (nextSound !== ScreenshotSoundEnum.None) {
+                void playCaptureSound(nextSound, config.soundPower)
+              }
+            }}
           >
-            <option value={ScreenshotSoundEnum.NS2}>Nintendo Switch (NS2)</option>
-            <option value={ScreenshotSoundEnum.PS}>PlayStation (PS)</option>
+            {SOUND_DEFINITIONS.map((def) => (
+              <option key={def.id} value={def.id}>
+                {isZh ? def.zh : def.en}
+              </option>
+            ))}
             <option value={ScreenshotSoundEnum.None}>{isZh ? '静音 (无声音)' : 'Mute (None)'}</option>
           </select>
         </div>
@@ -67,20 +86,21 @@ export const AudioCard: React.FC<AudioCardProps> = ({
               <input
                 type="range"
                 min="0"
-                max="5"
-                step="0.1"
+                max="2"
+                step="0.05"
                 style={{ width: 100 }}
-                value={config.soundPower}
+                value={config.soundPower ?? 1}
                 onChange={(e) => onChange({ soundPower: Number(e.target.value) })}
               />
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, width: 36, textAlign: 'right' }}>
-                {Math.round(config.soundPower * 100)}%
+                {Math.round((config.soundPower ?? 1) * 100)}%
               </span>
               <button
                 className="shiin-btn"
                 data-variant="tonal"
-                onClick={onPlayTestSound}
+                onClick={handleTestSound}
                 style={{ height: 26, padding: '0 8px', fontSize: 11 }}
+                title={isZh ? '播放试听' : 'Test Sound'}
               >
                 {isZh ? '试听' : 'Test'}
               </button>

@@ -4,7 +4,6 @@
   "description": "Cross-host Gamepad Screenshot tool & instant replay for Standalone Desktop and Xaihi Node ecosystem",
   "author": "AmagiSakuya",
   "license": "MIT",
-  "packageManager": "pnpm@12.11.2",
   "type": "module",
   "main": "lib/index.mjs",
   "types": "lib/index.d.mts",

@@ -174,11 +174,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
+      {/* 语言与区域 */}
+      <div className="shiin-card" style={{ gap: 12 }}>
+        <span style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <AppIcon name="sparkles" size={14} />
+          {isZh ? '界面语言 (Language)' : 'Interface Language'}
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
+          <div>
+            <div>{isZh ? '系统界面多语言' : 'Display Language'}</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+              {isZh ? '即时切换，无需重启应用' : 'Hot-switched instantly without restart'}
+            </div>
+          </div>
+          <select
+            className="shiin-select"
+            value={locale}
+            onChange={(e) => {
+              const nextLoc = e.target.value
+              if ((window as any).electronAPI?.applyLocale) {
+                void (window as any).electronAPI.applyLocale(nextLoc)
+              }
+              if ((window as any).electronAPI?.setStore) {
+                void (window as any).electronAPI.setStore('locale', nextLoc)
+              }
+              onChange({ locale: nextLoc } as any)
+            }}
+          >
+            <option value="zh">简体中文 (zh)</option>
+            <option value="zh-TW">繁體中文 (zh-TW)</option>
+            <option value="en">English (en)</option>
+            <option value="ja">日本語 (ja)</option>
+            <option value="ko">한국어 (ko)</option>
+            <option value="de">Deutsch (de)</option>
+            <option value="fr">Français (fr)</option>
+            <option value="es">Español (es)</option>
+            <option value="ru">Русский (ru)</option>
+          </select>
+        </div>
+      </div>
+
       {/* 截图通知浮窗 */}
       <div className="shiin-card" style={{ gap: 12 }}>
         <span style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
           <AppIcon name="bell" size={14} />
-          {isZh ? '通知与提示' : 'Notifications'}
+          {isZh ? '覆层通知与提示' : 'Overlay Toast Notifications'}
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -196,6 +236,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <option value="show">{isZh ? '开启显示' : 'Enabled'}</option>
               <option value="hide">{isZh ? '关闭' : 'Disabled'}</option>
             </select>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div>{isZh ? '悬浮通知显示位置' : 'Toast Position'}</div>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                {isZh ? '屏幕左上角或右上角浮层展示' : 'Top-left or top-right of the screen'}
+              </div>
+            </div>
+            <select
+              className="shiin-select"
+              value={config.overlayNotifyPosition || 'right'}
+              onChange={(e) => onChange({ overlayNotifyPosition: e.target.value as any })}
+            >
+              <option value="right">{isZh ? '屏幕右上角' : 'Top Right'}</option>
+              <option value="left">{isZh ? '屏幕左上角' : 'Top Left'}</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div>{isZh ? '测试通知与音效' : 'Test Notification & Sound'}</div>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                {isZh ? '立即预览当前音效与屏幕浮层通知效果' : 'Preview toast overlay and shutter sound'}
+              </div>
+            </div>
+            <button
+              className="shiin-btn"
+              data-variant="tonal"
+              style={{ height: 28, fontSize: 11, padding: '0 12px' }}
+              onClick={async () => {
+                const { playCaptureSound } = await import('../audio.js')
+                void playCaptureSound(config.sound, config.soundPower)
+                if ((window as any).electronAPI?.showScreenshotNotification) {
+                  void (window as any).electronAPI.showScreenshotNotification({
+                    title: isZh ? '截图测试通知' : 'Screenshot Toast Test',
+                    desc: isZh ? '通知浮层与音效工作正常' : 'Toast and sound are working properly',
+                    duration: 3500,
+                  })
+                }
+              }}
+            >
+              <AppIcon name="sparkles" size={13} />
+              {isZh ? '测试通知浮层' : 'Test Overlay'}
+            </button>
           </div>
         </div>
       </div>

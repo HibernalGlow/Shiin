@@ -41,6 +41,8 @@ import {
   ScreenShotSaveWayEnum,
   ScreenshotSoundEnum,
 } from '../core/types.js'
+import { playCaptureSound } from './audio.js'
+import { UpdateDialog } from './components/UpdateDialog.js'
 
 export const App: React.FC = () => {
   const bridge = React.useMemo(() => new ElectronHostBridge(), [])
@@ -72,7 +74,9 @@ export const App: React.FC = () => {
   const [isDark, setIsDark] = React.useState<boolean>(true)
   const [accent, setAccent] = React.useState<string>('lime')
   const [uiScale, setUiScale] = React.useState<number>(1.0)
-  const [locale, setLocale] = React.useState<'zh' | 'en'>('zh')
+  const [locale, setLocale] = React.useState<string>('zh')
+  const [updateDialogOpen, setUpdateDialogOpen] = React.useState<boolean>(false)
+  const [hasUpdate, setHasUpdate] = React.useState<boolean>(false)
   const [maximized, setMaximized] = React.useState<boolean>(false)
   const [macPermissions, setMacPermissions] = React.useState<{ screenCapture: boolean; accessibility: boolean } | null>(null)
   const [lastNotice, setLastNotice] = React.useState<string>('')
@@ -304,42 +308,6 @@ export const App: React.FC = () => {
     })
   }
 
-  // 合成快门音效
-  const playSynthesizedSound = (type: string, volume = 1) => {
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
-      if (!AudioCtx) return
-      const ctx = new AudioCtx()
-      const now = ctx.currentTime
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-
-      if (type === 'PS') {
-        osc.type = 'sine'
-        osc.frequency.setValueAtTime(587.33, now)
-        osc.frequency.setValueAtTime(880, now + 0.08)
-        gain.gain.setValueAtTime(Math.min(volume * 0.25, 1), now)
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25)
-        osc.connect(gain)
-        gain.connect(ctx.destination)
-        osc.start(now)
-        osc.stop(now + 0.26)
-      } else {
-        osc.type = 'triangle'
-        osc.frequency.setValueAtTime(800, now)
-        osc.frequency.exponentialRampToValueAtTime(240, now + 0.08)
-        gain.gain.setValueAtTime(Math.min(volume * 0.3, 1), now)
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08)
-        osc.connect(gain)
-        gain.connect(ctx.destination)
-        osc.start(now)
-        osc.stop(now + 0.09)
-      }
-    } catch {
-      // ignore
-    }
-  }
-
   const handleCapture = async () => {
     const now = Date.now()
     if (now - lastCaptureTimeRef.current < 350) return
@@ -348,19 +316,19 @@ export const App: React.FC = () => {
     const res = await bridge.capture(config)
     if (res?.ok) {
       if (config.sound && config.sound !== 'None') {
-        playSynthesizedSound(config.sound, config.soundPower)
+        void playCaptureSound(config.sound, config.soundPower)
       }
-      setLastNotice(locale === 'zh' ? `截图成功: ${res.filePath || '已写入系统剪贴板'}` : `Captured: ${res.filePath || 'Clipboard'}`)
+      setLastNotice(locale.startsWith('zh') ? `截图成功: ${res.filePath || '已写入系统剪贴板'}` : `Captured: ${res.filePath || 'Clipboard'}`)
       bridge.showNotification?.(
-        locale === 'zh' ? '截图已保存' : 'Screenshot Saved',
-        res.filePath || (locale === 'zh' ? '已复制至系统剪贴板' : 'Copied to clipboard'),
+        locale.startsWith('zh') ? '截图已保存' : 'Screenshot Saved',
+        res.filePath || (locale.startsWith('zh') ? '已复制至系统剪贴板' : 'Copied to clipboard'),
         res.filePath || undefined
       )
     } else {
-      setLastNotice(locale === 'zh' ? `截图失败: ${res?.error || '无法截取屏幕'}` : `Failed: ${res?.error}`)
+      setLastNotice(locale.startsWith('zh') ? `截图失败: ${res?.error || '无法截取屏幕'}` : `Failed: ${res?.error}`)
       bridge.showNotification?.(
-        locale === 'zh' ? '截图失败' : 'Capture Failed',
-        res?.error || (locale === 'zh' ? '请检查屏幕录制权限与保存路径' : 'Check screen recording permissions')
+        locale.startsWith('zh') ? '截图失败' : 'Capture Failed',
+        res?.error || (locale.startsWith('zh') ? '请检查屏幕录制权限与保存路径' : 'Check screen recording permissions')
       )
     }
   }
@@ -490,11 +458,23 @@ export const App: React.FC = () => {
           if (bridge.setUiScale) await bridge.setUiScale(sc)
         }}
         locale={locale}
+        onSelectLocale={(next) => {
+          setLocale(next)
+          void bridge.setStore('locale', next)
+          if ((window as any).electronAPI?.applyLocale) {
+            void (window as any).electronAPI.applyLocale(next)
+          }
+        }}
         onToggleLocale={() => {
           const next = locale === 'zh' ? 'en' : 'zh'
           setLocale(next)
           void bridge.setStore('locale', next)
+          if ((window as any).electronAPI?.applyLocale) {
+            void (window as any).electronAPI.applyLocale(next)
+          }
         }}
+        onOpenUpdate={() => setUpdateDialogOpen(true)}
+        hasUpdate={hasUpdate}
         maximized={maximized}
         onMinimize={() => bridge.minimizeWindow?.()}
         onToggleMaximize={async () => {
@@ -806,29 +786,59 @@ export const App: React.FC = () => {
               {/* 快门音效与声音 */}
               <XMd3eSection
                 title={isZh ? '快门反馈音效' : 'Shutter Sound'}
-                description={isZh ? '截图瞬间通过合成音频发生器提供清脆快门反馈。' : 'Synthesized audio feedback upon capture.'}
+                description={isZh ? '支持 5 款专业单反与微单快门声（徕卡 M10、单反快门、佳能 5D 等）。' : '5 studio-grade DSLR & mirrorless shutter sounds.'}
               >
-                <XMd3eSegmentedTrack
-                  options={[
-                    { value: ScreenshotSoundEnum.NS2, label: 'Nintendo Switch' },
-                    { value: ScreenshotSoundEnum.PS, label: 'PlayStation' },
-                    { value: ScreenshotSoundEnum.None, label: isZh ? '静音' : 'Mute' },
-                  ]}
-                  value={config.sound}
-                  onChange={(val) => {
-                    patchConfig({ sound: val as ScreenshotSoundEnum })
-                    if (val !== ScreenshotSoundEnum.None) playSynthesizedSound(val, config.soundPower)
+                <select
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 12,
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    background: MD3E_ALIAS.surfaceHigh,
+                    color: ALIAS.onSurface,
+                    fontSize: 12,
+                    fontWeight: 650,
+                    cursor: 'pointer',
+                    outline: 'none',
                   }}
-                />
+                  value={config.sound}
+                  onChange={(e) => {
+                    const nextVal = e.target.value as ScreenshotSoundEnum
+                    patchConfig({ sound: nextVal })
+                    if (nextVal !== ScreenshotSoundEnum.None) {
+                      void playCaptureSound(nextVal, config.soundPower)
+                    }
+                  }}
+                >
+                  <option value={ScreenshotSoundEnum.Sound1}>{isZh ? '音效 1 · 徕卡 M10 快门 (96ms)' : 'Sound 1 · Leica M10 (96ms)'}</option>
+                  <option value={ScreenshotSoundEnum.Sound2}>{isZh ? '音效 2 · 柔和铃声 (373ms)' : 'Sound 2 · Soft Chime (373ms)'}</option>
+                  <option value={ScreenshotSoundEnum.Sound3}>{isZh ? '音效 3 · 单反快门 (100ms)' : 'Sound 3 · Shutter (100ms)'}</option>
+                  <option value={ScreenshotSoundEnum.Sound4}>{isZh ? '音效 4 · 机械反光板咔哒 (143ms)' : 'Sound 4 · SLR Clack (143ms)'}</option>
+                  <option value={ScreenshotSoundEnum.Sound5}>{isZh ? '音效 5 · 佳能 5D 快门 (164ms)' : 'Sound 5 · Canon 5D (164ms)'}</option>
+                  <option value={ScreenshotSoundEnum.None}>{isZh ? '静音 (关闭)' : 'Mute (None)'}</option>
+                </select>
 
                 {config.sound !== ScreenshotSoundEnum.None && (
-                  <XMd3eSliderCard
-                    label={isZh ? '快门反馈音量' : 'Sound Volume'}
-                    value={Math.round((config.soundPower || 1) * 100)}
-                    onChange={(val) => {
-                      patchConfig({ soundPower: val / 100 })
-                    }}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <XMd3eSliderCard
+                        label={isZh ? '快门反馈音量' : 'Sound Volume'}
+                        value={Math.round((config.soundPower || 1) * 100)}
+                        onChange={(val) => {
+                          patchConfig({ soundPower: val / 100 })
+                        }}
+                      />
+                    </div>
+                    <XButton
+                      variant="tonal"
+                      size="sm"
+                      onClick={() => void playCaptureSound(config.sound, config.soundPower)}
+                      title={isZh ? '播放试听当前音效' : 'Play test sound'}
+                    >
+                      <AppIcon name="volume" size={13} />
+                      {isZh ? '试听' : 'Test'}
+                    </XButton>
+                  </div>
                 )}
               </XMd3eSection>
 
@@ -1295,6 +1305,9 @@ export const App: React.FC = () => {
           onValueChange={(val) => setLens(val as any)}
         />
       </div>
+
+      {/* 2.0 热更新弹窗 */}
+      <UpdateDialog open={updateDialogOpen} onClose={() => setUpdateDialogOpen(false)} />
     </div>
   </div>
   )
