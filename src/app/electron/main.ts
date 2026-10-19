@@ -31,17 +31,34 @@ let tray: Tray | null = null
 let manager!: ScreenshotManager
 let updater: any = null
 
+function loadLocaleJson(name: string): Record<string, any> {
+  const candidatePaths = [
+    path.join(__dirname, `../src/locales/${name}.json`),
+    path.join(__dirname, `../../src/locales/${name}.json`),
+    path.join(__dirname, `../locales/${name}.json`),
+    path.join(process.cwd(), `src/locales/${name}.json`),
+  ]
+  for (const p of candidatePaths) {
+    if (fs.existsSync(p)) {
+      try {
+        return JSON.parse(fs.readFileSync(p, 'utf8'))
+      } catch {}
+    }
+  }
+  return {}
+}
+
 // 载入多语言包，用于托盘菜单和原生提示
 const LOCALE_MESSAGES: Record<string, any> = {
-  zh: nodeRequire('../../locales/zh.json'),
-  'zh-TW': nodeRequire('../../locales/zh-TW.json'),
-  en: nodeRequire('../../locales/en.json'),
-  ja: nodeRequire('../../locales/ja.json'),
-  ko: nodeRequire('../../locales/ko.json'),
-  de: nodeRequire('../../locales/de.json'),
-  fr: nodeRequire('../../locales/fr.json'),
-  es: nodeRequire('../../locales/es.json'),
-  ru: nodeRequire('../../locales/ru.json'),
+  zh: loadLocaleJson('zh'),
+  'zh-TW': loadLocaleJson('zh-TW'),
+  en: loadLocaleJson('en'),
+  ja: loadLocaleJson('ja'),
+  ko: loadLocaleJson('ko'),
+  de: loadLocaleJson('de'),
+  fr: loadLocaleJson('fr'),
+  es: loadLocaleJson('es'),
+  ru: loadLocaleJson('ru'),
 }
 
 function getI18nText(key: string, defaultText: string, locale?: string): string {

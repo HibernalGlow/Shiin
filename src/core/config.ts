@@ -1,10 +1,69 @@
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { DEFAULT_CONFIG, type ScreenshotConfig } from './types.js'
 
 export interface IConfigStorage {
   get<T>(key: string, defaultValue: T): Promise<T> | T
   set<T>(key: string, value: T): Promise<void> | void
+}
+
+/**
+ * 判断指定目录是否可写（排除 macOS 打包后只读根目录 `/` 或 `.app` 包内路径）
+ */
+export function isDirectoryWritable(dirPath: string): boolean {
+  try {
+    const resolved = path.resolve(dirPath)
+    if (resolved === '/' || resolved.includes('.app/Contents')) {
+      return false
+    }
+    if (fs.existsSync(resolved)) {
+      fs.accessSync(resolved, fs.constants.W_OK)
+      return true
+    }
+    const parent = path.dirname(resolved)
+    if (parent && parent !== resolved && fs.existsSync(parent)) {
+      fs.accessSync(parent, fs.constants.W_OK)
+      return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 获取安全的默认配置目录（兼容开发模式与 macOS `.app` 独立打包模式）
+ */
+export function getDefaultConfigDir(): string {
+  const cwd = process.cwd()
+  if (isDirectoryWritable(cwd)) {
+    const candidate = path.join(cwd, 'config')
+    try {
+      if (!fs.existsSync(candidate)) {
+        fs.mkdirSync(candidate, { recursive: true })
+      }
+      fs.accessSync(candidate, fs.constants.W_OK)
+      return candidate
+    } catch {
+      // 降级到用户目录
+    }
+  }
+
+  const home = os.homedir()
+  const fallback =
+    process.platform === 'darwin'
+      ? path.join(home, 'Library', 'Application Support', 'Shiin')
+      : path.join(home, '.config', 'shiin')
+
+  try {
+    if (!fs.existsSync(fallback)) {
+      fs.mkdirSync(fallback, { recursive: true })
+    }
+  } catch {
+    // ignore
+  }
+  return fallback
 }
 
 /**
@@ -18,15 +77,7 @@ export class FileConfigStorage implements IConfigStorage {
     if (customPath) {
       this.filePath = customPath
     } else {
-      // 默认存储在当前进程下的 temp 或 config 目录
-      const dir = path.join(process.cwd(), 'config')
-      if (!fs.existsSync(dir)) {
-        try {
-          fs.mkdirSync(dir, { recursive: true })
-        } catch {
-          // 降级使用当前目录
-        }
-      }
+      const dir = getDefaultConfigDir()
       this.filePath = path.join(dir, 'localStorage.json')
     }
     this.reload()
