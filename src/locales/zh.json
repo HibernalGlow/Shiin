@@ -4,6 +4,9 @@
     "obsConnect": "OBS连接",
     "gamepadTester": "控制器调试",
     "systemSettings": "系统设置",
+    "navScreenshot": "截图",
+    "navTester": "调试",
+    "navSettings": "设置",
     "screenshotSource": "截图来源",
     "thumbnailSize": "保存尺寸",
     "captureTarget": "截图目标",
@@ -62,8 +65,11 @@
     },
     "screenshotSound": {
         "None": "静音",
-        "NS2": "Nintendo Switch 2",
-        "PS": "PS5 通知"
+        "Sound1": "音效 1",
+        "Sound2": "音效 2",
+        "Sound3": "音效 3",
+        "Sound4": "音效 4",
+        "Sound5": "音效 5"
     },
     "OBSPage": {
         "obsAddress": "OBS 服务器地址",
@@ -96,7 +102,7 @@
             "tray": "隐藏到托盘"
         },
         "autoStart": "开机自启动",
-        "minimizeOnStartup": "最小化启动",
+        "minimizeOnStartup": "静默启动",
         "filenameConflictResolution": "文件名冲突策略",
         "filenameConflictResolutionEnum": {
             "overwrite": "覆盖",
@@ -111,18 +117,14 @@
             "cancelButton": "取消"
         },
         "autoListenResolution": "自动开始监听",
-        "overlayNotify": "覆盖通知",
-        "groupNotify": "通知设置",
-        "listenNotifyPolicy": "监听时Windows通知策略",
+        "overlayNotify": "启用覆层通知",
+        "groupOverlayNotify": "覆层通知",
+        "listenNotifyPolicy": "Windows通知",
         "listenNotifyPolicyEnum": {
             "all": "全部",
             "start": "仅开始时",
             "stop": "仅停止时",
             "none": "不通知"
-        },
-        "overlayNotifyEnum": {
-            "show": "显示",
-            "hide": "关闭"
         },
         "overlayNotifyDuration": "覆层通知持续时间",
         "overlayNotifyDurationEnum": {
@@ -138,19 +140,9 @@
             "topRight": "右上角"
         },
         "overlayNotifySize": "覆层通知大小",
-        "overlayNotifySizeEnum": {
-            "small": "小",
-            "medium": "中",
-            "large": "大"
-        },
-        "testOverlayNotify": "测试浮层通知",
-        "testOverlayNotifyTitle": "浮层通知预览",
+        "testOverlayNotify": "测试覆层通知",
+        "testOverlayNotifyTitle": "覆层通知预览",
         "testOverlayNotifyDesc": "当前大小预览",
-        "autoListenResolutionEnum": {
-            "never": "从不",
-            "whenDeviceAvailable": "设备变化时",
-            "onAppStart": "当软件启动"
-        },
         "checkUpdateOnStartup": "启动时检测更新",
         "enabled": "启用",
         "disabled": "禁用",
@@ -161,7 +153,6 @@
         "updateNotAvailable": "当前已是最新版本",
         "updateCheckFailed": "检查更新失败，请稍后重试",
         "groupBasic": "基础设置",
-        "groupPolicy": "策略设置",
         "groupUpdate": "更新设置",
         "languageChinese": "中文",
         "languageEnglish": "English",
@@ -197,7 +188,7 @@
         "lockedHint": "监听中 · 配置已锁定",
         "testSound": "试听",
         "notifyHintDesc": "通知样式在「系统设置」中调整",
-        "settingsHint": "修改立即生效 · 切换语言会重启应用",
+        "settingsHint": "修改立即生效",
         "buttons": "按键",
         "hats": "十字键",
         "axes": "轴",
@@ -245,6 +236,36 @@
         "tipHat": "十字键以 hat 形式上报，会作为虚拟按键追加在物理按键之后，可直接选作组合键",
         "tipBluetooth": "部分控制器在蓝牙模式下按键编号会变化，调试组合键建议使用 USB 有线连接",
         "tipAxis": "轴数值超过 ±0.85 才会被判定为方向触发",
-        "listening": "监听中"
+        "listening": "监听中",
+        "languageSwitched": "语言已切换"
+    },
+    "Update": {
+        "title": "软件更新",
+        "checking": "正在检查更新…",
+        "upToDate": "已是最新版本",
+        "upToDateDesc": "当前 v{version} 已是最新，无需更新",
+        "patchSize": "更新包 {size}",
+        "mandatory": "重要更新",
+        "inApp": "应用内更新",
+        "manualMode": "需手动下载",
+        "noNotes": "本次更新没有填写说明",
+        "manualHint": "当前安装目录不可写或缺少热更新组件，需要到 GitHub 下载完整包覆盖安装。",
+        "downloading": "正在下载更新",
+        "ready": "更新已就绪",
+        "readyDesc": "点击「重启并安装」，应用会自动替换文件并重新启动。",
+        "applying": "正在重启并安装…",
+        "failed": "更新失败",
+        "idleHint": "点击下方按钮检查是否有新版本",
+        "openRelease": "在 GitHub 查看",
+        "cancel": "取消",
+        "later": "稍后",
+        "downloadNow": "立即更新",
+        "gotoDownload": "前往下载",
+        "restartInstall": "重启并安装",
+        "close": "关闭",
+        "retry": "重试",
+        "recheck": "重新检查",
+        "checkNow": "检查更新",
+        "applyFailed": "启动更新失败，请手动下载安装"
     }
 }
