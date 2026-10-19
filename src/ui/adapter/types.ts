@@ -37,7 +37,7 @@ export interface IHostBridge {
   toggleMaximizeWindow?(): Promise<boolean>
   closeWindow?(): void
   setUiScale?(scale: number): Promise<number>
-  showNotification?(title: string, body: string): void
+  showNotification?(title: string, body: string, img?: string): void
 
   // OBS 联动
   connectOBS?(ip: string, port: number, password?: string): Promise<{ ok: boolean; error?: string }>

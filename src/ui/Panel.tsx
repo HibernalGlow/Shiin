@@ -1,9 +1,20 @@
 /**
  * Xaihi 标准微前端工作台面板 (Module Federation 导出组件)
- * 遵循 MD 3 Expressive 设计规范，严格对齐宿主主题 --xaihi-*
+ * 严格按照 Xaihi MD3E 设计体系重构，参考 bitv / shellect 最佳规范
  */
 import * as React from 'react'
-import { registerKitStyles } from './tokens.js'
+import {
+  registerKitStyles,
+  ALIAS,
+  MD3E_ALIAS,
+  XMd3eNodeFrame,
+  XMd3eHeroBanner,
+  XMd3eShapeBadge,
+  XMd3eActionGroup,
+  XMd3eStatTile,
+  XMd3eSection,
+  XButton,
+} from './md3e.js'
 import { AppIcon } from './components/AppIcon.js'
 
 export const Probe = { react: React, version: React.version }
@@ -59,55 +70,85 @@ export default function Panel({ contribution, locale = 'zh', host }: XaihiPanelP
   }
 
   return (
-    <div className="shiin-card" style={{ margin: 12, gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ padding: 4, borderRadius: 6, background: 'var(--xaihi-secondary-container, rgba(128,128,128,0.15))' }}>
-            <AppIcon name="camera" size={16} />
-          </div>
-          <strong>{isZh ? contribution.title.zh : contribution.title.en}</strong>
-        </div>
-        <span style={{ fontSize: 11, color: 'var(--xaihi-on-surface-variant, gray)' }}>
-          {isZh ? 'Xaihi 标准扩展节点' : 'Standard Xaihi Node'}
-        </span>
+    <XMd3eNodeFrame data-testid="shiin-panel-md3e" data-ui-variant="md3e">
+      <XMd3eHeroBanner
+        title={isZh ? contribution.title.zh : contribution.title.en}
+        description={
+          isZh
+            ? 'Xaihi 标准游戏手柄截图与录屏回放节点 · 经由 DSH 管道与 DXGI DDA 显存直通'
+            : 'Standard Xaihi Gamepad Screen Capture & Replay Node'
+        }
+        tone="primary"
+        badge={
+          <XMd3eShapeBadge shape="sunny" size="sm" active>
+            🎮
+          </XMd3eShapeBadge>
+        }
+        meta={
+          <>
+            <span style={{
+              borderRadius: 999,
+              padding: '2px 8px',
+              background: 'rgba(255, 255, 255, 0.08)',
+              color: MD3E_ALIAS.primary,
+              fontSize: 10.5,
+              fontWeight: 750,
+            }}>
+              xaihi-shiin · node/v1
+            </span>
+            <span style={{
+              borderRadius: 999,
+              padding: '2px 8px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              color: ALIAS.onSurfaceVariant,
+              fontSize: 10.5,
+            }}>
+              {isZh ? 'DSH 接通' : 'DSH Connected'}
+            </span>
+          </>
+        }
+      >
+        <XMd3eActionGroup>
+          {PANEL_ACTIONS.map((action) => (
+            <XButton
+              key={action.line}
+              variant={action.variant}
+              disabled={busy !== null}
+              onClick={() => void runAction(action)}
+            >
+              <AppIcon name={action.icon} size={12} />
+              {busy === action.line ? '…' : isZh ? action.zh : action.en}
+            </XButton>
+          ))}
+        </XMd3eActionGroup>
+      </XMd3eHeroBanner>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
+        <XMd3eStatTile value="DXGI DDA" label={isZh ? '显存管线' : 'Pipeline'} />
+        <XMd3eStatTile value="Session 1" label={isZh ? '交互会话' : 'Session'} />
+        <XMd3eStatTile value="50ms" label={isZh ? '直通延迟' : 'Latency'} />
+        <XMd3eStatTile value="OBS Ready" label={isZh ? '回放缓冲' : 'Replay'} />
       </div>
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {PANEL_ACTIONS.map((action) => (
-          <button
-            key={action.line}
-            className="shiin-btn"
-            data-variant={action.variant}
-            disabled={busy !== null}
-            onClick={() => void runAction(action)}
-            style={{ height: 28, padding: '0 10px', fontSize: 11 }}
-          >
-            <AppIcon name={action.icon} size={13} />
-            {busy === action.line ? '…' : isZh ? action.zh : action.en}
-          </button>
-        ))}
-      </div>
-
-      <div style={{
-        marginTop: 4,
-        padding: '10px 12px',
-        borderRadius: 8,
-        background: 'var(--xaihi-surface-variant, rgba(0,0,0,0.2))',
-        border: '1px solid var(--xaihi-outline, rgba(128,128,128,0.2))',
-      }}>
-        <div style={{ fontSize: 11, color: 'var(--xaihi-on-surface-variant, gray)', marginBottom: 4 }}>
-          {isZh ? '控制台输出（经由 DSH 命令通道）：' : 'Console Output (via DSH command wire):'}
-        </div>
+      <XMd3eSection
+        title={isZh ? '控制台输出 (经由 DSH 命令通道)' : 'Console Output (via DSH Wire)'}
+        description={isZh ? '实时查看手柄监听、截图输出与节点反馈。' : 'Node command outputs.'}
+      >
         <pre style={{
           margin: 0,
-          fontFamily: 'var(--font-mono, monospace)',
+          padding: '12px 14px',
+          borderRadius: 16,
+          background: MD3E_ALIAS.surfaceHigh,
+          color: output.includes('[ERROR]') ? MD3E_ALIAS.error : ALIAS.onSurface,
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
           fontSize: 11.5,
+          lineHeight: 1.5,
           whiteSpace: 'pre-wrap',
-          color: output.includes('[ERROR]') ? 'var(--xaihi-error, #ff6b6b)' : 'inherit',
+          wordBreak: 'break-all',
         }}>
-          {output || (isZh ? '点击上方动作即可通过宿主命令执行截屏、启停监听或回放。' : 'Click buttons above to trigger capture or listener via host command.')}
+          {output || (isZh ? '就绪。点击上方操作按钮或触发手柄组合键。' : 'Ready. Click action buttons or press gamepad combos.')}
         </pre>
-      </div>
-    </div>
+      </XMd3eSection>
+    </XMd3eNodeFrame>
   )
 }

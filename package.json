@@ -237,12 +237,12 @@
     }
   },
   "scripts": {
-    "build:node": "tsdown",
+    "build:node": "tsdown && node -e \"const fs = require('fs'); fs.copyFileSync('src/screenshot-notification.html', 'lib/screenshot-notification.html');\"",
     "build:plugin-ui": "rspack build",
     "build:app-ui": "cross-env BUILD_TARGET=app rspack build",
-    "build:plugin": "tsdown && rspack build",
-    "build:app": "tsdown && cross-env BUILD_TARGET=app rspack build",
-    "build": "tsdown && rspack build && cross-env BUILD_TARGET=app rspack build",
+    "build:plugin": "yarn build:node && rspack build",
+    "build:app": "yarn build:node && cross-env BUILD_TARGET=app rspack build",
+    "build": "yarn build:node && rspack build && cross-env BUILD_TARGET=app rspack build",
     "pack:app": "tsdown && cross-env BUILD_TARGET=app rspack build && electron-builder --dir",
     "dist:app": "tsdown && cross-env BUILD_TARGET=app rspack build && electron-builder",
     "electron:start": "electron lib/main.mjs",
@@ -264,6 +264,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "screenshot-desktop": "^1.15.6",
+    "temp": "^0.9.4",
     "uiohook-napi": "^1.5.5"
   },
   "peerDependencies": {
@@ -297,7 +298,6 @@
     "typescript": "^5.6.3",
     "vitest": "^2.1.8"
   },
-  "packageManager": "pnpm@12.11.2",
   "resolutions": {
     "rollup": "4.64.9"
   },
@@ -315,7 +315,13 @@
       "dist/ui/**",
       "gamepad.ico",
       "src/assets/**",
+      "src/screenshot-notification.html",
       "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/screenshot-desktop/**",
+      "node_modules/node-screenshots/**",
+      "node_modules/temp/**"
     ],
     "mac": {
       "category": "public.app-category.games",

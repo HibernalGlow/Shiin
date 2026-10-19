@@ -134,10 +134,13 @@ export class ElectronHostBridge implements IHostBridge {
 
   public async capture(config: ScreenshotConfig): Promise<ScreenshotResult | null> {
     if (this.api.screenShot) {
-      const filePath = await this.api.screenShot(config)
+      const res = await this.api.screenShot(config)
+      if (res && typeof res === 'object') {
+        return res
+      }
       return {
-        ok: filePath !== null,
-        filePath,
+        ok: res !== null,
+        filePath: typeof res === 'string' ? res : null,
         timestamp: Date.now(),
         format: config.imageFormat,
       }
@@ -154,12 +157,15 @@ export class ElectronHostBridge implements IHostBridge {
 
   public async openFolder(path: string): Promise<void> {
     if (this.api.openFolder) {
-      await this.api.openFolder(path)
+      await this.api.openFolder(path || '')
     }
   }
 
   public async startListening(config: ScreenshotConfig): Promise<boolean> {
-    // 桌面端通过主窗口的监听状态维护
+    if (this.api.startListening) {
+      const res = await this.api.startListening()
+      return res?.ok ?? true
+    }
     if (this.api.updateTrayListeningState) {
       this.api.updateTrayListeningState(true)
       this.api.updateTrayIcon(true)
@@ -168,6 +174,10 @@ export class ElectronHostBridge implements IHostBridge {
   }
 
   public async stopListening(): Promise<void> {
+    if (this.api.stopListening) {
+      await this.api.stopListening()
+      return
+    }
     if (this.api.updateTrayListeningState) {
       this.api.updateTrayListeningState(false)
       this.api.updateTrayIcon(false)
@@ -175,13 +185,18 @@ export class ElectronHostBridge implements IHostBridge {
   }
 
   public onListeningStateChanged(cb: (isListening: boolean) => void): () => void {
+    const unbinds: (() => void)[] = []
+    if (this.api.onListenStatusChanged) {
+      const un = this.api.onListenStatusChanged(cb)
+      if (typeof un === 'function') unbinds.push(un)
+    }
     const startHandler = () => cb(true)
     const stopHandler = () => cb(false)
     if (this.api.onStartListenFromTray) this.api.onStartListenFromTray(startHandler)
     if (this.api.onStopListenFromTray) this.api.onStopListenFromTray(stopHandler)
 
     return () => {
-      // unbind
+      unbinds.forEach((u) => u())
     }
   }
 
@@ -207,12 +222,19 @@ export class ElectronHostBridge implements IHostBridge {
     return scale
   }
 
-  public showNotification(title: string, body: string): void {
+  public showNotification(title: string, body: string, img?: string): void {
     if (this.api.showScreenshotNotification) {
-      this.api.showScreenshotNotification({ title, desc: body })
+      this.api.showScreenshotNotification({ title, desc: body, img })
     } else if (typeof Notification !== 'undefined') {
       new Notification(title, { body })
     }
+  }
+
+  public async saveOBSReplay(): Promise<{ ok: boolean; error?: string }> {
+    if (this.api.saveOBSReplay) {
+      return await this.api.saveOBSReplay()
+    }
+    return { ok: true }
   }
 
   public async openExternal(url: string): Promise<void> {

@@ -9,6 +9,7 @@ import {
   clipboard,
   nativeImage,
   systemPreferences,
+  screen,
 } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -98,6 +99,161 @@ async function createWindow(show = true) {
   }
 }
 
+let overlayWindow: BrowserWindow | null = null
+let overlayTimeout: NodeJS.Timeout | null = null
+
+function showScreenshotNotification(options: {
+  img?: string
+  title?: string
+  desc?: string
+  type?: 'video' | 'text'
+  duration?: number
+}) {
+  const {
+    img = '',
+    title = '截图成功',
+    desc = '已保存到本地',
+    type,
+    duration = 4500,
+  } = options
+
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    try {
+      overlayWindow.close()
+    } catch {}
+    overlayWindow = null
+  }
+  if (overlayTimeout) {
+    clearTimeout(overlayTimeout)
+    overlayTimeout = null
+  }
+
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const rawSizePreset = manager.config.overlayNotifySize ?? 1
+  let scale = typeof rawSizePreset === 'number' ? rawSizePreset : parseFloat(String(rawSizePreset))
+  if (!Number.isFinite(scale) || scale <= 0) scale = 1
+  scale = Math.min(2, Math.max(0.6, scale))
+
+  const baseWidth = 480
+  const baseHeight = 210
+  const overlayWidth = Math.round(baseWidth * scale)
+  const overlayHeight = Math.round(baseHeight * scale)
+
+  const pos = manager.config.overlayNotifyPosition === 'left' ? 'left' : 'right'
+  const x = pos === 'right' ? Math.max(0, primaryDisplay.bounds.width - overlayWidth - 24) : 24
+  const y = 32
+
+  overlayWindow = new BrowserWindow({
+    width: overlayWidth,
+    height: overlayHeight,
+    x,
+    y,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    focusable: false,
+    hasShadow: false,
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  })
+
+  overlayWindow.setAlwaysOnTop(true, 'screen-saver')
+  overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  overlayWindow.setIgnoreMouseEvents(true)
+
+  const candidatePaths = [
+    path.join(__dirname, '../src/screenshot-notification.html'),
+    path.join(__dirname, 'screenshot-notification.html'),
+    path.join(process.cwd(), 'src/screenshot-notification.html'),
+  ]
+  const htmlPath = candidatePaths.find((p) => fs.existsSync(p)) || candidatePaths[0]
+
+  let imgUrl = img
+  if (img && !img.startsWith('file://') && !img.startsWith('data:')) {
+    imgUrl = `file://${path.resolve(img)}`
+  }
+
+  void overlayWindow.loadFile(htmlPath, {
+    query: {
+      img: imgUrl,
+      title,
+      desc,
+      type: type || (img ? '' : 'text'),
+      pos,
+      scale: String(scale),
+    },
+  })
+
+  overlayWindow.once('ready-to-show', () => {
+    overlayWindow?.showInactive()
+  })
+
+  overlayWindow.on('closed', () => {
+    overlayWindow = null
+    if (overlayTimeout) {
+      clearTimeout(overlayTimeout)
+      overlayTimeout = null
+    }
+  })
+
+  overlayTimeout = setTimeout(() => {
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      try {
+        overlayWindow.close()
+      } catch {}
+      overlayWindow = null
+    }
+  }, duration)
+}
+
+function updateTrayMenu(isListening: boolean) {
+  if (!tray) return
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '打开截图目录',
+      click: async () => {
+        const target = manager.config.path?.trim() || path.join(process.cwd(), 'screenshots')
+        if (!fs.existsSync(target)) {
+          fs.mkdirSync(target, { recursive: true })
+        }
+        await shell.openPath(target)
+      },
+    },
+    {
+      label: isListening ? '停止监听' : '开始监听',
+      click: async () => {
+        if (isListening) {
+          manager.stopListening()
+        } else {
+          await manager.startListening()
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: '显示主窗口',
+      click: () => {
+        if (win) {
+          win.isVisible() ? win.focus() : win.show()
+        }
+      },
+    },
+    {
+      label: '退出',
+      click: () => {
+        ;(app as any).isQuiting = true
+        app.quit()
+      },
+    },
+  ])
+  tray.setContextMenu(contextMenu)
+}
+
 function createTray() {
   const iconPath = process.platform === 'darwin'
     ? path.join(__dirname, '../src/assets/logo.png')
@@ -113,56 +269,11 @@ function createTray() {
 
   tray = new Tray(trayIcon)
   tray.setToolTip('Gamepad Screenshot Tool')
-
-  const updateMenu = (isListening: boolean) => {
-    const contextMenu = Menu.buildFromTemplate([
-      {
-        label: '打开截图目录',
-        click: () => {
-          void shell.openPath(manager.config.path || path.join(process.cwd(), 'screenshots'))
-        },
-      },
-      {
-        label: isListening ? '停止监听' : '开始监听',
-        click: async () => {
-          if (isListening) {
-            manager.stopListening()
-          } else {
-            await manager.startListening()
-          }
-        },
-      },
-      { type: 'separator' },
-      {
-        label: '显示主窗口',
-        click: () => {
-          if (win) {
-            win.isVisible() ? win.focus() : win.show()
-          }
-        },
-      },
-      {
-        label: '退出',
-        click: () => {
-          ;(app as any).isQuiting = true
-          app.quit()
-        },
-      },
-    ])
-    tray?.setContextMenu(contextMenu)
-  }
-
-  updateMenu(false)
+  updateTrayMenu(false)
 
   tray.on('click', () => {
     if (win) {
       win.isVisible() ? win.focus() : win.show()
-    }
-  })
-
-  manager.subscribe((event) => {
-    if (event.type === 'statusChanged') {
-      updateMenu(event.data.listening)
     }
   })
 }
@@ -175,11 +286,59 @@ function registerIpcHandlers() {
   ipcMain.handle('screen-shot', async (_, cfg) => {
     if (cfg) manager.config = { ...manager.config, ...cfg }
     const res = await manager.capture()
-    return res.filePath || null
+    return {
+      ok: res.ok,
+      filePath: res.filePath || null,
+      error: res.error,
+      timestamp: res.timestamp,
+      format: res.format,
+    }
   })
 
   ipcMain.handle('open-folder', async (_, folderPath) => {
-    if (folderPath) await shell.openPath(folderPath)
+    const rawTarget = typeof folderPath === 'string' && folderPath.trim() ? folderPath.trim() : ''
+    const fallbackPath = manager.config.path?.trim() || path.join(process.cwd(), 'screenshots')
+    const targetPath = rawTarget || fallbackPath
+    try {
+      if (!fs.existsSync(targetPath)) {
+        fs.mkdirSync(targetPath, { recursive: true })
+      }
+      await shell.openPath(targetPath)
+      return { ok: true, path: targetPath }
+    } catch (err: any) {
+      console.error('[Main] open-folder failed:', err)
+      return { ok: false, error: err?.message || String(err) }
+    }
+  })
+
+  ipcMain.handle('start-listening', async () => {
+    return await manager.startListening()
+  })
+
+  ipcMain.handle('stop-listening', () => {
+    manager.stopListening()
+    return { ok: true }
+  })
+
+  ipcMain.handle('get-listening-state', () => {
+    return manager.listening
+  })
+
+  ipcMain.on('update-listening-state', (_, state: boolean) => {
+    if (state) {
+      void manager.startListening()
+    } else {
+      manager.stopListening()
+    }
+  })
+
+  ipcMain.on('update-tray-icon', () => {
+    // 兼容托盘图标刷新
+  })
+
+  ipcMain.handle('show-screenshot-notification', (_, data) => {
+    showScreenshotNotification(data || {})
+    return true
   })
 
   ipcMain.handle('select-folder', async () => {
@@ -189,7 +348,7 @@ function registerIpcHandlers() {
   })
 
   ipcMain.handle('get-all-gamepad', () => manager.gamepad.getConnectedDevices())
-  ipcMain.handle('open-sdl2-device', (_, dev) => manager.gamepad.openDevice(dev._index))
+  ipcMain.handle('open-sdl2-device', (_, dev) => manager.gamepad.openDevice(dev?._index ?? 0))
   ipcMain.handle('close-sdl2-instance-device', () => manager.gamepad.closeDevice())
   ipcMain.handle('get-current-buttons-value', () => manager.gamepad.getCurrentButtons())
   ipcMain.handle('get-current-axes-value', () => manager.gamepad.getCurrentAxes())
@@ -269,6 +428,55 @@ function registerIpcHandlers() {
 app.on('ready', async () => {
   manager = new ScreenshotManager()
   await manager.init()
+
+  // 剪贴板自动写入支持
+  manager.defaultCaptureOptions = {
+    writeClipboard: (buf) => {
+      try {
+        const img = nativeImage.createFromBuffer(buf)
+        clipboard.writeImage(img)
+      } catch (err) {
+        console.warn('[Main] writeClipboard failed:', err)
+      }
+    },
+  }
+
+  // 注册全局事件订阅（全屏浮层通知、托盘菜单、渲染进程通知）
+  manager.subscribe((event) => {
+    if (event.type === 'statusChanged') {
+      updateTrayMenu(event.data.listening)
+      win?.webContents.send('listen-status-changed', event.data.listening)
+    } else if (event.type === 'screenshot') {
+      const res = event.data
+      if (res && res.ok) {
+        showScreenshotNotification({
+          img: res.filePath || '',
+          title: '截图成功',
+          desc: res.filePath ? path.basename(res.filePath) : '已成功写入系统剪贴板',
+        })
+      } else {
+        showScreenshotNotification({
+          title: '截图失败',
+          desc: res?.error || '无法截取当前画面',
+          type: 'text',
+        })
+      }
+      win?.webContents.send('screenshot-completed', res)
+    } else if (event.type === 'replayBuffer') {
+      const res = event.data
+      if (res && res.ok) {
+        showScreenshotNotification({
+          title: 'OBS 精彩瞬间已保存',
+          desc: '回放缓存已成功导出',
+          type: 'video',
+        })
+      }
+      win?.webContents.send('obs-replay-completed', res)
+    } else if (event.type === 'deviceChanged') {
+      win?.webContents.send('gamepad-devices-changed', event.data)
+    }
+  })
+
   registerIpcHandlers()
 
   const launchTrayOnly = process.argv.includes('--tray')

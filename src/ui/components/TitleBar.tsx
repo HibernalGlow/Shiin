@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { AppIcon } from './AppIcon.js'
+import { ALIAS, MD3E_ALIAS } from '../md3e.js'
 
 export interface TitleBarProps {
   listening: boolean
@@ -35,6 +36,94 @@ const UI_SCALES = [
   { value: 1.25, label: '125%' },
 ]
 
+interface TitleBarButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  active?: boolean
+}
+
+const TitleBarButton: React.FC<TitleBarButtonProps> = ({
+  active,
+  children,
+  style,
+  ...rest
+}) => {
+  const [hovered, setHovered] = React.useState(false)
+  return (
+    <button
+      type="button"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        width: 30,
+        height: 30,
+        padding: 0,
+        margin: 0,
+        borderRadius: '50%',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        border: `1px solid ${active || hovered ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.08)'}`,
+        background: active
+          ? 'rgba(255, 255, 255, 0.14)'
+          : hovered
+          ? 'rgba(255, 255, 255, 0.09)'
+          : 'rgba(255, 255, 255, 0.04)',
+        color: active || hovered ? ALIAS.onSurface : ALIAS.onSurfaceVariant,
+        outline: 'none',
+        transition: 'all 160ms cubic-bezier(.22, 1.4, .36, 1)',
+        transform: hovered ? 'translateY(-1px)' : 'none',
+        userSelect: 'none',
+        flexShrink: 0,
+        boxSizing: 'border-box',
+        ...style,
+      }}
+      {...rest}
+    >
+      {children}
+    </button>
+  )
+}
+
+const WinControlButton: React.FC<{
+  onClick: () => void
+  title: string
+  isClose?: boolean
+  children: React.ReactNode
+}> = ({ onClick, title, isClose, children }) => {
+  const [hovered, setHovered] = React.useState(false)
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        width: isClose ? 44 : 38,
+        height: 44,
+        padding: 0,
+        margin: 0,
+        border: 'none',
+        outline: 'none',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        background: hovered
+          ? isClose
+            ? '#e81123'
+            : 'rgba(255, 255, 255, 0.08)'
+          : 'transparent',
+        color: hovered && isClose ? '#ffffff' : ALIAS.onSurfaceVariant,
+        transition: 'background-color 140ms ease, color 140ms ease',
+        boxSizing: 'border-box',
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
 export const TitleBar: React.FC<TitleBarProps> = ({
   listening,
   isDark,
@@ -56,6 +145,31 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   const [accentOpen, setAccentOpen] = React.useState(false)
   const [scaleOpen, setScaleOpen] = React.useState(false)
 
+  const accentWrapperRef = React.useRef<HTMLDivElement>(null)
+  const scaleWrapperRef = React.useRef<HTMLDivElement>(null)
+
+  // 点击外部自动收起浮层
+  React.useEffect(() => {
+    if (!accentOpen && !scaleOpen) return
+
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as Node
+      if (accentOpen && accentWrapperRef.current && !accentWrapperRef.current.contains(target)) {
+        setAccentOpen(false)
+      }
+      if (scaleOpen && scaleWrapperRef.current && !scaleWrapperRef.current.contains(target)) {
+        setScaleOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+    }
+  }, [accentOpen, scaleOpen])
+
+  const currentColor = ACCENT_COLORS.find((c) => c.key === accent)?.color || '#b4f461'
+
   return (
     <header
       style={{
@@ -64,27 +178,29 @@ export const TitleBar: React.FC<TitleBarProps> = ({
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: `0 0 0 ${isMac ? '78px' : '14px'}`,
-        borderBottom: '1px solid var(--line, rgba(255, 255, 255, 0.1))',
-        background: 'var(--bar, rgba(10, 11, 15, 0.8))',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+        background: MD3E_ALIAS.surfaceLowest,
         userSelect: 'none',
         WebkitAppRegion: 'drag' as any,
         position: 'relative',
         zIndex: 50,
       } as React.CSSProperties}
     >
-      {/* 品牌 */}
+      {/* 品牌与版本 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: '0.02em' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <span style={{ fontWeight: 800, fontSize: 13.5, letterSpacing: '-0.02em', color: ALIAS.onSurface }}>
             Shiin
           </span>
           <span style={{
-            fontSize: 9.5,
-            padding: '1px 5px',
-            borderRadius: 4,
-            background: 'var(--surface-2)',
-            color: 'var(--ink-2)',
-            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            fontWeight: 700,
+            padding: '1.5px 6px',
+            borderRadius: 999,
+            background: MD3E_ALIAS.surfaceHigh,
+            color: ALIAS.onSurfaceVariant,
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
           }}>
             v{version}
           </span>
@@ -103,18 +219,21 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           display: 'inline-flex',
           alignItems: 'center',
           gap: 6,
-          padding: '0 10px',
-          borderRadius: 99,
+          padding: '0 12px',
+          borderRadius: 999,
           fontSize: 11,
-          border: `1px solid ${listening ? 'var(--accent-line, #b4f461)' : 'var(--line-strong)'}`,
-          color: listening ? 'var(--accent, #b4f461)' : 'var(--ink-2)',
-          background: listening ? 'var(--accent-soft, rgba(180, 244, 97, 0.15))' : 'var(--surface-2)',
+          fontWeight: 700,
+          border: `1px solid ${listening ? 'rgba(180, 244, 97, 0.35)' : 'rgba(255, 255, 255, 0.08)'}`,
+          color: listening ? MD3E_ALIAS.primary : ALIAS.onSurfaceVariant,
+          background: listening ? 'rgba(180, 244, 97, 0.12)' : MD3E_ALIAS.surfaceHigh,
+          backdropFilter: 'blur(12px)',
         }}>
           <i style={{
             width: 6,
             height: 6,
             borderRadius: '50%',
-            background: listening ? 'var(--accent, #b4f461)' : 'var(--ink-3)',
+            background: listening ? MD3E_ALIAS.primary : 'rgba(255, 255, 255, 0.25)',
+            boxShadow: listening ? '0 0 8px #b4f461' : 'none',
           }} />
           {listening ? (isZh ? '正在监听' : 'Listening') : (isZh ? '闲置' : 'Idle')}
         </span>
@@ -123,156 +242,162 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       {/* 右侧控制 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, WebkitAppRegion: 'no-drag' as any } as React.CSSProperties}>
         {/* 深浅色切换 */}
-        <button
-          className="shiin-btn"
-          data-variant="ghost"
-          style={{ width: 28, height: 28, padding: 0 }}
+        <TitleBarButton
           onClick={onToggleTheme}
           title={isZh ? '切换深浅色' : 'Toggle theme'}
         >
-          <AppIcon name={isDark ? 'sun' : 'moon'} size={14} />
-        </button>
+          <AppIcon name={isDark ? 'sun' : 'moon'} size={15} />
+        </TitleBarButton>
 
         {/* 主色调选择 */}
-        <div style={{ position: 'relative' }}>
-          <button
-            className="shiin-btn"
-            data-variant="ghost"
-            style={{ width: 28, height: 28, padding: 0 }}
-            onClick={() => setAccentOpen(!accentOpen)}
+        <div style={{ position: 'relative' }} ref={accentWrapperRef}>
+          <TitleBarButton
+            active={accentOpen}
+            onClick={() => setAccentOpen((prev) => !prev)}
             title={isZh ? '切换主题色' : 'Accent color'}
           >
             <span style={{
-              width: 12,
-              height: 12,
+              display: 'inline-block',
+              width: 13,
+              height: 13,
               borderRadius: '50%',
-              background: ACCENT_COLORS.find((c) => c.key === accent)?.color || '#b4f461',
+              background: currentColor,
+              boxShadow: `0 0 6px ${currentColor}99`,
+              flexShrink: 0,
             }} />
-          </button>
+          </TitleBarButton>
           {accentOpen && (
             <div style={{
               position: 'absolute',
               top: '100%',
               right: 0,
-              marginTop: 6,
-              padding: 8,
-              borderRadius: 8,
-              background: 'var(--surface-flat, #16181f)',
-              border: '1px solid var(--line-strong)',
+              marginTop: 8,
+              padding: 10,
+              borderRadius: 16,
+              background: MD3E_ALIAS.surfaceHigh,
+              border: '1px solid rgba(255, 255, 255, 0.12)',
               display: 'grid',
               gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: 6,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+              gap: 8,
+              boxShadow: '0 16px 36px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.4)',
+              backdropFilter: 'blur(20px)',
               zIndex: 100,
             }}>
-              {ACCENT_COLORS.map((c) => (
-                <button
-                  key={c.key}
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: '50%',
-                    background: c.color,
-                    border: accent === c.key ? '2px solid #fff' : '1px solid rgba(0,0,0,0.2)',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => {
-                    onSetAccent(c.key)
-                    setAccentOpen(false)
-                  }}
-                  title={c.name}
-                />
-              ))}
+              {ACCENT_COLORS.map((c) => {
+                const isSelected = accent === c.key
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => {
+                      onSetAccent(c.key)
+                      setAccentOpen(false)
+                    }}
+                    title={c.name}
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: '50%',
+                      background: c.color,
+                      border: 'none',
+                      outline: isSelected ? '2px solid #ffffff' : 'none',
+                      outlineOffset: 2,
+                      cursor: 'pointer',
+                      boxShadow: isSelected ? `0 0 10px ${c.color}` : 'none',
+                      transition: 'transform 150ms ease',
+                      padding: 0,
+                    }}
+                  />
+                )
+              })}
             </div>
           )}
         </div>
 
         {/* 缩放选择 */}
-        <div style={{ position: 'relative' }}>
-          <button
-            className="shiin-btn"
-            data-variant="ghost"
-            style={{ width: 28, height: 28, padding: 0 }}
-            onClick={() => setScaleOpen(!scaleOpen)}
+        <div style={{ position: 'relative' }} ref={scaleWrapperRef}>
+          <TitleBarButton
+            active={scaleOpen}
+            onClick={() => setScaleOpen((prev) => !prev)}
             title={isZh ? '界面缩放' : 'Scale'}
           >
-            <AppIcon name="textSize" size={14} />
-          </button>
+            <AppIcon name="textSize" size={15} />
+          </TitleBarButton>
           {scaleOpen && (
             <div style={{
               position: 'absolute',
               top: '100%',
               right: 0,
-              marginTop: 6,
-              padding: 4,
-              borderRadius: 8,
-              background: 'var(--surface-flat, #16181f)',
-              border: '1px solid var(--line-strong)',
+              marginTop: 8,
+              padding: 6,
+              borderRadius: 14,
+              background: MD3E_ALIAS.surfaceHigh,
+              border: '1px solid rgba(255, 255, 255, 0.12)',
               display: 'flex',
               flexDirection: 'column',
-              gap: 2,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+              gap: 4,
+              boxShadow: '0 16px 36px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.4)',
+              backdropFilter: 'blur(20px)',
               zIndex: 100,
+              minWidth: 84,
             }}>
-              {UI_SCALES.map((s) => (
-                <button
-                  key={s.value}
-                  className="shiin-btn"
-                  data-variant={uiScale === s.value ? 'filled' : 'ghost'}
-                  style={{ height: 24, padding: '0 10px', fontSize: 11 }}
-                  onClick={() => {
-                    onSetUiScale(s.value)
-                    setScaleOpen(false)
-                  }}
-                >
-                  {s.label}
-                </button>
-              ))}
+              {UI_SCALES.map((s) => {
+                const isSelected = uiScale === s.value
+                return (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => {
+                      onSetUiScale(s.value)
+                      setScaleOpen(false)
+                    }}
+                    style={{
+                      height: 26,
+                      padding: '0 12px',
+                      borderRadius: 8,
+                      border: 'none',
+                      background: isSelected ? MD3E_ALIAS.primary : 'transparent',
+                      color: isSelected ? MD3E_ALIAS.onPrimary : ALIAS.onSurfaceVariant,
+                      fontWeight: 750,
+                      fontSize: 11,
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      transition: 'all 120ms ease',
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
 
         {/* 语言切换 */}
-        <button
-          className="shiin-btn"
-          data-variant="ghost"
-          style={{ width: 28, height: 28, padding: 0, fontSize: 11, fontWeight: 700 }}
+        <TitleBarButton
           onClick={onToggleLocale}
           title={isZh ? 'Switch to English' : '切换为简体中文'}
         >
-          {isZh ? '中' : 'EN'}
-        </button>
+          <span style={{ fontSize: 11.5, fontWeight: 800, fontFamily: 'inherit', letterSpacing: '0.02em' }}>
+            {isZh ? '中' : 'EN'}
+          </span>
+        </TitleBarButton>
 
         {/* 窗口操作按钮（Windows / Linux 显示，macOS 由原生红绿灯接管） */}
         {!isMac ? (
-          <div style={{ display: 'flex', alignItems: 'center', marginLeft: 4 }}>
-            <button
-              className="shiin-btn"
-              data-variant="ghost"
-              style={{ width: 36, height: 44, borderRadius: 0, border: 'none' }}
-              onClick={onMinimize}
-              title={isZh ? '最小化' : 'Minimize'}
-            >
+          <div style={{ display: 'flex', alignItems: 'center', marginLeft: 6 }}>
+            <WinControlButton onClick={onMinimize} title={isZh ? '最小化' : 'Minimize'}>
               <AppIcon name="minus" size={13} />
-            </button>
-            <button
-              className="shiin-btn"
-              data-variant="ghost"
-              style={{ width: 36, height: 44, borderRadius: 0, border: 'none' }}
+            </WinControlButton>
+            <WinControlButton
               onClick={onToggleMaximize}
               title={maximized ? (isZh ? '还原' : 'Restore') : (isZh ? '最大化' : 'Maximize')}
             >
               <AppIcon name={maximized ? 'restore' : 'square'} size={12} />
-            </button>
-            <button
-              className="shiin-btn"
-              data-variant="ghost"
-              style={{ width: 40, height: 44, borderRadius: 0, border: 'none', color: '#ff6b6b' }}
-              onClick={onClose}
-              title={isZh ? '关闭' : 'Close'}
-            >
+            </WinControlButton>
+            <WinControlButton onClick={onClose} title={isZh ? '关闭' : 'Close'} isClose>
               <AppIcon name="close" size={13} />
-            </button>
+            </WinControlButton>
           </div>
         ) : (
           <div style={{ width: 8 }} />

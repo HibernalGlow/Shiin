@@ -15,6 +15,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getStore: (key: string, defaultValue: any) => ipcRenderer.invoke('get-store', key, defaultValue),
   updateTrayIcon: (isListening: boolean) => ipcRenderer.send('update-tray-icon', isListening),
   updateTrayListeningState: (state: boolean) => ipcRenderer.send('update-listening-state', state),
+  startListening: () => ipcRenderer.invoke('start-listening'),
+  stopListening: () => ipcRenderer.invoke('stop-listening'),
+  getListeningState: () => ipcRenderer.invoke('get-listening-state'),
+  showScreenshotNotification: (data: any) => ipcRenderer.invoke('show-screenshot-notification', data),
+  onListenStatusChanged: (callback: (listening: boolean) => void) => {
+    const handler = (_: any, st: boolean) => callback(st)
+    ipcRenderer.on('listen-status-changed', handler)
+    return () => ipcRenderer.removeListener('listen-status-changed', handler)
+  },
+  onScreenshotCompleted: (callback: (result: any) => void) => {
+    const handler = (_: any, res: any) => callback(res)
+    ipcRenderer.on('screenshot-completed', handler)
+    return () => ipcRenderer.removeListener('screenshot-completed', handler)
+  },
+  onObsReplayCompleted: (callback: (result: any) => void) => {
+    const handler = (_: any, res: any) => callback(res)
+    ipcRenderer.on('obs-replay-completed', handler)
+    return () => ipcRenderer.removeListener('obs-replay-completed', handler)
+  },
   onStartListenFromTray: (callback: () => void) => ipcRenderer.on('start-listen-from-tray', callback),
   onStopListenFromTray: (callback: () => void) => ipcRenderer.on('stop-listen-from-tray', callback),
   minimizeWindow: () => ipcRenderer.invoke('window-minimize'),

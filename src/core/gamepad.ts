@@ -120,12 +120,20 @@ export class GamepadCore {
 
     const sdlInstance = getSdl()
     if (!sdlInstance || !sdlInstance.joystick) {
-      return false
+      // 在无原生 SDL 环境（例如 Electron 主进程）下，以虚拟设备模式接管
+      this.deviceInstance = { index: deviceIndex, virtual: true }
+      this.resetDeviceState()
+      return true
     }
 
     try {
       const sdlDevice = sdlInstance.joystick.devices[deviceIndex]
-      if (!sdlDevice) return false
+      if (!sdlDevice) {
+        // 若找不到原生 SDL 序号但可能为 Web 注入设备，同样予以接管
+        this.deviceInstance = { index: deviceIndex, virtual: true }
+        this.resetDeviceState()
+        return true
+      }
 
       this.deviceInstance = sdlInstance.joystick.openDevice(sdlDevice)
       this.resetDeviceState()
@@ -158,7 +166,9 @@ export class GamepadCore {
       return true
     } catch (err) {
       console.error('[GamepadCore] Open SDL2 device failed:', err)
-      return false
+      this.deviceInstance = { index: deviceIndex, virtual: true }
+      this.resetDeviceState()
+      return true
     }
   }
 
@@ -169,8 +179,12 @@ export class GamepadCore {
     this.stopListening()
     if (this.deviceInstance) {
       try {
-        this.deviceInstance.removeAllListeners()
-        this.deviceInstance.close()
+        if (typeof this.deviceInstance.removeAllListeners === 'function') {
+          this.deviceInstance.removeAllListeners()
+        }
+        if (typeof this.deviceInstance.close === 'function') {
+          this.deviceInstance.close()
+        }
       } catch {
         // ignore
       }

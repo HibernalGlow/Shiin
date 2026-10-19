@@ -41,6 +41,11 @@ export class ScreenshotManager {
   public obs: OBSManager
   public keyboard: KeyboardCore
 
+  public defaultCaptureOptions?: {
+    writeClipboard?: (buf: Buffer) => void
+    confirmOverwrite?: (filePath: string) => Promise<boolean>
+  }
+
   private listeners = new Set<ScreenshotManagerListener>()
   private isListening = false
   private currentDeviceName = ''
@@ -58,7 +63,7 @@ export class ScreenshotManager {
     // 监听手柄触发
     this.gamepad.onTrigger(async (action) => {
       if (action === 'screenshot') {
-        const res = await this.capture()
+        const res = await this.capture(this.defaultCaptureOptions)
         this.emit({ type: 'screenshot', data: res })
       } else if (action === 'replayBuffer') {
         const res = await this.saveOBSReplay()
@@ -78,7 +83,7 @@ export class ScreenshotManager {
         this.config.keyboardTrigger &&
         this.config.keyboardTriggerKeyCode === keycode
       ) {
-        void this.capture().then((res) => {
+        void this.capture(this.defaultCaptureOptions).then((res) => {
           this.emit({ type: 'screenshot', data: res })
         })
       }
@@ -136,20 +141,14 @@ export class ScreenshotManager {
     }
 
     const devices = this.gamepad.getConnectedDevices()
-    if (devices.length === 0) {
-      // 允许纯键盘模式启动
-      if (!this.config.keyboardTrigger) {
-        return { ok: false, reason: 'No gamepad devices connected' }
-      }
-    } else {
+    if (devices.length > 0) {
       const idx = deviceIndex !== undefined ? deviceIndex : devices[0]._index
-      const openOk = this.gamepad.openDevice(idx)
-      if (!openOk) {
-        return { ok: false, reason: `Failed to open gamepad device #${idx}` }
-      }
+      this.gamepad.openDevice(idx)
       this.currentDeviceName = devices.find((d) => d._index === idx)?.name || ''
-      this.gamepad.startListening(this.config.comboKeys, this.config.obsReplayBufferOnLongPress)
     }
+
+    // 启动组合键监听定时器（支持原生 SDL 或 Web Gamepad 注入模式）
+    this.gamepad.startListening(this.config.comboKeys, this.config.obsReplayBufferOnLongPress)
 
     if (this.config.keyboardTrigger) {
       this.keyboard.start()
@@ -174,11 +173,15 @@ export class ScreenshotManager {
   /**
    * 执行单次截图
    */
-  public async capture(): Promise<ScreenshotResult> {
+  public async capture(options?: {
+    writeClipboard?: (buf: Buffer) => void
+    confirmOverwrite?: (filePath: string) => Promise<boolean>
+  }): Promise<ScreenshotResult> {
+    const opts = options || this.defaultCaptureOptions
     if (this.config.screenshotWay === ScreenShotWayEnum.OBS && this.obs.isConnected) {
       return await this.obs.takeSourceScreenshot(this.config)
     }
-    return await performScreenshot(this.config)
+    return await performScreenshot(this.config, opts)
   }
 
   /**

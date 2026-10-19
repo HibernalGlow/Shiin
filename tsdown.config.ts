@@ -14,14 +14,23 @@ export default defineConfig({
   target: 'node22',
   dts: true,
   clean: true,
-  external: [
-    '@deepseek-ai/cordis',
-    '@deepseek-ai/dsh-tools',
-    'electron',
-    '@kmamal/sdl',
-    'uiohook-napi',
-    'screenshot-desktop',
-    'node-screenshots',
-    'active-win',
-  ],
+  deps: {
+    neverBundle: [
+      '@deepseek-ai/cordis',
+      '@deepseek-ai/dsh-tools',
+      'electron',
+      '@kmamal/sdl',
+      'uiohook-napi',
+      'screenshot-desktop',
+      'node-screenshots',
+      'active-win',
+    ],
+    alwaysBundle: [
+      'obs-websocket-js',
+      '@msgpack/msgpack',
+      'isomorphic-ws',
+      'crypto-js',
+      'eventemitter3',
+    ],
+  },
 })
