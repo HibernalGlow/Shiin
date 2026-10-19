@@ -109,7 +109,8 @@ export interface ScreenshotConfig {
   overlayNotifyPosition?: 'left' | 'right'
   overlayNotifySize?: number | string
   autoStart?: boolean
-  closeType?: 'exit' | 'tray'
+  startInLightweightMode?: boolean
+  closeType?: 'exit' | 'tray' | 'lightweight'
   theme?: 'dark' | 'light'
   accentColor?: string
   uiScale?: number

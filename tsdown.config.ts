@@ -7,6 +7,7 @@ export default defineConfig({
     core: 'src/core/index.ts',
     main: 'src/app/electron/main.ts',
     preload: 'src/app/electron/preload.ts',
+    'gamepad-worker': 'src/app/electron/gamepad-worker.ts',
   },
   outDir: 'lib',
   format: ['esm'],

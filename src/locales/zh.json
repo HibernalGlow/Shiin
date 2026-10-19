@@ -99,7 +99,8 @@
         "closeType": "关闭方式",
         "closeTypeEnum": {
             "exit": "退出软件",
-            "tray": "隐藏到托盘"
+            "tray": "隐藏到托盘",
+            "lightweight": "进入轻量模式（销毁界面）"
         },
         "autoStart": "开机自启动",
         "minimizeOnStartup": "静默启动",
@@ -173,8 +174,9 @@
         "openScreenshotFolder": "打开截图文件夹",
         "startListen": "开始监听",
         "stopListen": "停止监听",
-        "show": "显示主界面",
-        "exit": "退出软件"
+        "show": "打开主界面",
+        "exit": "退出软件",
+        "lightweightMode": "轻量模式（释放界面内存）"
     },
     "ui": {
         "idle": "未监听",

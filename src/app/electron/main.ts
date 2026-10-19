@@ -11,9 +11,11 @@ import {
   systemPreferences,
   screen,
   desktopCapturer,
+  utilityProcess,
 } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
+import os from 'node:os'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
@@ -27,29 +29,59 @@ import {
   testDirectoryAccess,
   captureMacScreenNative,
   ScreenShotSaveWayEnum,
+  ScreenshotSoundEnum,
 } from '../../core/index.js'
+import { SOUND_DATA_URIS } from '../../ui/audio-data.js'
+
+import zhLocale from '../../locales/zh.json'
+import zhTWLocale from '../../locales/zh-TW.json'
+import enLocale from '../../locales/en.json'
+import jaLocale from '../../locales/ja.json'
+import koLocale from '../../locales/ko.json'
+import deLocale from '../../locales/de.json'
+import frLocale from '../../locales/fr.json'
+import esLocale from '../../locales/es.json'
+import ruLocale from '../../locales/ru.json'
 
 const execFileAsync = promisify(execFile)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const isDev = process.env.NODE_ENV !== 'production'
 const nodeRequire = createRequire(import.meta.url)
 
+// 全局未捕获异常记录
+process.on('uncaughtException', (error) => {
+  try {
+    const logDir = path.join(os.homedir(), '.config', 'shiin')
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true })
+    fs.appendFileSync(path.join(logDir, 'crash.log'), `[${new Date().toISOString()}] Uncaught Exception:\n${error?.stack || error}\n\n`)
+  } catch {}
+  console.error('[Main Uncaught Exception]', error)
+})
+
 let win: BrowserWindow | null = null
 let tray: Tray | null = null
 let manager!: ScreenshotManager
 let updater: any = null
 
-// 载入多语言包，用于托盘菜单和原生提示
+// 轻量模式状态（销毁主 BrowserWindow 释放渲染进程资源，保留后台引擎与托盘）
+let isLightweightMode = false
+let isDestroyingForLightweight = false
+
+// 独立手柄输入采集 Utility Process Worker
+let gamepadWorker: Electron.UtilityProcess | null = null
+let gamepadWorkerRestartTimer: NodeJS.Timeout | null = null
+
+// 载入多语言包，用于托盘菜单和原生提示（编译期静态内联入 bundle，消除运行时 nodeRequire 缺失）
 const LOCALE_MESSAGES: Record<string, any> = {
-  zh: nodeRequire('../../locales/zh.json'),
-  'zh-TW': nodeRequire('../../locales/zh-TW.json'),
-  en: nodeRequire('../../locales/en.json'),
-  ja: nodeRequire('../../locales/ja.json'),
-  ko: nodeRequire('../../locales/ko.json'),
-  de: nodeRequire('../../locales/de.json'),
-  fr: nodeRequire('../../locales/fr.json'),
-  es: nodeRequire('../../locales/es.json'),
-  ru: nodeRequire('../../locales/ru.json'),
+  zh: zhLocale,
+  'zh-TW': zhTWLocale,
+  en: enLocale,
+  ja: jaLocale,
+  ko: koLocale,
+  de: deLocale,
+  fr: frLocale,
+  es: esLocale,
+  ru: ruLocale,
 }
 
 function getI18nText(key: string, defaultText: string, locale?: string): string {
@@ -59,6 +91,130 @@ function getI18nText(key: string, defaultText: string, locale?: string): string 
   return typeof text === 'string' ? text : defaultText
 }
 
+/**
+ * 后台快门音效播放（当主窗口已销毁处于轻量模式时，由主进程直接播放快门音频）
+ */
+const cachedSoundFilePaths = new Map<string, string>()
+
+async function playBackgroundShutterSound(sound?: ScreenshotSoundEnum | string, power = 1): Promise<void> {
+  if (!sound || sound === ScreenshotSoundEnum.None || sound === 'None') return
+  const dataUri = SOUND_DATA_URIS[sound]
+  if (!dataUri) return
+
+  try {
+    let wavPath = cachedSoundFilePaths.get(sound)
+    if (!wavPath || !fs.existsSync(wavPath)) {
+      const base64Data = dataUri.split(',')[1]
+      if (!base64Data) return
+      wavPath = path.join(os.tmpdir(), `shiin-shutter-${sound}.wav`)
+      fs.writeFileSync(wavPath, Buffer.from(base64Data, 'base64'))
+      cachedSoundFilePaths.set(sound, wavPath)
+    }
+
+    const volume = Math.max(0.05, Math.min(2, Number(power) || 1))
+    if (process.platform === 'darwin') {
+      await execFileAsync('/usr/bin/afplay', ['-v', String(volume), wavPath])
+    } else if (process.platform === 'win32') {
+      const escaped = wavPath.replace(/'/g, "''")
+      await execFileAsync('powershell', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-WindowStyle',
+        'Hidden',
+        '-Command',
+        `(New-Object Media.SoundPlayer '${escaped}').PlaySync()`,
+      ])
+    }
+  } catch (err) {
+    console.warn('[Main] playBackgroundShutterSound failed:', err)
+  }
+}
+
+/**
+ * 解析独立手柄采集 Worker 脚本入口路径
+ */
+function resolveGamepadWorkerPath(): string | null {
+  const candidates = [
+    path.join(__dirname, 'gamepad-worker.mjs'),
+    path.join(__dirname, 'gamepad-worker.js'),
+    path.resolve(process.cwd(), 'lib/gamepad-worker.mjs'),
+  ]
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p
+  }
+  return null
+}
+
+/**
+ * 启动独立的手柄采集 Utility Process，将原生 SDL 隔离在子进程中运行
+ */
+function startGamepadWorker(): void {
+  if ((app as any).isQuiting || gamepadWorker) return
+
+  const workerEntryPath = resolveGamepadWorkerPath()
+  if (!workerEntryPath) {
+    console.warn('[Main] Gamepad worker script not found, falling back to renderer gamepad polling.')
+    return
+  }
+
+  try {
+    const child = utilityProcess.fork(workerEntryPath, [], {
+      serviceName: 'Shiin Gamepad Worker',
+      env: {
+        ...process.env,
+        SHIIN_GAMEPAD_WORKER: '1',
+      },
+    })
+
+    gamepadWorker = child
+
+    child.on('message', (msg: any) => {
+      if (!msg || typeof msg !== 'object') return
+      if (msg.type === 'state') {
+        manager?.gamepad.injectWorkerGamepadState(
+          msg.devices || [],
+          msg.buttons || [],
+          msg.axes || [],
+          msg.activeIndex
+        )
+      }
+    })
+
+    child.on('exit', (code) => {
+      if (gamepadWorker === child) {
+        gamepadWorker = null
+      }
+      if (!(app as any).isQuiting) {
+        console.warn(`[Main] Gamepad utility worker exited (code=${code}), scheduling restart in 1.5s...`)
+        if (gamepadWorkerRestartTimer) clearTimeout(gamepadWorkerRestartTimer)
+        gamepadWorkerRestartTimer = setTimeout(() => {
+          gamepadWorkerRestartTimer = null
+          startGamepadWorker()
+        }, 1500)
+      }
+    })
+  } catch (err) {
+    console.error('[Main] Failed to fork gamepad utilityProcess:', err)
+  }
+}
+
+function stopGamepadWorker(): void {
+  if (gamepadWorkerRestartTimer) {
+    clearTimeout(gamepadWorkerRestartTimer)
+    gamepadWorkerRestartTimer = null
+  }
+  if (gamepadWorker) {
+    const child = gamepadWorker
+    gamepadWorker = null
+    try {
+      child.postMessage({ type: 'dispose' })
+    } catch {}
+    try {
+      child.kill()
+    } catch {}
+  }
+}
+
 // 单实例锁
 const gotTheLock = app.requestSingleInstanceLock()
 if (!gotTheLock) {
@@ -66,11 +222,7 @@ if (!gotTheLock) {
 }
 
 app.on('second-instance', () => {
-  if (win) {
-    if (win.isMinimized()) win.restore()
-    win.show()
-    win.focus()
-  }
+  void showMainWindow()
 })
 
 const preloadPath = fs.existsSync(path.join(__dirname, 'preload.mjs'))
@@ -178,7 +330,6 @@ async function getMacOSPermissionsStatus(options?: { activeProbe?: boolean }) {
     : 'granted'
   let screenCapture = screenCaptureStatus === 'granted'
 
-  // 当要求主动探测或状态不明确时，尝试通过 desktopCapturer 探测缩略图是否可用
   if (options?.activeProbe && !screenCapture) {
     try {
       const sources = await desktopCapturer.getSources({
@@ -198,7 +349,6 @@ async function getMacOSPermissionsStatus(options?: { activeProbe?: boolean }) {
     ? systemPreferences.isTrustedAccessibilityClient(false)
     : true
 
-  // 检测全局键盘钩子 (Input Monitoring / Accessibility)
   let inputMonitoring = accessibility
   if (options?.activeProbe && manager?.keyboard) {
     const wasRunning = manager.keyboard.isRunning
@@ -213,7 +363,6 @@ async function getMacOSPermissionsStatus(options?: { activeProbe?: boolean }) {
     }
   }
 
-  // 检测窗口枚举与前台窗口识别
   let detectedWindowsCount = 0
   let activeWindowTitle = ''
   let windowError = ''
@@ -267,7 +416,6 @@ async function requestMacOSPermission(
   const openIfDenied = options?.openSettingsIfDenied ?? true
 
   if (process.platform === 'darwin') {
-    // 1. 主动请求辅助功能权限 (Accessibility) —— 传入 true 会立即弹出 macOS 原生授权提示框
     if (target === 'accessibility' || target === 'input' || target === 'all') {
       try {
         if (systemPreferences.isTrustedAccessibilityClient) {
@@ -281,7 +429,6 @@ async function requestMacOSPermission(
       }
     }
 
-    // 2. 主动请求输入监控权限 (Input Monitoring)
     if (target === 'input' || target === 'all') {
       try {
         if (manager?.keyboard) {
@@ -299,8 +446,6 @@ async function requestMacOSPermission(
       }
     }
 
-    // 3. 主动请求屏幕录制权限 (Screen Recording)
-    // 调用 desktopCapturer.getSources + 原生 screencapture 触发 macOS 将应用注册到「屏幕录制」列表并弹出系统授权框
     if (target === 'screen' || target === 'all') {
       try {
         await desktopCapturer.getSources({
@@ -321,7 +466,6 @@ async function requestMacOSPermission(
       }
     }
 
-    // 4. 主动探测并验证截图目录读写权限
     if (target === 'folder' || target === 'all') {
       const dirRes = testDirectoryAccess(manager?.config?.path)
       if (!dirRes.ok && openIfDenied && target === 'folder') {
@@ -334,6 +478,15 @@ async function requestMacOSPermission(
 }
 
 async function createWindow(show = true) {
+  if (win && !win.isDestroyed()) {
+    if (show) {
+      if (win.isMinimized()) win.restore()
+      win.show()
+      win.focus()
+    }
+    return win
+  }
+
   const theme = manager.config.theme || 'dark'
   const iconPath = path.join(__dirname, '../gamepad.ico')
   const isMac = process.platform === 'darwin'
@@ -359,13 +512,28 @@ async function createWindow(show = true) {
     },
   })
 
-  // 窗口关闭拦截（支持最小化到托盘）
+  // 窗口关闭拦截（区分“直接退出”、“普通隐藏到托盘”与“进入轻量模式销毁窗口”）
   win.on('close', (event) => {
-    if ((app as any).isQuiting) return
+    if ((app as any).isQuiting || isDestroyingForLightweight) return
+
+    if (manager.config.closeType === 'lightweight') {
+      event.preventDefault()
+      void enterLightweightMode()
+      return
+    }
+
     if (manager.config.closeType === 'tray') {
       event.preventDefault()
       win?.hide()
+      updateTrayMenu(manager?.listening ?? false)
+      return
     }
+
+    ;(app as any).isQuiting = true
+  })
+
+  win.on('closed', () => {
+    win = null
   })
 
   // 加载页面
@@ -381,9 +549,77 @@ async function createWindow(show = true) {
     }
   }
 
-  if (show) {
+  // 页面加载完成后向 Worker 请求一次最新手柄快照，确保重建窗口立即拿到实时设备状态
+  gamepadWorker?.postMessage({ type: 'sync' })
+
+  if (show && win && !win.isDestroyed()) {
     win.show()
+    win.focus()
   }
+
+  return win
+}
+
+/**
+ * 进入 CC Switch 式轻量模式：
+ * 销毁主 BrowserWindow 及其渲染进程 / WebContents，释放 UI 内存；
+ * 保留后台 ScreenshotManager、手柄 Utility Process、OBS 与系统托盘；
+ * macOS 下隐藏 Dock 图标。
+ */
+async function enterLightweightMode(): Promise<{ ok: boolean; lightweight: boolean }> {
+  isLightweightMode = true
+
+  if (win && !win.isDestroyed()) {
+    isDestroyingForLightweight = true
+    try {
+      win.destroy()
+    } catch (err) {
+      console.warn('[Main] Destroy window for lightweight mode error:', err)
+    } finally {
+      win = null
+      isDestroyingForLightweight = false
+    }
+  } else {
+    win = null
+  }
+
+  if (process.platform === 'darwin') {
+    try {
+      app.dock?.hide()
+    } catch {}
+  }
+
+  updateTrayMenu(manager?.listening ?? false)
+  return { ok: true, lightweight: true }
+}
+
+/**
+ * 退出轻量模式并打开/恢复主界面：
+ * 按需重新创建 BrowserWindow 并恢复后台当前配置与监听状态，macOS 下恢复 Dock 图标。
+ */
+async function showMainWindow(): Promise<{ ok: boolean; lightweight: boolean }> {
+  isLightweightMode = false
+
+  if (process.platform === 'darwin') {
+    try {
+      await app.dock?.show()
+    } catch {}
+  }
+
+  if (!win || win.isDestroyed()) {
+    win = null
+    await createWindow(true)
+  } else {
+    if (win.isMinimized()) win.restore()
+    if (!win.isVisible()) win.show()
+    win.focus()
+  }
+
+  updateTrayMenu(manager?.listening ?? false)
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('lightweight-mode-changed', false)
+  }
+  return { ok: true, lightweight: false }
 }
 
 let overlayWindow: BrowserWindow | null = null
@@ -396,6 +632,10 @@ function showScreenshotNotification(options: {
   type?: 'video' | 'text'
   duration?: number
 }) {
+  if (manager?.config?.overlayNotify === 'hide') {
+    return
+  }
+
   const {
     img = '',
     title = '截图成功',
@@ -502,9 +742,9 @@ function updateTrayMenu(isListening: boolean) {
   if (!tray || tray.isDestroyed()) return
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: getI18nText('TrayMenu.openScreenshotFolder', '打开截图文件夹'),
-      click: async () => {
-        await openFolderInSystem(manager.config.path)
+      label: getI18nText('TrayMenu.show', '打开主界面'),
+      click: () => {
+        void showMainWindow()
       },
     },
     {
@@ -512,22 +752,33 @@ function updateTrayMenu(isListening: boolean) {
         ? getI18nText('TrayMenu.stopListen', '停止监听')
         : getI18nText('TrayMenu.startListen', '开始监听'),
       click: async () => {
-        if (isListening) {
+        if (manager.listening) {
           manager.stopListening()
         } else {
           await manager.startListening()
         }
       },
     },
+    {
+      label: getI18nText('TrayMenu.openScreenshotFolder', '打开截图文件夹'),
+      click: async () => {
+        await openFolderInSystem(manager.config.path)
+      },
+    },
     { type: 'separator' },
     {
-      label: getI18nText('TrayMenu.show', '显示主窗口'),
-      click: () => {
-        if (win) {
-          win.isVisible() ? win.focus() : win.show()
+      label: getI18nText('TrayMenu.lightweightMode', '轻量模式'),
+      type: 'checkbox',
+      checked: isLightweightMode,
+      click: (menuItem) => {
+        if (menuItem.checked) {
+          void enterLightweightMode()
+        } else {
+          void showMainWindow()
         }
       },
     },
+    { type: 'separator' },
     {
       label: getI18nText('TrayMenu.exit', '退出'),
       click: () => {
@@ -537,7 +788,8 @@ function updateTrayMenu(isListening: boolean) {
     },
   ])
   tray.setContextMenu(contextMenu)
-  tray.setToolTip(`Gamepad Screenshot Tool ver.2.0.0`)
+  const modeTag = isLightweightMode ? ' (Lightweight)' : ''
+  tray.setToolTip(`Gamepad Screenshot Tool ver.2.0.0${modeTag}`)
 }
 
 function applyLanguageToShell(locale?: string) {
@@ -562,12 +814,16 @@ function createTray() {
 
   tray = new Tray(trayIcon)
   tray.setToolTip('Gamepad Screenshot Tool')
-  updateTrayMenu(false)
+  updateTrayMenu(manager?.listening ?? false)
 
   tray.on('click', () => {
-    if (win) {
-      win.isVisible() ? win.focus() : win.show()
+    if (process.platform !== 'darwin') {
+      void showMainWindow()
     }
+  })
+
+  tray.on('double-click', () => {
+    void showMainWindow()
   })
 }
 
@@ -590,7 +846,6 @@ function registerIpcHandlers() {
     const wins = await getCaptureWindows()
     if (wins.length > 0) return wins
 
-    // Electron desktopCapturer 保底枚举窗口（在未授予辅助功能权限时依然可列出部分窗口）
     try {
       const sources = await desktopCapturer.getSources({
         types: ['window'],
@@ -615,21 +870,20 @@ function registerIpcHandlers() {
   })
 
   ipcMain.handle('screen-shot', async (_, cfg) => {
-    if (cfg) manager.config = { ...manager.config, ...cfg }
-    // 如果在 macOS 下尚未获得录屏权限，尝试主动触发权限请求并主动打开系统设置界面
+    if (cfg) manager.syncConfig(cfg)
     if (process.platform === 'darwin' && systemPreferences.getMediaAccessStatus) {
       const st = systemPreferences.getMediaAccessStatus('screen')
       if (st !== 'granted') {
         try {
           await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 32, height: 32 } })
         } catch {}
-        // 主动打开 macOS 系统设置对应的屏幕录制界面
         void openMacSystemPreferencePane('screen')
-        // 主动通知前端打开权限自检中心引导
-        win?.webContents.send('open-permission-dialog', {
-          reason: 'missing_screen_permission',
-          message: '截取屏幕画面需要 macOS「屏幕录制」权限，已主动为您打开系统设置进行授权。',
-        })
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('open-permission-dialog', {
+            reason: 'missing_screen_permission',
+            message: '截取屏幕画面需要 macOS「屏幕录制」权限，已主动为您打开系统设置进行授权。',
+          })
+        }
         return {
           ok: false,
           filePath: null,
@@ -645,10 +899,12 @@ function registerIpcHandlers() {
       const st = systemPreferences.getMediaAccessStatus('screen')
       if (st !== 'granted') {
         void openMacSystemPreferencePane('screen')
-        win?.webContents.send('open-permission-dialog', {
-          reason: 'missing_screen_permission',
-          message: '截图失败：检测到缺少 macOS「屏幕录制」权限，已主动为您打开系统设置进行授权。',
-        })
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('open-permission-dialog', {
+            reason: 'missing_screen_permission',
+            message: '截图失败：检测到缺少 macOS「屏幕录制」权限，已主动为您打开系统设置进行授权。',
+          })
+        }
       }
     }
     return {
@@ -661,12 +917,15 @@ function registerIpcHandlers() {
     }
   })
 
+  ipcMain.handle('save-obs-replay', async () => {
+    return await manager.saveOBSReplay()
+  })
+
   ipcMain.handle('open-folder', async (_, folderPath) => {
     return await openFolderInSystem(folderPath)
   })
 
   ipcMain.handle('start-listening', async () => {
-    // macOS 下如果开启了键盘触发但未授权辅助功能，主动拉起授权提示
     if (
       process.platform === 'darwin' &&
       manager.config.keyboardTrigger &&
@@ -684,6 +943,28 @@ function registerIpcHandlers() {
 
   ipcMain.handle('get-listening-state', () => {
     return manager.listening
+  })
+
+  ipcMain.handle('get-runtime-state', () => {
+    return {
+      config: manager.config,
+      listening: manager.listening,
+      activeGamepadIndex: manager.gamepad.getActiveDeviceIndex(),
+      devices: manager.gamepad.getConnectedDevices(),
+      lightweightMode: isLightweightMode,
+    }
+  })
+
+  ipcMain.handle('get-lightweight-mode', () => {
+    return isLightweightMode
+  })
+
+  ipcMain.handle('enter-lightweight-mode', async () => {
+    return await enterLightweightMode()
+  })
+
+  ipcMain.handle('exit-lightweight-mode', async () => {
+    return await showMainWindow()
   })
 
   ipcMain.on('update-listening-state', (_, state: boolean) => {
@@ -709,13 +990,24 @@ function registerIpcHandlers() {
       defaultPath,
       properties: ['openDirectory', 'createDirectory'],
     }
-    const res = win ? await dialog.showOpenDialog(win, dialogOpts) : await dialog.showOpenDialog(dialogOpts)
+    const res =
+      win && !win.isDestroyed()
+        ? await dialog.showOpenDialog(win, dialogOpts)
+        : await dialog.showOpenDialog(dialogOpts)
     return res.canceled ? null : res.filePaths[0]
   })
 
   ipcMain.handle('get-all-gamepad', () => manager.gamepad.getConnectedDevices())
-  ipcMain.handle('open-sdl2-device', (_, dev) => manager.gamepad.openDevice(dev?._index ?? 0))
-  ipcMain.handle('close-sdl2-instance-device', () => manager.gamepad.closeDevice())
+  ipcMain.handle('open-sdl2-device', (_, dev) => {
+    const idx = dev?._index ?? 0
+    const ok = manager.gamepad.openDevice(idx)
+    gamepadWorker?.postMessage({ type: 'open-device', index: idx })
+    return ok
+  })
+  ipcMain.handle('close-sdl2-instance-device', () => {
+    manager.gamepad.closeDevice()
+    gamepadWorker?.postMessage({ type: 'close-device' })
+  })
   ipcMain.handle('get-current-buttons-value', () => manager.gamepad.getCurrentButtons())
   ipcMain.handle('get-current-axes-value', () => manager.gamepad.getCurrentAxes())
   ipcMain.handle('sync-web-gamepad', (_, devices, buttons, axes) => {
@@ -728,19 +1020,25 @@ function registerIpcHandlers() {
     await manager.storage.set(key, val)
     if (key === 'globalConfig') {
       try {
-        manager.config = { ...manager.config, ...JSON.parse(val) }
+        const parsed = typeof val === 'string' ? JSON.parse(val) : val
+        manager.syncConfig(parsed)
+        updateTrayMenu(manager.listening)
       } catch {}
     }
   })
 
-  ipcMain.handle('window-minimize', () => win?.minimize())
+  ipcMain.handle('window-minimize', () => {
+    if (win && !win.isDestroyed()) win.minimize()
+  })
   ipcMain.handle('window-toggle-maximize', () => {
-    if (!win) return false
+    if (!win || win.isDestroyed()) return false
     if (win.isMaximized()) win.unmaximize()
     else win.maximize()
     return win.isMaximized()
   })
-  ipcMain.handle('window-close', () => win?.close())
+  ipcMain.handle('window-close', () => {
+    if (win && !win.isDestroyed()) win.close()
+  })
   ipcMain.handle('open-external', async (_, url) => {
     if (url && /^https?:\/\//i.test(url)) await shell.openExternal(url)
   })
@@ -764,7 +1062,6 @@ function registerIpcHandlers() {
   ipcMain.handle('test-screenshot-permission', async (_, customConfig?: any) => {
     const startTime = Date.now()
     try {
-      // 主动请求一次屏幕权限以确保 TCC 注册
       if (process.platform === 'darwin') {
         try {
           await desktopCapturer.getSources({
@@ -851,6 +1148,7 @@ function registerIpcHandlers() {
     app.setLoginItemSettings({
       openAtLogin: enable,
       openAsHidden: true,
+      args: enable ? ['--tray'] : [],
     })
     return app.getLoginItemSettings().openAtLogin
   })
@@ -935,7 +1233,7 @@ app.on('ready', async () => {
         log: console,
         packageJson: { version: '2.0.0' },
         isDevelopment: isDev,
-        getWindow: () => win,
+        getWindow: () => (win && !win.isDestroyed() ? win : null),
       })
       updater.init()
     }
@@ -955,18 +1253,26 @@ app.on('ready', async () => {
     },
   }
 
-  // 注册全局事件订阅（全屏浮层通知、托盘菜单、渲染进程通知）
+  // 注册全局事件订阅（全屏浮层通知、快门音效、托盘菜单、渲染进程通知）
   manager.subscribe((event) => {
+    const hasLiveWin = Boolean(win && !win.isDestroyed())
+
     if (event.type === 'statusChanged') {
       updateTrayMenu(event.data.listening)
-      win?.webContents.send('listen-status-changed', event.data.listening)
+      if (hasLiveWin) {
+        win!.webContents.send('listen-status-changed', event.data.listening)
+      }
     } else if (event.type === 'screenshot') {
       const res = event.data
       if (res && res.ok) {
+        // 若主窗口已销毁（轻量模式），由主进程直接播放快门声；若主窗口存在，由渲染进程收到事件后用 WebAudio 播放
+        if (!hasLiveWin && manager.config.sound && manager.config.sound !== ScreenshotSoundEnum.None) {
+          void playBackgroundShutterSound(manager.config.sound, manager.config.soundPower)
+        }
         showScreenshotNotification({
           img: res.filePath || '',
-          title: '截图成功',
-          desc: res.filePath ? path.basename(res.filePath) : '已成功写入系统剪贴板',
+          title: getI18nText('overlayNotify.screenshotSuccess', '截图成功'),
+          desc: res.filePath ? path.basename(res.filePath) : getI18nText('overlayNotify.screenshotSaved', '已成功写入系统剪贴板'),
         })
       } else {
         showScreenshotNotification({
@@ -975,37 +1281,65 @@ app.on('ready', async () => {
           type: 'text',
         })
       }
-      win?.webContents.send('screenshot-completed', res)
+      if (hasLiveWin) {
+        win!.webContents.send('screenshot-completed', res)
+      }
     } else if (event.type === 'replayBuffer') {
       const res = event.data
       if (res && res.ok) {
         showScreenshotNotification({
-          title: 'OBS 精彩瞬间已保存',
-          desc: '回放缓存已成功导出',
+          title: getI18nText('overlayNotify.replayBufferSaved', 'OBS 精彩瞬间已保存'),
+          desc: getI18nText('overlayNotify.replayBufferSavedDesc', '回放缓存已成功导出'),
           type: 'video',
         })
       }
-      win?.webContents.send('obs-replay-completed', res)
+      if (hasLiveWin) {
+        win!.webContents.send('obs-replay-completed', res)
+      }
     } else if (event.type === 'deviceChanged') {
-      win?.webContents.send('gamepad-devices-changed', event.data)
+      if (hasLiveWin) {
+        win!.webContents.send('gamepad-devices-changed', event.data)
+      }
+      if (
+        !manager.listening &&
+        manager.config.autoListenResolution === 'whenDeviceAvailable' &&
+        Array.isArray(event.data) &&
+        event.data.length > 0
+      ) {
+        void manager.startListening()
+      }
     }
   })
 
   registerIpcHandlers()
-
-  const launchTrayOnly = process.argv.includes('--tray')
-  await createWindow(!launchTrayOnly)
+  startGamepadWorker()
   createTray()
 
-  // macOS 下启动后自动检测并主动请求缺失的系统权限（屏幕录制 + 辅助功能）
-  if (process.platform === 'darwin') {
+  // 支持真正的 --tray / --lightweight 轻量启动：跳过主窗口与渲染进程创建，直接进入轻量托盘模式
+  const launchLightweight =
+    process.argv.includes('--tray') ||
+    process.argv.includes('--lightweight') ||
+    Boolean(manager.config.startInLightweightMode)
+
+  if (launchLightweight) {
+    await enterLightweightMode()
+  } else {
+    await createWindow(true)
+  }
+
+  if (manager.config.autoListenResolution === 'onAppStart') {
+    void manager.startListening()
+  }
+
+  // macOS 下启动后自动检测并主动请求缺失的系统权限（仅非轻量启动时主动通知 UI）
+  if (process.platform === 'darwin' && !launchLightweight) {
     setTimeout(async () => {
       try {
         const perms = await getMacOSPermissionsStatus({ activeProbe: false })
         if (!perms.screenCapture || !perms.accessibility) {
           await requestMacOSPermission('all', { openSettingsIfDenied: false })
-          if (!perms.screenCapture) {
-            win?.webContents.send('open-permission-dialog', {
+          if (!perms.screenCapture && win && !win.isDestroyed()) {
+            win.webContents.send('open-permission-dialog', {
               reason: 'startup_missing_permissions',
               message: '检测到屏幕录制权限尚未授权，截图功能将受限。已为您就绪权限自检中心。',
               perms,
@@ -1020,19 +1354,20 @@ app.on('ready', async () => {
 })
 
 app.on('will-quit', () => {
-  manager.dispose()
+  ;(app as any).isQuiting = true
+  stopGamepadWorker()
+  manager?.dispose()
 })
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    void createWindow()
-  } else if (win) {
-    win.show()
-    win.focus()
-  }
+  void showMainWindow()
 })
 
 app.on('window-all-closed', () => {
+  // 轻量模式主动销毁主窗口时不能触发退出逻辑
+  if (isLightweightMode || isDestroyingForLightweight) {
+    return
+  }
   if (process.platform !== 'darwin' && manager.config.closeType === 'exit') {
     app.quit()
   }

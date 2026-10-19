@@ -147,6 +147,7 @@ export function ShiinTui({ manager, onExit }: ShiinTuiProps): React.ReactNode {
 }
 
 export async function runOpenTui(manager: ScreenshotManager): Promise<void> {
+  ensureReactShim()
   await manager.init()
 
   const renderer = await createCliRenderer({
@@ -157,15 +158,30 @@ export async function runOpenTui(manager: ScreenshotManager): Promise<void> {
     screenMode: 'alternate-screen',
   })
 
-  return new Promise((resolve) => {
-    const root = createRoot(renderer)
-    const handleExit = () => {
-      manager.dispose()
-      root.unmount()
-      renderer.destroy()
-      resolve()
-    }
+  return new Promise((resolve, reject) => {
+    try {
+      ensureReactShim()
+      const root = createRoot(renderer)
+      let cleanedUp = false
+      const handleExit = () => {
+        if (cleanedUp) return
+        cleanedUp = true
+        manager.dispose()
+        try {
+          root.unmount()
+        } catch {}
+        try {
+          renderer.destroy()
+        } catch {}
+        resolve()
+      }
 
-    root.render(<ShiinTui manager={manager} onExit={handleExit} />)
+      root.render(<ShiinTui manager={manager} onExit={handleExit} />)
+    } catch (err) {
+      try {
+        renderer.destroy()
+      } catch {}
+      reject(err)
+    }
   })
 }

@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getScreenSources: () => ipcRenderer.invoke('get-screen-sources'),
   getCaptureWindows: () => ipcRenderer.invoke('get-capture-windows'),
   screenShot: (config: any) => ipcRenderer.invoke('screen-shot', config),
+  saveOBSReplay: () => ipcRenderer.invoke('save-obs-replay'),
   openFolder: (folderPath: string) => ipcRenderer.invoke('open-folder', folderPath),
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   getAllGamePad: () => ipcRenderer.invoke('get-all-gamepad'),
@@ -18,6 +19,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startListening: () => ipcRenderer.invoke('start-listening'),
   stopListening: () => ipcRenderer.invoke('stop-listening'),
   getListeningState: () => ipcRenderer.invoke('get-listening-state'),
+  getRuntimeState: () => ipcRenderer.invoke('get-runtime-state'),
+  getLightweightMode: () => ipcRenderer.invoke('get-lightweight-mode'),
+  enterLightweightMode: () => ipcRenderer.invoke('enter-lightweight-mode'),
+  exitLightweightMode: () => ipcRenderer.invoke('exit-lightweight-mode'),
   showScreenshotNotification: (data: any) => ipcRenderer.invoke('show-screenshot-notification', data),
   onListenStatusChanged: (callback: (listening: boolean) => void) => {
     const handler = (_: any, st: boolean) => callback(st)
@@ -34,6 +39,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('obs-replay-completed', handler)
     return () => ipcRenderer.removeListener('obs-replay-completed', handler)
   },
+  onGamepadDevicesChanged: (callback: (devices: any[]) => void) => {
+    const handler = (_: any, devs: any[]) => callback(devs)
+    ipcRenderer.on('gamepad-devices-changed', handler)
+    return () => ipcRenderer.removeListener('gamepad-devices-changed', handler)
+  },
+  onLightweightModeChanged: (callback: (lightweight: boolean) => void) => {
+    const handler = (_: any, st: boolean) => callback(st)
+    ipcRenderer.on('lightweight-mode-changed', handler)
+    return () => ipcRenderer.removeListener('lightweight-mode-changed', handler)
+  },
+  onOpenPermissionDialog: (callback: (data: any) => void) => {
+    const handler = (_: any, data: any) => callback(data)
+    ipcRenderer.on('open-permission-dialog', handler)
+    return () => ipcRenderer.removeListener('open-permission-dialog', handler)
+  },
   onStartListenFromTray: (callback: () => void) => ipcRenderer.on('start-listen-from-tray', callback),
   onStopListenFromTray: (callback: () => void) => ipcRenderer.on('stop-listen-from-tray', callback),
   minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
@@ -48,18 +68,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getMacOSPermissions: (options?: { activeProbe?: boolean }) =>
     ipcRenderer.invoke('get-macos-permissions', options),
   requestMacOSPermission: (
-    target: 'screen' | 'accessibility' | 'input' | 'folder' | 'files' | 'all',
+    target: 'screen' | 'accessibility' | 'input' | 'folder' | 'all',
     options?: { openSettingsIfDenied?: boolean }
   ) => ipcRenderer.invoke('request-macos-permission', target, options),
   testScreenshotPermission: (config?: any) =>
     ipcRenderer.invoke('test-screenshot-permission', config),
   openMacOSPreference: (pane: 'screen' | 'accessibility' | 'input' | 'files') =>
     ipcRenderer.invoke('open-macos-preference', pane),
-  onOpenPermissionDialog: (callback: (data?: any) => void) => {
-    const handler = (_: any, data: any) => callback(data)
-    ipcRenderer.on('open-permission-dialog', handler)
-    return () => ipcRenderer.removeListener('open-permission-dialog', handler)
-  },
   getAutoStart: () => ipcRenderer.invoke('get-auto-start'),
   setAutoStart: (enable: boolean) => ipcRenderer.invoke('set-auto-start', enable),
   showItemInFolder: (fullPath: string) => ipcRenderer.invoke('show-item-in-folder', fullPath),

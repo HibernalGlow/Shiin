@@ -16,6 +16,7 @@ export interface SettingsViewProps {
   onOpenMacPreference?: (pane: MacPermissionPane) => void
   onOpenPermissionsView?: () => void
   onToggleAutoStart?: (enable: boolean) => void
+  onEnterLightweightMode?: () => void
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -31,6 +32,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onOpenMacPreference,
   onOpenPermissionsView,
   onToggleAutoStart,
+  onEnterLightweightMode,
 }) => {
   const isZh = locale === 'zh'
 
@@ -132,7 +134,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <div className="shiin-card" style={{ gap: 12 }}>
         <span style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
           <AppIcon name="power" size={14} />
-          {isZh ? '启动与托盘' : 'Startup & Tray'}
+          {isZh ? '启动与托盘（含轻量模式）' : 'Startup, Tray & Lightweight Mode'}
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -155,9 +157,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
+              <div>{isZh ? '启动时直接进入轻量托盘模式 (--tray)' : 'Launch Directly in Lightweight Mode (--tray)'}</div>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                {isZh
+                  ? '启动时不创建主窗口与 React 渲染进程，仅初始化后台手柄监听与托盘'
+                  : 'Skip creating main window and renderer on startup'}
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={config.startInLightweightMode || false}
+              onChange={(e) => {
+                onChange({ startInLightweightMode: e.target.checked })
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
               <div>{isZh ? '关闭主窗口策略' : 'Close Button Behavior'}</div>
               <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                {isZh ? '点击红叉时是最小化到托盘还是彻底退出' : 'Minimize to system tray or exit process'}
+                {isZh
+                  ? '保留「普通隐藏到托盘（保留界面）」与「轻量模式（销毁主窗口释放内存）」两个独立选项'
+                  : 'Choose between exiting, hiding to tray, or destroying the window in lightweight mode'}
               </div>
             </div>
             <select
@@ -166,9 +188,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               onChange={(e) => onChange({ closeType: e.target.value as any })}
             >
               <option value="exit">{isZh ? '直接退出程序' : 'Exit application'}</option>
-              <option value="tray">{isZh ? '最小化到系统托盘' : 'Minimize to tray'}</option>
+              <option value="tray">{isZh ? '隐藏到系统托盘（保留界面资源）' : 'Hide to tray (Keep UI in memory)'}</option>
+              <option value="lightweight">{isZh ? '进入轻量模式（销毁窗口释放内存）' : 'Lightweight mode (Destroy UI window)'}</option>
             </select>
           </div>
+
+          {onEnterLightweightMode && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div>{isZh ? '立即切换至轻量模式' : 'Enter Lightweight Mode Now'}</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                  {isZh
+                    ? '立即销毁当前主窗口并释放前端渲染内存，手柄后台监听与托盘继续运行（可通过托盘随时恢复界面）'
+                    : 'Destroy main window to free renderer memory while keeping gamepad listener active in tray'}
+                </div>
+              </div>
+              <button
+                className="shiin-btn"
+                data-variant="tonal"
+                style={{ height: 28, fontSize: 11, padding: '0 12px' }}
+                onClick={onEnterLightweightMode}
+              >
+                <AppIcon name="minimize" size={12} />
+                {isZh ? '进入轻量模式' : 'Lightweight Mode'}
+              </button>
+            </div>
+          )}
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>

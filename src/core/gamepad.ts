@@ -5,15 +5,39 @@ const require = createRequire(import.meta.url)
 
 let sdl: any = null
 let sdlLoaded = false
-const isElectron = Boolean(typeof process !== 'undefined' && process.versions && process.versions.electron)
+
+/**
+ * 判断当前进程角色是否允许加载原生 @kmamal/sdl 扩展：
+ * - 显式禁用 (SHIIN_DISABLE_NATIVE_SDL=1) 时返回 false
+ * - 独立的手柄采集 Worker (SHIIN_GAMEPAD_WORKER=1) 或 Electron Utility Process (process.type === 'utility') 允许加载
+ * - 纯 Node / CLI 环境 (!process.versions.electron) 允许加载
+ * - Electron 主进程 (browser) 与渲染进程 (renderer) 禁止直接加载，防止 macOS Cocoa RunLoop 冲突或主进程崩溃
+ */
+export function canLoadNativeSdl(
+  env: NodeJS.ProcessEnv = typeof process !== 'undefined' ? process.env : {},
+  proc: any = typeof process !== 'undefined' ? process : undefined
+): boolean {
+  if (!proc) return false
+  if (env?.SHIIN_DISABLE_NATIVE_SDL === '1') return false
+  if (env?.SHIIN_GAMEPAD_WORKER === '1') return true
+
+  const isElectron = Boolean(proc.versions && proc.versions.electron)
+  if (!isElectron) return true
+
+  if (proc.type === 'utility') return true
+  return false
+}
+
+export function resetSdlCacheForTest(): void {
+  sdl = null
+  sdlLoaded = false
+}
 
 function getSdl(): any {
   if (sdlLoaded) return sdl
   sdlLoaded = true
 
-  // 在 Electron 环境下，@kmamal/sdl 原生 Addon 若未针对 Electron 特殊重编译，直接载入可能触发底层 RunLoop 崩溃
-  // 故在 Electron 主进程中做安全环境检测
-  if (isElectron) {
+  if (!canLoadNativeSdl()) {
     return null
   }
 
@@ -30,9 +54,11 @@ export type GamepadTriggerCallback = (action: 'screenshot' | 'replayBuffer') => 
 export type DeviceChangeCallback = (devices: GamepadDeviceInfo[]) => void
 
 const HAT_DIRECTION_KEYS = ['up', 'right', 'down', 'left']
+const TRIGGER_COOLDOWN_MS = 300
 
 export class GamepadCore {
   private deviceInstance: any = null
+  private activeDeviceIndex = 0
   private buttons: boolean[] = new Array(20).fill(false)
   private axes: number[] = new Array(10).fill(0)
   private hatStates: string[] = []
@@ -46,13 +72,15 @@ export class GamepadCore {
   private comboPressedAt = 0
   private comboLongPressHandled = false
   private obsReplayOnLongPress = false
+  private lastTriggerAt = 0
 
   private onTriggerCallback: GamepadTriggerCallback | null = null
   private onDeviceChangeCallback: DeviceChangeCallback | null = null
   private hasBoundSdlEvents = false
 
-  // 用于在 Electron 等无原生 SDL 环境下由外部或渲染进程注入手柄数据
+  // 用于在 Electron 主进程中接收来自 Utility Process Worker 或 Web 降级注入的手柄数据
   private virtualDevices: GamepadDeviceInfo[] = []
+  private hasWorkerState = false
 
   constructor() {
     // 延迟到需要时再安全绑定 SDL 全局事件
@@ -90,10 +118,17 @@ export class GamepadCore {
     this.onDeviceChangeCallback = cb
   }
 
+  public getActiveDeviceIndex(): number {
+    return this.activeDeviceIndex
+  }
+
   /**
    * 列出所有连接的手柄设备
    */
   public getConnectedDevices(): GamepadDeviceInfo[] {
+    if (this.hasWorkerState && this.virtualDevices.length > 0) {
+      return this.virtualDevices
+    }
     const sdlInstance = getSdl()
     if (!sdlInstance || !sdlInstance.joystick) {
       return this.virtualDevices
@@ -103,7 +138,7 @@ export class GamepadCore {
       const devices = sdlInstance.joystick.devices || []
       return devices.map((d: any, index: number) => ({
         _index: index,
-        id: String(d.id || index),
+        id: String(d.id ?? index),
         name: d.name || `Gamepad #${index + 1}`,
         type: d.type,
       }))
@@ -113,25 +148,55 @@ export class GamepadCore {
   }
 
   /**
-   * 打开指定序号的手柄设备
+   * 仅释放物理/虚拟设备句柄，不中断当前的组合键监听状态机
+   */
+  private releaseDeviceHandle(): void {
+    if (this.deviceInstance) {
+      try {
+        if (typeof this.deviceInstance.removeAllListeners === 'function') {
+          this.deviceInstance.removeAllListeners()
+        }
+        if (typeof this.deviceInstance.close === 'function') {
+          this.deviceInstance.close()
+        }
+      } catch {
+        // ignore
+      }
+      this.deviceInstance = null
+    }
+    this.hatStates = []
+    this.hatCount = 0
+  }
+
+  /**
+   * 打开指定序号的手柄设备（若已在监听中则保持监听不中断）
    */
   public openDevice(deviceIndex: number): boolean {
-    this.closeDevice()
+    const targetIndex = Number.isInteger(deviceIndex) && deviceIndex >= 0 ? deviceIndex : 0
+    if (this.deviceInstance && this.activeDeviceIndex === targetIndex) {
+      return true
+    }
+
+    this.releaseDeviceHandle()
+    this.activeDeviceIndex = targetIndex
 
     const sdlInstance = getSdl()
     if (!sdlInstance || !sdlInstance.joystick) {
-      // 在无原生 SDL 环境（例如 Electron 主进程）下，以虚拟设备模式接管
-      this.deviceInstance = { index: deviceIndex, virtual: true }
-      this.resetDeviceState()
+      // 在无直接原生 SDL 的宿主进程（例如 Electron 主进程）下，以虚拟设备模式接管，保留已有 Worker 注入的状态
+      this.deviceInstance = { index: targetIndex, virtual: true }
+      if (!this.hasWorkerState) {
+        this.resetDeviceState()
+      }
       return true
     }
 
     try {
-      const sdlDevice = sdlInstance.joystick.devices[deviceIndex]
+      const sdlDevice = sdlInstance.joystick.devices[targetIndex]
       if (!sdlDevice) {
-        // 若找不到原生 SDL 序号但可能为 Web 注入设备，同样予以接管
-        this.deviceInstance = { index: deviceIndex, virtual: true }
-        this.resetDeviceState()
+        this.deviceInstance = { index: targetIndex, virtual: true }
+        if (!this.hasWorkerState) {
+          this.resetDeviceState()
+        }
         return true
       }
 
@@ -166,32 +231,20 @@ export class GamepadCore {
       return true
     } catch (err) {
       console.error('[GamepadCore] Open SDL2 device failed:', err)
-      this.deviceInstance = { index: deviceIndex, virtual: true }
-      this.resetDeviceState()
+      this.deviceInstance = { index: targetIndex, virtual: true }
+      if (!this.hasWorkerState) {
+        this.resetDeviceState()
+      }
       return true
     }
   }
 
   /**
-   * 关闭当前手柄设备，释放物理句柄
+   * 关闭当前手柄设备，释放物理句柄并停止监听
    */
   public closeDevice(): void {
     this.stopListening()
-    if (this.deviceInstance) {
-      try {
-        if (typeof this.deviceInstance.removeAllListeners === 'function') {
-          this.deviceInstance.removeAllListeners()
-        }
-        if (typeof this.deviceInstance.close === 'function') {
-          this.deviceInstance.close()
-        }
-      } catch {
-        // ignore
-      }
-      this.deviceInstance = null
-    }
-    this.hatStates = []
-    this.hatCount = 0
+    this.releaseDeviceHandle()
   }
 
   private resetDeviceState(): void {
@@ -259,11 +312,18 @@ export class GamepadCore {
   }
 
   /**
+   * 动态更新监听配置（无需中断正在运行的监听定时器）
+   */
+  public updateComboConfig(comboKeys: string[], obsReplayOnLongPress = false): void {
+    this.comboKeys = Array.isArray(comboKeys) ? [...comboKeys] : []
+    this.obsReplayOnLongPress = Boolean(obsReplayOnLongPress)
+  }
+
+  /**
    * 开始监听组合键
    */
   public startListening(comboKeys: string[], obsReplayOnLongPress = false): void {
-    this.comboKeys = comboKeys
-    this.obsReplayOnLongPress = obsReplayOnLongPress
+    this.updateComboConfig(comboKeys, obsReplayOnLongPress)
     this.isListening = true
 
     if (this.pollInterval) clearInterval(this.pollInterval)
@@ -285,9 +345,9 @@ export class GamepadCore {
   }
 
   /**
-   * 周期轮询按键与轴组合
+   * 周期轮询或事件驱动检查按键与轴组合
    */
-  private tickCheckCombo(): void {
+  public tickCheckCombo(): void {
     if (!this.isListening || this.comboKeys.length === 0) return
 
     const currentButtons = this.getCurrentButtons()
@@ -346,22 +406,81 @@ export class GamepadCore {
   private onComboReleased(): void {
     if (!this.comboPressedAt) return
 
-    // 如果未被长按拦截，则在释放时执行截屏
+    // 如果未被长按拦截，则在释放时执行截屏（含防抖冷却保护，避免快速按键连发重复截图）
     const shouldScreenshot = !this.comboLongPressHandled
     this.comboPressedAt = 0
     this.comboLongPressHandled = false
 
     if (shouldScreenshot && this.onTriggerCallback) {
-      this.onTriggerCallback('screenshot')
+      const now = Date.now()
+      if (now - this.lastTriggerAt >= TRIGGER_COOLDOWN_MS) {
+        this.lastTriggerAt = now
+        this.onTriggerCallback('screenshot')
+      }
+    }
+  }
+
+  private hasDeviceListChanged(nextDevices: GamepadDeviceInfo[]): boolean {
+    if (nextDevices.length !== this.virtualDevices.length) return true
+    for (let i = 0; i < nextDevices.length; i++) {
+      if (
+        nextDevices[i]._index !== this.virtualDevices[i]._index ||
+        nextDevices[i].id !== this.virtualDevices[i].id ||
+        nextDevices[i].name !== this.virtualDevices[i].name
+      ) {
+        return true
+      }
+    }
+    return false
+  }
+
+  /**
+   * 注入来自独立 Utility Process 手柄 Worker 的原生手柄状态
+   */
+  public injectWorkerGamepadState(
+    devices: GamepadDeviceInfo[],
+    buttons: boolean[],
+    axes: number[],
+    activeIndex?: number
+  ): void {
+    this.hasWorkerState = Array.isArray(devices) && devices.length > 0
+    if (typeof activeIndex === 'number' && activeIndex >= 0) {
+      this.activeDeviceIndex = activeIndex
+    }
+
+    const normalizedDevices = Array.isArray(devices) ? devices : []
+    const devicesChanged = this.hasDeviceListChanged(normalizedDevices)
+    this.virtualDevices = normalizedDevices
+
+    if (Array.isArray(buttons)) {
+      this.buttons = buttons
+    }
+    if (Array.isArray(axes)) {
+      this.axes = axes
+    }
+
+    if (devicesChanged) {
+      this.notifyDeviceChanged()
+    }
+
+    if (this.isListening) {
+      this.tickCheckCombo()
     }
   }
 
   /**
-   * 注入来自渲染进程（Web Gamepad API）的手柄状态
+   * 注入来自渲染进程（Web Gamepad API）的手柄状态（仅当后台原生 Worker 无可用设备时作为降级来源）
    */
   public injectWebGamepadState(devices: GamepadDeviceInfo[], buttons: boolean[], axes: number[]): void {
+    if (this.hasWorkerState && this.virtualDevices.length > 0) {
+      return
+    }
     if (devices && devices.length > 0) {
+      const changed = this.hasDeviceListChanged(devices)
       this.virtualDevices = devices
+      if (changed) {
+        this.notifyDeviceChanged()
+      }
     }
     if (buttons && buttons.length > 0) {
       this.buttons = buttons
@@ -369,6 +488,8 @@ export class GamepadCore {
     if (axes && axes.length > 0) {
       this.axes = axes
     }
+    if (this.isListening) {
+      this.tickCheckCombo()
+    }
   }
 }
-

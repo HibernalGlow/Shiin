@@ -1,5 +1,6 @@
 import type {
   IHostBridge,
+  HostRuntimeState,
   MacOSPermissionsStatus,
   ScreenshotPermissionTestResult,
   MacPermissionPane,
@@ -71,7 +72,7 @@ export class ElectronHostBridge implements IHostBridge {
     }
     if (mainDevices.length > 0) return mainDevices
 
-    // Web Gamepad API Fallback (适用于无原生 SDL 的 Electron 桌面窗口或浏览器预览)
+    // Web Gamepad API Fallback (仅当独立 SDL Worker 未检出设备时作为降级来源)
     if (typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function') {
       const raw = Array.from(navigator.getGamepads() || []).filter(Boolean) as Gamepad[]
       if (raw.length > 0) {
@@ -103,32 +104,49 @@ export class ElectronHostBridge implements IHostBridge {
     }
   }
 
+  public onGamepadDevicesChanged(cb: (devices: GamepadDeviceInfo[]) => void): () => void {
+    if (this.api.onGamepadDevicesChanged) {
+      return this.api.onGamepadDevicesChanged(cb)
+    }
+    return () => {}
+  }
+
   public async getCurrentButtons(): Promise<boolean[]> {
-    // 优先读取 Web Gamepad API
+    // 若浏览器环境存在 Web Gamepad 输入，仅作为后台无原生 Worker 时的降级补充上报（主进程在已有 Worker 状态时会自动忽略）
+    let webButtons: boolean[] = []
     if (typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function') {
       const raw = Array.from(navigator.getGamepads() || []).filter(Boolean) as Gamepad[]
       if (raw.length > 0) {
         const active = raw[0]
-        const buttons = active.buttons.map((b) => b.pressed)
-        const axes = active.axes.map((a) => a)
+        webButtons = active.buttons.map((b) => b.pressed)
+        const webAxes = active.axes.map((a) => a)
         if (this.api.syncWebGamepad) {
           void this.api.syncWebGamepad(
             raw.map((gp, idx) => ({ _index: idx, id: gp.id, name: gp.id, type: 'gamecontroller' })),
-            buttons,
-            axes
+            webButtons,
+            webAxes
           )
         }
-        return buttons
       }
     }
 
     if (this.api.getCurrentButtonsValue) {
-      return await this.api.getCurrentButtonsValue()
+      const mainButtons = await this.api.getCurrentButtonsValue()
+      if (Array.isArray(mainButtons) && mainButtons.length > 0) {
+        return mainButtons
+      }
     }
-    return []
+    return webButtons
   }
 
   public async getCurrentAxes(): Promise<number[]> {
+    if (this.api.getCurrentAxesValue) {
+      const mainAxes = await this.api.getCurrentAxesValue()
+      if (Array.isArray(mainAxes) && mainAxes.length > 0) {
+        return mainAxes
+      }
+    }
+
     if (typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function') {
       const raw = Array.from(navigator.getGamepads() || []).filter(Boolean) as Gamepad[]
       if (raw.length > 0) {
@@ -136,9 +154,6 @@ export class ElectronHostBridge implements IHostBridge {
       }
     }
 
-    if (this.api.getCurrentAxesValue) {
-      return await this.api.getCurrentAxesValue()
-    }
     return []
   }
 
@@ -224,6 +239,20 @@ export class ElectronHostBridge implements IHostBridge {
     }
   }
 
+  public async getListeningState(): Promise<boolean> {
+    if (this.api.getListeningState) {
+      return Boolean(await this.api.getListeningState())
+    }
+    return false
+  }
+
+  public async getRuntimeState(): Promise<HostRuntimeState | null> {
+    if (this.api.getRuntimeState) {
+      return await this.api.getRuntimeState()
+    }
+    return null
+  }
+
   public onListeningStateChanged(cb: (isListening: boolean) => void): () => void {
     const unbinds: (() => void)[] = []
     if (this.api.onListenStatusChanged) {
@@ -253,6 +282,27 @@ export class ElectronHostBridge implements IHostBridge {
 
   public closeWindow(): void {
     if (this.api.closeWindow) this.api.closeWindow()
+  }
+
+  public async enterLightweightMode(): Promise<{ ok: boolean; lightweight: boolean }> {
+    if (this.api.enterLightweightMode) {
+      return await this.api.enterLightweightMode()
+    }
+    return { ok: false, lightweight: false }
+  }
+
+  public async exitLightweightMode(): Promise<{ ok: boolean; lightweight: boolean }> {
+    if (this.api.exitLightweightMode) {
+      return await this.api.exitLightweightMode()
+    }
+    return { ok: false, lightweight: false }
+  }
+
+  public onLightweightModeChanged(cb: (lightweight: boolean) => void): () => void {
+    if (this.api.onLightweightModeChanged) {
+      return this.api.onLightweightModeChanged(cb)
+    }
+    return () => {}
   }
 
   public async setUiScale(scale: number): Promise<number> {

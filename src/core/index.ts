@@ -66,7 +66,7 @@ export class ScreenshotManager {
   }
 
   private initBindings(): void {
-    // 监听手柄触发
+    // 监听手柄触发（唯一组合键触发源）
     this.gamepad.onTrigger(async (action) => {
       if (action === 'screenshot') {
         const res = await this.capture(this.defaultCaptureOptions)
@@ -129,8 +129,24 @@ export class ScreenshotManager {
     }
   }
 
+  /**
+   * 同步更新运行期配置：若当前正在监听，同步热更新组合键和键盘监听状态，无需中断监听
+   */
+  public syncConfig(patch: Partial<ScreenshotConfig>): void {
+    this.config = { ...this.config, ...patch }
+    if (this.isListening) {
+      this.gamepad.updateComboConfig(this.config.comboKeys, this.config.obsReplayBufferOnLongPress)
+      if (this.config.keyboardTrigger && !this.keyboard.isRunning) {
+        this.keyboard.start()
+      } else if (!this.config.keyboardTrigger && this.keyboard.isRunning) {
+        this.keyboard.stop()
+      }
+    }
+  }
+
   public async saveConfig(): Promise<void> {
     await saveFullConfig(this.storage, this.config, this.currentDeviceName)
+    this.syncConfig(this.config)
     this.emit({ type: 'statusChanged', data: { listening: this.isListening, config: this.config } })
   }
 
@@ -153,28 +169,35 @@ export class ScreenshotManager {
 
     const devices = this.gamepad.getConnectedDevices()
     if (devices.length > 0) {
-      const idx = deviceIndex !== undefined ? deviceIndex : devices[0]._index
-      this.gamepad.openDevice(idx)
-      this.currentDeviceName = devices.find((d) => d._index === idx)?.name || ''
+      const preferredIdx = deviceIndex !== undefined ? deviceIndex : this.gamepad.getActiveDeviceIndex()
+      const validDevice = devices.find((d) => d._index === preferredIdx) || devices[0]
+      this.gamepad.openDevice(validDevice._index)
+      this.currentDeviceName = validDevice.name || ''
     }
 
-    // 启动组合键监听定时器（支持原生 SDL 或 Web Gamepad 注入模式）
+    // 启动组合键监听定时器（支持独立 Utility Process Worker 或原生 SDL）
     this.gamepad.startListening(this.config.comboKeys, this.config.obsReplayBufferOnLongPress)
 
     if (this.config.keyboardTrigger) {
       this.keyboard.start()
     }
 
+    const wasListening = this.isListening
     this.isListening = true
-    this.emit({ type: 'statusChanged', data: { listening: true, config: this.config } })
+    if (!wasListening) {
+      this.emit({ type: 'statusChanged', data: { listening: true, config: this.config } })
+    }
     return { ok: true }
   }
 
   public stopListening(): void {
     this.gamepad.stopListening()
     this.keyboard.stop()
+    const wasListening = this.isListening
     this.isListening = false
-    this.emit({ type: 'statusChanged', data: { listening: false, config: this.config } })
+    if (wasListening) {
+      this.emit({ type: 'statusChanged', data: { listening: false, config: this.config } })
+    }
   }
 
   public get listening(): boolean {

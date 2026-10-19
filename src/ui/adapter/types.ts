@@ -19,6 +19,14 @@ export type {
   ScreenshotPermissionTestResult,
 }
 
+export interface HostRuntimeState {
+  config: ScreenshotConfig
+  listening: boolean
+  activeGamepadIndex: number
+  devices: GamepadDeviceInfo[]
+  lightweightMode: boolean
+}
+
 export interface IHostBridge {
   readonly hostType: 'electron' | 'xaihi' | 'mock'
 
@@ -32,6 +40,7 @@ export interface IHostBridge {
   closeGamepad(): Promise<void>
   getCurrentButtons(): Promise<boolean[]>
   getCurrentAxes(): Promise<number[]>
+  onGamepadDevicesChanged?(cb: (devices: GamepadDeviceInfo[]) => void): () => void
 
   // 截屏动作与环境查询
   getScreenSources(): Promise<CaptureDisplayInfo[]>
@@ -40,15 +49,20 @@ export interface IHostBridge {
   selectFolder(): Promise<string | null>
   openFolder(path: string): Promise<{ ok: boolean; path?: string; error?: string } | void>
 
-  // 监听管理
+  // 监听管理与运行状态恢复
   startListening(config: ScreenshotConfig): Promise<boolean>
   stopListening(): Promise<void>
+  getListeningState?(): Promise<boolean>
+  getRuntimeState?(): Promise<HostRuntimeState | null>
   onListeningStateChanged(cb: (isListening: boolean) => void): () => void
 
-  // 托盘与窗口控制（仅独立桌面端可用，Xaihi 面板下静默安全降级）
+  // 托盘、窗口控制与轻量模式（仅独立桌面端可用，Xaihi 面板下静默安全降级）
   minimizeWindow?(): void
   toggleMaximizeWindow?(): Promise<boolean>
   closeWindow?(): void
+  enterLightweightMode?(): Promise<{ ok: boolean; lightweight: boolean }>
+  exitLightweightMode?(): Promise<{ ok: boolean; lightweight: boolean }>
+  onLightweightModeChanged?(cb: (lightweight: boolean) => void): () => void
   setUiScale?(scale: number): Promise<number>
   showNotification?(title: string, body: string, img?: string): void
 

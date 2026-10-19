@@ -68,9 +68,9 @@ export const App: React.FC = () => {
   const [liveRecordingKeys, setLiveRecordingKeys] = React.useState<string[]>([])
   const recordingKeysSetRef = React.useRef<Set<string>>(new Set())
   const releaseDebounceRef = React.useRef<NodeJS.Timeout | null>(null)
-  const comboTriggerPressedAtRef = React.useRef<number>(0)
-  const comboTriggerHandledRef = React.useRef<boolean>(false)
   const lastCaptureTimeRef = React.useRef<number>(0)
+  const configRef = React.useRef<ScreenshotConfig>(config)
+  configRef.current = config
   const [detectingKeyboard, setDetectingKeyboard] = React.useState<boolean>(false)
 
   // 外观与系统
@@ -132,8 +132,30 @@ export const App: React.FC = () => {
         }
       }
 
+      // 从后台核心恢复当前真实运行状态（轻量模式重建窗口后无需中断或重启后台监听）
+      if (bridge.getRuntimeState) {
+        const runtime = await bridge.getRuntimeState()
+        if (runtime) {
+          if (runtime.config) {
+            setConfig((prev) => ({ ...prev, ...runtime.config }))
+          }
+          setListening(Boolean(runtime.listening))
+          if (typeof runtime.activeGamepadIndex === 'number' && runtime.activeGamepadIndex >= 0) {
+            setSelectedGamepadIndex(runtime.activeGamepadIndex)
+          }
+          if (Array.isArray(runtime.devices) && runtime.devices.length > 0) {
+            setGamepads(runtime.devices)
+          }
+        }
+      } else if (bridge.getListeningState) {
+        const isListeningNow = await bridge.getListeningState()
+        setListening(Boolean(isListeningNow))
+      }
+
       const devs = await bridge.getConnectedGamepads()
-      setGamepads(devs)
+      if (devs.length > 0) {
+        setGamepads(devs)
+      }
 
       const scrs = await bridge.getScreenSources()
       setScreens(scrs)
@@ -143,9 +165,21 @@ export const App: React.FC = () => {
     })()
 
     const unbindListen = bridge.onListeningStateChanged((st) => setListening(st))
+    const unbindDevices = bridge.onGamepadDevicesChanged?.((devs) => {
+      if (Array.isArray(devs)) setGamepads(devs)
+    })
     const unbindScreenshot = (window as any).electronAPI?.onScreenshotCompleted?.((res: any) => {
       if (res?.ok) {
+        const curCfg = configRef.current
+        if (curCfg.sound && curCfg.sound !== 'None') {
+          void playCaptureSound(curCfg.sound, curCfg.soundPower)
+        }
         setLastNotice(locale === 'zh' ? `截图成功: ${res.filePath || '已写入系统剪贴板'}` : `Captured: ${res.filePath || 'Clipboard'}`)
+      }
+    })
+    const unbindObsReplay = (window as any).electronAPI?.onObsReplayCompleted?.((res: any) => {
+      if (res?.ok) {
+        setLastNotice(locale === 'zh' ? 'OBS 精彩回放缓冲已保存' : 'OBS replay buffer saved')
       }
     })
 
@@ -175,7 +209,9 @@ export const App: React.FC = () => {
 
     return () => {
       unbindListen()
+      if (typeof unbindDevices === 'function') unbindDevices()
       if (typeof unbindScreenshot === 'function') unbindScreenshot()
+      if (typeof unbindObsReplay === 'function') unbindObsReplay()
       if (typeof unbindPermDialog === 'function') unbindPermDialog()
       window.removeEventListener('focus', handleWindowFocus)
       unregisterStyles()
@@ -264,53 +300,6 @@ export const App: React.FC = () => {
             recordingKeysSetRef.current.clear()
             releaseDebounceRef.current = null
           }, 260)
-        }
-      } else if (listening && config.comboKeys && config.comboKeys.length > 0) {
-        // 处于监听状态：实时匹配手柄组合键并执行快门/OBS回放
-        let matched = true
-        for (const key of config.comboKeys) {
-          if (key.startsWith('Button')) {
-            const idx = Number(key.replace('Button', ''))
-            if (!b || !b[idx]) {
-              matched = false
-              break
-            }
-          } else if (key.startsWith('Axis')) {
-            const match = key.match(/^Axis\s*(\d+)\s*([+-])$/i)
-            if (match) {
-              const axisIdx = Number(match[1])
-              const dir = match[2]
-              const val = a ? (a[axisIdx] ?? 0) : 0
-              if (dir === '+' && val < 0.85) matched = false
-              else if (dir === '-' && val > -0.85) matched = false
-            } else {
-              matched = false
-            }
-            if (!matched) break
-          }
-        }
-
-        if (matched) {
-          if (!comboTriggerPressedAtRef.current) {
-            comboTriggerPressedAtRef.current = Date.now()
-            comboTriggerHandledRef.current = false
-          } else if (
-            config.obsReplayBufferOnLongPress &&
-            !comboTriggerHandledRef.current &&
-            Date.now() - comboTriggerPressedAtRef.current >= 1000
-          ) {
-            comboTriggerHandledRef.current = true
-            void handleSaveOBS()
-          }
-        } else if (comboTriggerPressedAtRef.current) {
-          const duration = Date.now() - comboTriggerPressedAtRef.current
-          const wasHandled = comboTriggerHandledRef.current
-          comboTriggerPressedAtRef.current = 0
-          comboTriggerHandledRef.current = false
-
-          if (duration >= 60 && !wasHandled) {
-            void handleCapture()
-          }
         }
       }
     }, 60)
@@ -1456,6 +1445,13 @@ export const App: React.FC = () => {
                   patchConfig({ autoStart: enable })
                   if (bridge.setAutoStart) void bridge.setAutoStart(enable)
                 }}
+                onEnterLightweightMode={
+                  bridge.enterLightweightMode
+                    ? () => {
+                        void bridge.enterLightweightMode?.()
+                      }
+                    : undefined
+                }
                 onCheckUpdate={() => setUpdateDialogOpen(true)}
                 onOpenGithub={() => bridge.openExternal?.('https://github.com/AmagiSakuya/GamePad-ScreenShot-Windows')}
               />

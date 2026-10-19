@@ -99,7 +99,8 @@
         "closeType": "Close behavior",
         "closeTypeEnum": {
             "exit": "Exit application",
-            "tray": "Close to tray"
+            "tray": "Close to tray",
+            "lightweight": "Lightweight mode (Destroy UI)"
         },
         "autoStart": "Auto Start on Boot",
         "minimizeOnStartup": "Silent Startup",
@@ -174,7 +175,8 @@
         "startListen": "Start Listening",
         "stopListen": "Stop Listening",
         "show": "Show Main Window",
-        "exit": "Exit Application"
+        "exit": "Exit Application",
+        "lightweightMode": "Lightweight Mode"
     },
     "ui": {
         "themeToggle": "Toggle theme",
