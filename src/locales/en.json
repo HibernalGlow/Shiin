@@ -267,5 +267,19 @@
         "recheck": "Check again",
         "checkNow": "Check for updates",
         "applyFailed": "Failed to start the update. Please download it manually."
+    },
+    "Permissions": {
+        "title": "macOS Permission Recognition & Capability Diagnostics",
+        "description": "Actively trigger macOS permission dialogs and verify Screen Recording, Accessibility, and Storage.",
+        "screenRecording": "Screen Recording Permission",
+        "accessibility": "Accessibility / Window Discovery",
+        "inputMonitoring": "Global Input Monitoring",
+        "folderAccess": "Storage Folder Access",
+        "granted": "Granted",
+        "denied": "Denied",
+        "requestAll": "Request All Permissions",
+        "openSettings": "Open System Settings",
+        "testCapture": "Test Screenshot",
+        "screenMissingAlert": "Screen recording permission required, opening System Settings..."
     }
 }

@@ -1004,6 +1004,13 @@ app.on('ready', async () => {
         const perms = await getMacOSPermissionsStatus({ activeProbe: false })
         if (!perms.screenCapture || !perms.accessibility) {
           await requestMacOSPermission('all', { openSettingsIfDenied: false })
+          if (!perms.screenCapture) {
+            win?.webContents.send('open-permission-dialog', {
+              reason: 'startup_missing_permissions',
+              message: '检测到屏幕录制权限尚未授权，截图功能将受限。已为您就绪权限自检中心。',
+              perms,
+            })
+          }
         }
       } catch (err) {
         console.warn('[Main] Initial macOS permission auto-request failed:', err)

@@ -267,5 +267,19 @@
         "recheck": "重新检查",
         "checkNow": "检查更新",
         "applyFailed": "启动更新失败，请手动下载安装"
+    },
+    "Permissions": {
+        "title": "macOS 权限识别与全功能自检中心",
+        "description": "主动触发系统授权弹窗，并检测「屏幕录制」、「辅助功能」、「输入监控」及「截图保存目录读写」。",
+        "screenRecording": "屏幕录制权限",
+        "accessibility": "辅助功能 / 窗口识别",
+        "inputMonitoring": "全局键盘输入监控",
+        "folderAccess": "截图目录读写权限",
+        "granted": "已授权",
+        "denied": "未授权",
+        "requestAll": "一键主动请求全部权限",
+        "openSettings": "打开系统设置",
+        "testCapture": "实测截图权限",
+        "screenMissingAlert": "截取屏幕需要屏幕录制权限，已主动为您打开系统设置"
     }
 }
