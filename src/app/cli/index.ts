@@ -14,6 +14,23 @@ async function main() {
   await manager.init()
 
   if (cmd === 'tui') {
+    // OpenTUI native FFI requires Bun if available on current system
+    if (typeof (process.versions as any).bun === 'undefined') {
+      try {
+        const { spawnSync } = await import('node:child_process')
+        const bunCheck = spawnSync('bun', ['--version'], { stdio: 'ignore' })
+        if (bunCheck.status === 0) {
+          const tuiArgs = args[0] === 'tui' ? args.slice(1) : args
+          const res = spawnSync('bun', [process.argv[1], 'tui', ...tuiArgs], {
+            stdio: 'inherit',
+          })
+          process.exit(res.status ?? 0)
+        }
+      } catch {
+        // Fall back to direct execution in current node process
+      }
+    }
+
     const { runOpenTui } = await import('./tui.js')
     await runOpenTui(manager)
     process.exit(0)

@@ -6,6 +6,42 @@ import type {
   ScreenshotResult,
 } from '../../core/types.js'
 
+export type MacPermissionPane = 'screen' | 'accessibility' | 'input' | 'files'
+
+export interface MacOSPermissionsStatus {
+  isMac: boolean
+  platform: string
+  screenCapture: boolean
+  screenCaptureStatus?: string
+  accessibility: boolean
+  inputMonitoring?: boolean
+  folderAccess?: boolean
+  resolvedSavePath?: string
+  folderError?: string
+  windowRecognition?: boolean
+  detectedWindowsCount?: number
+  activeWindowTitle?: string
+  windowError?: string
+  gamepadAccess?: boolean
+  detectedGamepadsCount?: number
+  allGranted?: boolean
+  checkedAt?: number
+}
+
+export interface ScreenshotPermissionTestResult {
+  ok: boolean
+  granted: boolean
+  filePath?: string | null
+  previewDataUrl?: string
+  width?: number
+  height?: number
+  sizeBytes?: number
+  latencyMs?: number
+  isBlackFrame?: boolean
+  error?: string
+  permissions?: MacOSPermissionsStatus
+}
+
 export interface IHostBridge {
   readonly hostType: 'electron' | 'xaihi' | 'mock'
 
@@ -25,7 +61,7 @@ export interface IHostBridge {
   getCaptureWindows(): Promise<CaptureWindowInfo[]>
   capture(config: ScreenshotConfig): Promise<ScreenshotResult | null>
   selectFolder(): Promise<string | null>
-  openFolder(path: string): Promise<void>
+  openFolder(path: string): Promise<{ ok: boolean; path?: string; error?: string } | void>
 
   // 监听管理
   startListening(config: ScreenshotConfig): Promise<boolean>
@@ -48,10 +84,15 @@ export interface IHostBridge {
   checkForUpdates?(): Promise<{ hasUpdate: boolean; latestVersion: string; releaseUrl?: string } | null>
   clearLogFiles?(): Promise<{ ok: boolean; removed: number }>
 
-  // 平台特性与系统权限（macOS 专用适配）
+  // 平台特性与系统权限（macOS 专用适配与全平台自检）
   readonly isMac?: boolean
-  getMacOSPermissions?(): Promise<{ isMac: boolean; screenCapture: boolean; accessibility: boolean }>
-  openMacOSPreference?(pane: 'screen' | 'accessibility'): Promise<void>
+  getMacOSPermissions?(options?: { activeProbe?: boolean }): Promise<MacOSPermissionsStatus>
+  requestMacOSPermission?(
+    target: 'screen' | 'accessibility' | 'input' | 'folder' | 'all',
+    options?: { openSettingsIfDenied?: boolean }
+  ): Promise<MacOSPermissionsStatus>
+  testScreenshotPermission?(config?: ScreenshotConfig): Promise<ScreenshotPermissionTestResult>
+  openMacOSPreference?(pane: MacPermissionPane): Promise<void>
   getAutoStart?(): Promise<boolean>
   setAutoStart?(enable: boolean): Promise<boolean>
   showItemInFolder?(path: string): Promise<void>

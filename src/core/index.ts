@@ -6,6 +6,9 @@ import {
   getScreenDisplays,
   getCaptureWindows,
   getActiveWindowInfo,
+  resolveScreenshotSaveDir,
+  testDirectoryAccess,
+  captureMacScreenNative,
 } from './screenshot.js'
 import {
   type IConfigStorage,
@@ -13,6 +16,8 @@ import {
   MemoryConfigStorage,
   loadFullConfig,
   saveFullConfig,
+  isDirectoryWritable,
+  getDefaultConfigDir,
 } from './config.js'
 import {
   type ScreenshotConfig,
@@ -109,8 +114,13 @@ export class ScreenshotManager {
     this.currentDeviceName = deviceName || ''
     this.config = await loadFullConfig(this.storage, deviceName)
 
+    // 确保默认截图目录已初始化解析
+    if (!this.config.path || !this.config.path.trim()) {
+      this.config.path = resolveScreenshotSaveDir('')
+    }
+
     // 如果首选屏幕没有配，自动选中第一块屏幕
-    if (!this.config.screenSourceId) {
+    if (this.config.screenSourceId === '' || this.config.screenSourceId === undefined) {
       const screens = await getScreenDisplays()
       if (screens.length > 0) {
         this.config.screenSourceId = screens[0].id

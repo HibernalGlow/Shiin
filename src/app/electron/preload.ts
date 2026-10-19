@@ -45,8 +45,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearLogFiles: () => ipcRenderer.invoke('clear-log-files'),
   copyText: (text: string) => clipboard.writeText(text),
   platform: process.platform,
-  getMacOSPermissions: () => ipcRenderer.invoke('get-macos-permissions'),
-  openMacOSPreference: (pane: 'screen' | 'accessibility') => ipcRenderer.invoke('open-macos-preference', pane),
+  getMacOSPermissions: (options?: { activeProbe?: boolean }) =>
+    ipcRenderer.invoke('get-macos-permissions', options),
+  requestMacOSPermission: (
+    target: 'screen' | 'accessibility' | 'input' | 'folder' | 'all',
+    options?: { openSettingsIfDenied?: boolean }
+  ) => ipcRenderer.invoke('request-macos-permission', target, options),
+  testScreenshotPermission: (config?: any) =>
+    ipcRenderer.invoke('test-screenshot-permission', config),
+  openMacOSPreference: (pane: 'screen' | 'accessibility' | 'input' | 'files') =>
+    ipcRenderer.invoke('open-macos-preference', pane),
   getAutoStart: () => ipcRenderer.invoke('get-auto-start'),
   setAutoStart: (enable: boolean) => ipcRenderer.invoke('set-auto-start', enable),
   showItemInFolder: (fullPath: string) => ipcRenderer.invoke('show-item-in-folder', fullPath),
