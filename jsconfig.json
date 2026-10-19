@@ -1,9 +1,0 @@
-{
-  "compilerOptions": {
-    "checkJs": false,
-    "strict": false,
-    "skipLibCheck": true,
-    "allowJs": true
-  },
-  "exclude": ["node_modules"]
-}

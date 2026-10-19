@@ -1,69 +1,332 @@
 {
-  "name": "gamepad-screenshot",
+  "name": "@hibernalglow/xaihi-shiin",
   "version": "2.0.0",
+  "description": "Cross-host Gamepad Screenshot tool & instant replay for Standalone Desktop and Xaihi Node ecosystem",
   "author": "AmagiSakuya",
-  "description": "A Simple Gamepad ScreenShot Tool",
-  "private": true,
-  "scripts": {
-    "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint",
-    "electron:build": "vue-cli-service electron:build",
-    "electron:serve": "vue-cli-service electron:serve",
-    "devtools:fetch": "node scripts/fetch-devtools.js",
-    "postinstall": "electron-builder install-app-deps",
-    "postuninstall": "electron-builder install-app-deps"
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.mjs",
+  "types": "lib/index.d.mts",
+  "bin": {
+    "shiin": "./lib/cli.mjs"
   },
-  "main": "background.js",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.mts",
+      "default": "./lib/index.mjs"
+    },
+    "./cli": {
+      "types": "./lib/cli.d.mts",
+      "default": "./lib/cli.mjs"
+    },
+    "./core": {
+      "types": "./lib/core.d.mts",
+      "default": "./lib/core.mjs"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/**",
+    "dist/**",
+    "cordis.patch.yml",
+    "icon.svg",
+    "gamepad.ico",
+    "package.json"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "xaihi": {
+    "schema": "xaihi.manifest/1",
+    "id": "xaihi-shiin",
+    "title": {
+      "zh": "游戏手柄截图",
+      "en": "Gamepad Screenshot"
+    },
+    "ui": {
+      "remote": "shiin",
+      "entry": "./dist/remoteEntry.js"
+    },
+    "panels": [
+      {
+        "id": "xaihi.workspace.shiin",
+        "title": {
+          "zh": "手柄截图面板",
+          "en": "Gamepad Screenshot Panel"
+        },
+        "area": "workspace",
+        "remote": "shiin",
+        "export": "Panel"
+      }
+    ],
+    "node": {
+      "definitionVersion": 1,
+      "nodeId": "shiin",
+      "title": {
+        "zh": "游戏手柄截图",
+        "en": "Gamepad Screenshot"
+      },
+      "description": {
+        "zh": "通过游戏手柄组合键、快捷键或命令触发桌面与窗口截图，支持 OBS 联动与即时回放缓冲保存。",
+        "en": "Trigger desktop and window captures via gamepad combos, shortcuts, or commands, with OBS integration and instant replay buffer support."
+      },
+      "icon": "Camera",
+      "category": "system",
+      "actions": [
+        {
+          "id": "status",
+          "label": {
+            "zh": "查看监听状态",
+            "en": "Check status"
+          },
+          "description": {
+            "zh": "查询当前监听状态、活动设备与配置概要。",
+            "en": "Query current listener state, active device, and config summary."
+          }
+        },
+        {
+          "id": "capture",
+          "label": {
+            "zh": "执行截图",
+            "en": "Take screenshot"
+          },
+          "description": {
+            "zh": "捕获当前配置的屏幕或窗口画面并按规则保存。",
+            "en": "Capture screen or window frame and save according to rules."
+          }
+        },
+        {
+          "id": "list_devices",
+          "label": {
+            "zh": "列出手柄设备",
+            "en": "List gamepads"
+          },
+          "description": {
+            "zh": "列出当前系统连接的所有游戏手柄及输入轴、按键数量。",
+            "en": "List all connected gamepads and their axis/button counts."
+          }
+        },
+        {
+          "id": "start_listen",
+          "label": {
+            "zh": "开始监听",
+            "en": "Start listening"
+          },
+          "description": {
+            "zh": "启动手柄与快捷键全局后台监听。",
+            "en": "Start global background gamepad and hotkey listener."
+          }
+        },
+        {
+          "id": "stop_listen",
+          "label": {
+            "zh": "停止监听",
+            "en": "Stop listening"
+          },
+          "description": {
+            "zh": "暂停手柄与快捷键后台监听并释放句柄。",
+            "en": "Stop gamepad and hotkey listener and release handles."
+          }
+        },
+        {
+          "id": "obs_save_replay",
+          "label": {
+            "zh": "保存OBS回放缓存",
+            "en": "Save OBS replay"
+          },
+          "description": {
+            "zh": "向已连接的 OBS 实例发送保存即时回放缓存指令。",
+            "en": "Send save replay buffer command to the connected OBS instance."
+          }
+        }
+      ],
+      "fields": [
+        {
+          "id": "action",
+          "kind": "select",
+          "isActionSelector": true,
+          "label": {
+            "zh": "动作",
+            "en": "Action"
+          },
+          "default": "status",
+          "options": [
+            {
+              "value": "status",
+              "label": {
+                "zh": "查看状态",
+                "en": "Check status"
+              }
+            },
+            {
+              "value": "capture",
+              "label": {
+                "zh": "执行截图",
+                "en": "Take screenshot"
+              }
+            },
+            {
+              "value": "list_devices",
+              "label": {
+                "zh": "列出手柄",
+                "en": "List gamepads"
+              }
+            },
+            {
+              "value": "start_listen",
+              "label": {
+                "zh": "开始监听",
+                "en": "Start listening"
+              }
+            },
+            {
+              "value": "stop_listen",
+              "label": {
+                "zh": "停止监听",
+                "en": "Stop listening"
+              }
+            },
+            {
+              "value": "obs_save_replay",
+              "label": {
+                "zh": "保存OBS回放",
+                "en": "Save OBS replay"
+              }
+            }
+          ],
+          "rules": [
+            {
+              "rule": {
+                "type": "oneOfDeclaredOptions"
+              }
+            }
+          ],
+          "visible": {
+            "type": "single",
+            "predicate": {
+              "test": {
+                "type": "always"
+              },
+              "negated": false
+            }
+          }
+        }
+      ],
+      "groups": [],
+      "inputBindings": [
+        {
+          "fieldId": "action",
+          "slot": "action",
+          "transform": "trim"
+        }
+      ],
+      "danger": {
+        "type": "none"
+      },
+      "reportsProgress": false,
+      "publishesOutputPath": true,
+      "help": {
+        "whenToUse": {
+          "zh": "需要通过游戏手柄组合键、后台快捷键或自动化指令截取游戏画面或录屏回放时使用。",
+          "en": "Use when you need to capture game screenshots or save replay clips via gamepad combos or automation commands."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build:node": "tsdown",
+    "build:plugin-ui": "rspack build",
+    "build:app-ui": "cross-env BUILD_TARGET=app rspack build",
+    "build:plugin": "tsdown && rspack build",
+    "build:app": "tsdown && cross-env BUILD_TARGET=app rspack build",
+    "build": "tsdown && rspack build && cross-env BUILD_TARGET=app rspack build",
+    "pack:app": "tsdown && cross-env BUILD_TARGET=app rspack build && electron-builder --dir",
+    "dist:app": "tsdown && cross-env BUILD_TARGET=app rspack build && electron-builder",
+    "electron:start": "electron lib/main.mjs",
+    "cli": "node lib/cli.mjs",
+    "tui": "node lib/cli.mjs tui",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
   "dependencies": {
+    "@deepseek-ai/schemastery": "~3.18.4",
     "@kmamal/sdl": "^0.11.13",
+    "@opentui/core": "^0.6.6",
+    "@opentui/react": "^0.6.6",
     "active-win": "^8.2.1",
-    "core-js": "^3.8.3",
     "electron-log": "^4.4.8",
-    "fs": "^0.0.1-security",
     "howler": "^2.2.4",
     "node-screenshots": "0.2.0",
     "obs-websocket-js": "^5.0.7",
-    "path-browserify": "^1.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "screenshot-desktop": "^1.15.6",
-    "uiohook-napi": "^1.5.5",
-    "vue": "^3.2.13",
-    "vue-i18n": "^11.2.8"
+    "uiohook-napi": "^1.5.5"
   },
-  "devDependencies": {
-    "@babel/core": "^7.12.16",
-    "@babel/eslint-parser": "^7.12.16",
-    "@vue/cli-plugin-babel": "~5.0.0",
-    "@vue/cli-plugin-eslint": "~5.0.0",
-    "@vue/cli-service": "~5.0.0",
-    "electron": "^13.0.0",
-    "electron-devtools-installer": "^3.2.1",
-    "eslint": "^7.32.0",
-    "eslint-plugin-vue": "^8.0.3",
-    "node-polyfill-webpack-plugin": "^4.1.0",
-    "vue-cli-plugin-electron-builder": "~2.1.1"
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.4",
+    "@deepseek-ai/dsh-tools": "0.2.0-rc.2"
   },
-  "eslintConfig": {
-    "root": true,
-    "env": {
-      "node": true
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
     },
-    "extends": [
-      "plugin:vue/vue3-essential",
-      "eslint:recommended"
-    ],
-    "parserOptions": {
-      "parser": "@babel/eslint-parser"
-    },
-    "rules": {
-      "no-unused-vars": "off",
-      "vue/no-unused-components": "off"
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
     }
   },
-  "browserslist": [
-    "> 1%",
-    "last 2 versions",
-    "not dead",
-    "not ie 11"
-  ]
+  "optionalDependencies": {
+    "electron": "^28.3.3"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "~4.0.4",
+    "@module-federation/enhanced": "2.9.2",
+    "@rspack/cli": "^1.2.0",
+    "@rspack/core": "^1.2.0",
+    "@types/howler": "^2.2.12",
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "cross-env": "^7.0.3",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  },
+  "packageManager": "pnpm@12.11.2",
+  "resolutions": {
+    "rollup": "4.64.9"
+  },
+  "build": {
+    "appId": "com.amagisakuya.shiin",
+    "productName": "Shiin",
+    "extraMetadata": {
+      "main": "lib/main.mjs"
+    },
+    "directories": {
+      "output": "dist_electron"
+    },
+    "files": [
+      "lib/**",
+      "dist/ui/**",
+      "gamepad.ico",
+      "src/assets/**",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.games",
+      "target": ["dir"],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "icon": "src/assets/icon_mac.png"
+    },
+    "win": {
+      "target": ["portable"],
+      "icon": "gamepad.ico"
+    }
+  }
 }
