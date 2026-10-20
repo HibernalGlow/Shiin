@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380" role="img" aria-labelledby="palette-en-title palette-en-desc">
+  <title id="palette-en-title">Shiin impression palette, after Arknights Scene</title>
+  <desc id="palette-en-desc">Six colors: darkroom ink, silver, signal lime, moss, crimson and pale blossom. The lime maps to the app's primary token.</desc>
+
+  <rect width="1200" height="380" fill="#0C0E09" />
+  <rect x="20.5" y="20.5" width="1159" height="339" rx="2" fill="none" stroke="#242C1D" stroke-width="1" />
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans CJK SC', sans-serif">
+    <text x="64" y="62" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="16" letter-spacing="2.4" fill="#C9F56D">IMPRESSION / SCENE</text>
+    <text x="64" y="116" font-size="44" font-weight="750" fill="#EDE5D3">SCENE / R162</text>
+    <text x="64" y="150" font-size="20" fill="#AEB6A1">Silver hair, amber eyes, moss green and signal lime.</text>
+    <text x="1136" y="62" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="15" letter-spacing="1.2" fill="#7E8874" text-anchor="end">AFTER OFFICIAL ART</text>
+    <text x="1136" y="150" font-size="16" fill="#7E8874" text-anchor="end">Impression colors, not an official brand spec.</text>
+  </g>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans CJK SC', sans-serif">
+    <g transform="translate(64 178)">
+      <rect width="168" height="96" rx="12" fill="#0C0E09" stroke="#3A4430" stroke-width="1.4" />
+      <text x="0" y="126" font-size="18" font-weight="700" fill="#EDE5D3">INK / DARKROOM</text>
+      <text x="0" y="150" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="17" fill="#AEB6A1">#0C0E09</text>
+      <text x="0" y="172" font-size="14" fill="#7E8874">page + viewfinder</text>
+    </g>
+
+    <g transform="translate(244 178)">
+      <rect width="168" height="96" rx="12" fill="#EDE5D3" />
+      <text x="0" y="126" font-size="18" font-weight="700" fill="#EDE5D3">SILVER / HAIR</text>
+      <text x="0" y="150" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="17" fill="#AEB6A1">#EDE5D3</text>
+      <text x="0" y="172" font-size="14" fill="#7E8874">foreground + titles</text>
+    </g>
+
+    <g transform="translate(424 178)">
+      <rect width="168" height="96" rx="12" fill="#C9F56D" />
+      <rect y="86" width="168" height="10" rx="5" fill="#D5EE13" />
+      <text x="0" y="126" font-size="18" font-weight="700" fill="#EDE5D3">LIME / PRIMARY</text>
+      <text x="0" y="150" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="17" fill="#AEB6A1">#C9F56D</text>
+      <text x="0" y="172" font-size="14" fill="#7E8874">UI token · art highlight</text>
+    </g>
+
+    <g transform="translate(604 178)">
+      <rect width="168" height="96" rx="12" fill="#8A9A5B" />
+      <text x="0" y="126" font-size="18" font-weight="700" fill="#EDE5D3">MOSS / FIELD BAG</text>
+      <text x="0" y="150" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="17" fill="#AEB6A1">#8A9A5B</text>
+      <text x="0" y="172" font-size="14" fill="#7E8874">bag + dry branches</text>
+    </g>
+
+    <g transform="translate(784 178)">
+      <rect width="168" height="96" rx="12" fill="#A82F46" />
+      <text x="0" y="126" font-size="18" font-weight="700" fill="#EDE5D3">CRIMSON / TIE</text>
+      <text x="0" y="150" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="17" fill="#AEB6A1">#A82F46</text>
+      <text x="0" y="172" font-size="14" fill="#7E8874">alerts + accents</text>
+    </g>
+
+    <g transform="translate(964 178)">
+      <rect width="168" height="96" rx="12" fill="#E7C7C8" />
+      <text x="0" y="126" font-size="18" font-weight="700" fill="#EDE5D3">BLOSSOM / FLOWER</text>
+      <text x="0" y="150" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="17" fill="#AEB6A1">#E7C7C8</text>
+      <text x="0" y="172" font-size="14" fill="#7E8874">pale flower in E2</text>
+    </g>
+  </g>
+</svg>

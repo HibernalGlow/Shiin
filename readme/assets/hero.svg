@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="hero-title hero-desc">
+  <title id="hero-title">Shiin — 用手柄捕捉这一帧</title>
+  <desc id="hero-desc">Shiin 手柄截图与 OBS 即时回放工具的标题图。暗色取景器里是一枚荧光黄绿的四叶草快门，配色取自《明日方舟》角色稀音：银白、荧光黄绿、苔绿与领带绯红。</desc>
+
+  <defs>
+    <radialGradient id="darkroom" cx="78%" cy="42%" r="82%">
+      <stop offset="0" stop-color="#182011" />
+      <stop offset="0.58" stop-color="#11160D" />
+      <stop offset="1" stop-color="#0B0E09" />
+    </radialGradient>
+    <linearGradient id="silver-fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#EDE5D3" />
+      <stop offset="0.72" stop-color="#EDE5D3" />
+      <stop offset="1" stop-color="#B9B39F" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="520" fill="url(#darkroom)" />
+  <rect x="20.5" y="20.5" width="1159" height="479" rx="2" fill="none" stroke="#242C1D" stroke-width="1" />
+
+  <!-- Scene reference: a dry branch and one pale blossom, kept behind the viewfinder -->
+  <g fill="none" stroke="#6E7E4E" stroke-linecap="round" opacity="0.5">
+    <path d="M1180 46 C1156 82 1144 112 1148 150 C1151 181 1139 207 1114 226" stroke-width="2.2" />
+    <path d="M1151 96 C1133 88 1118 87 1103 92" stroke-width="1.4" />
+    <path d="M1147 148 C1161 140 1172 138 1184 141" stroke-width="1.4" />
+    <path d="M1129 195 C1113 190 1101 192 1090 201" stroke-width="1.4" />
+  </g>
+  <g fill="#77885E" opacity="0.55">
+    <ellipse cx="1099" cy="90" rx="15" ry="5.5" transform="rotate(-24 1099 90)" />
+    <ellipse cx="1172" cy="137" rx="14" ry="5" transform="rotate(18 1172 137)" />
+    <ellipse cx="1094" cy="200" rx="13" ry="4.8" transform="rotate(-12 1094 200)" />
+  </g>
+  <g transform="translate(1112 113)" opacity="0.8">
+    <circle cx="0" cy="-10" r="7" fill="#E7C7C8" />
+    <circle cx="9.5" cy="-3" r="7" fill="#E7C7C8" />
+    <circle cx="6" cy="8.5" r="7" fill="#E7C7C8" />
+    <circle cx="-6" cy="8.5" r="7" fill="#E7C7C8" />
+    <circle cx="-9.5" cy="-3" r="7" fill="#E7C7C8" />
+    <circle cx="0" cy="0" r="4.2" fill="#A82F46" />
+  </g>
+
+  <!-- Title block -->
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans CJK SC', sans-serif">
+    <text x="66" y="104" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="16" letter-spacing="2.6" fill="#C9F56D">GAMEPAD CAPTURE / OBS REPLAY</text>
+    <rect x="44" y="140" width="4" height="104" rx="2" fill="#C9F56D" />
+    <text x="64" y="242" font-size="132" font-weight="800" letter-spacing="8" fill="url(#silver-fade)">SHIIN</text>
+    <text x="66" y="302" font-size="30" letter-spacing="3" fill="#AEB6A1">稀音 <tspan font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="19" letter-spacing="1.6" fill="#C9F56D">SCENE / R162</tspan></text>
+    <text x="66" y="368" font-size="36" font-weight="700" fill="#EDE5D3">用手柄捕捉这一帧。</text>
+    <text x="66" y="402" font-size="20" fill="#9AA28E">Full-screen, window and OBS captures — no keyboard required.</text>
+    <g font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="16" letter-spacing="0.8" fill="#8B937E">
+      <text x="66" y="474">WINDOWS · macOS</text>
+      <text x="252" y="474">DESKTOP · TUI · WEB · CLI</text>
+      <text x="542" y="474">GPL-3.0</text>
+    </g>
+  </g>
+
+  <!-- Viewfinder -->
+  <g>
+    <rect x="690" y="82" width="446" height="356" rx="20" fill="#10140D" stroke="#2D3526" stroke-width="1.4" />
+    <circle cx="913" cy="250" r="212" fill="none" stroke="#20281B" stroke-width="1.2" />
+    <circle cx="913" cy="250" r="178" fill="none" stroke="#1B2318" stroke-width="1" />
+
+    <g stroke="#C9F56D" stroke-width="3.6" fill="none" stroke-linecap="square">
+      <path d="M710 108 V92 H726" />
+      <path d="M1100 92 H1116 V108" />
+      <path d="M710 412 V428 H726" />
+      <path d="M1100 428 H1116 V412" />
+    </g>
+
+    <g stroke="#303A2A" stroke-width="1" opacity="0.85">
+      <line x1="838.7" y1="100" x2="838.7" y2="420" />
+      <line x1="987.3" y1="100" x2="987.3" y2="420" />
+      <line x1="706" y1="204.7" x2="1120" y2="204.7" />
+      <line x1="706" y1="319.3" x2="1120" y2="319.3" />
+    </g>
+
+    <g font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="16" letter-spacing="1.4">
+      <circle cx="722" cy="118" r="5" fill="#C9F56D" />
+      <text x="736" y="124" fill="#AEB6A1">READY</text>
+      <text x="1104" y="124" fill="#7E8874" text-anchor="end">R162 / FIELD</text>
+    </g>
+
+    <!-- The app's four-leaf shape, used here as the shutter -->
+    <g transform="translate(913 250)">
+      <circle cx="0" cy="-48" r="48" fill="#C9F56D" />
+      <circle cx="48" cy="0" r="48" fill="#C9F56D" />
+      <circle cx="0" cy="48" r="48" fill="#C9F56D" />
+      <circle cx="-48" cy="0" r="48" fill="#C9F56D" />
+      <rect x="-48" y="-48" width="96" height="96" rx="34" fill="#C9F56D" />
+      <circle cx="0" cy="0" r="37" fill="#10140D" />
+      <g fill="none" stroke="#C9F56D" stroke-width="2.6" stroke-linejoin="round">
+        <rect x="-20" y="-12" width="40" height="28" rx="5" />
+        <circle cx="0" cy="2" r="8.5" />
+        <path d="M-11 -12 L-7 -19 H7 L11 -12" />
+      </g>
+    </g>
+
+    <g font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="16">
+      <g fill="#EDE5D3">
+        <rect x="722" y="372" width="40" height="28" rx="6" fill="#1C2318" stroke="#3B4630" />
+        <text x="742" y="391" text-anchor="middle">B0</text>
+        <text x="775" y="391" fill="#7E8874">+</text>
+        <rect x="786" y="372" width="40" height="28" rx="6" fill="#1C2318" stroke="#3B4630" />
+        <text x="806" y="391" text-anchor="middle">B1</text>
+      </g>
+      <text x="842" y="391" fill="#C9F56D">SHUTTER</text>
+      <text x="944" y="391" fill="#8B937E">JPG · FILE</text>
+    </g>
+
+  </g>
+
+  <g transform="translate(690 468)">
+    <text x="0" y="5" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.6" fill="#7E8874">SCENE PALETTE</text>
+    <circle cx="170" cy="0" r="7" fill="#0C0E09" stroke="#3A4430" />
+    <circle cx="196" cy="0" r="7" fill="#EDE5D3" />
+    <circle cx="222" cy="0" r="7" fill="#C9F56D" />
+    <circle cx="248" cy="0" r="7" fill="#8A9A5B" />
+    <circle cx="274" cy="0" r="7" fill="#A82F46" />
+    <circle cx="300" cy="0" r="7" fill="#E7C7C8" />
+    <text x="324" y="5" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.2" fill="#7E8874">ART-DERIVED</text>
+  </g>
+</svg>

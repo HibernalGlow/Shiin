@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="440" viewBox="0 0 1200 440" role="img" aria-labelledby="arch-en-title arch-en-desc">
+  <title id="arch-en-title">Shiin architecture: one capture core, four surfaces</title>
+  <desc id="arch-en-desc">The flow is trigger, shared ScreenshotManager, capture, output and feedback. Desktop, TUI, Web and CLI share one config and one combo table.</desc>
+
+  <defs>
+    <marker id="arrow-en" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#C9F56D" />
+    </marker>
+  </defs>
+
+  <rect width="1200" height="440" fill="#0C0E09" />
+  <rect x="20.5" y="20.5" width="1159" height="399" rx="2" fill="none" stroke="#242C1D" stroke-width="1" />
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans CJK SC', sans-serif">
+    <text x="64" y="66" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="16" letter-spacing="2.4" fill="#C9F56D">ARCHITECTURE / ONE CORE</text>
+    <text x="64" y="118" font-size="42" font-weight="750" fill="#EDE5D3">One capture core, four surfaces</text>
+    <text x="64" y="152" font-size="20" fill="#9AA28E">Desktop, TUI, Web and CLI are not four implementations: one config, one combo table.</text>
+  </g>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans CJK SC', sans-serif">
+    <rect x="64" y="196" width="194" height="150" rx="16" fill="#12160F" stroke="#2D3526" stroke-width="1.2" />
+    <text x="80" y="224" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#7E8874">01 / TRIGGER</text>
+    <text x="80" y="258" font-size="24" font-weight="700" fill="#EDE5D3">Input</text>
+    <g font-size="16" fill="#AEB6A1">
+      <text x="80" y="292">Gamepad combo / axes</text>
+      <text x="80" y="318">Global hotkey</text>
+      <text x="80" y="344">CLI / HTTP</text>
+    </g>
+
+    <rect x="278" y="196" width="194" height="150" rx="16" fill="#1A2113" stroke="#C9F56D" stroke-width="1.6" />
+    <text x="294" y="224" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#C9F56D">02 / WORKER</text>
+    <text x="294" y="258" font-size="24" font-weight="700" fill="#EDE5D3">Shared core</text>
+    <g fill="#AEB6A1">
+      <text x="294" y="290" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="15">ScreenshotManager</text>
+      <text x="294" y="316" font-size="16">one instance</text>
+      <text x="294" y="342" font-size="16">shared config + OBS</text>
+    </g>
+
+    <rect x="492" y="196" width="194" height="150" rx="16" fill="#12160F" stroke="#2D3526" stroke-width="1.2" />
+    <text x="508" y="224" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#7E8874">03 / CAPTURE</text>
+    <text x="508" y="258" font-size="24" font-weight="700" fill="#EDE5D3">Capture</text>
+    <g font-size="16" fill="#AEB6A1">
+      <text x="508" y="292">Full screen / monitor</text>
+      <text x="508" y="318">Specified window</text>
+      <text x="508" y="344">Focused window</text>
+    </g>
+
+    <rect x="706" y="196" width="194" height="150" rx="16" fill="#12160F" stroke="#2D3526" stroke-width="1.2" />
+    <text x="722" y="224" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#7E8874">04 / OUTPUT</text>
+    <text x="722" y="258" font-size="24" font-weight="700" fill="#EDE5D3">Output</text>
+    <g font-size="16" fill="#AEB6A1">
+      <text x="722" y="292">File / clipboard</text>
+      <text x="722" y="318">OBS scene / replay</text>
+      <text x="722" y="344">JPG · PNG</text>
+    </g>
+
+    <rect x="920" y="196" width="194" height="150" rx="16" fill="#12160F" stroke="#2D3526" stroke-width="1.2" />
+    <text x="936" y="224" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#7E8874">05 / FEEDBACK</text>
+    <text x="936" y="258" font-size="24" font-weight="700" fill="#EDE5D3">Feedback</text>
+    <g font-size="16" fill="#AEB6A1">
+      <text x="936" y="292">Overlay + thumbnail</text>
+      <text x="936" y="318">Shutter sound</text>
+      <text x="936" y="344">Listener state</text>
+    </g>
+  </g>
+
+  <g stroke="#C9F56D" stroke-width="2" marker-end="url(#arrow-en)">
+    <line x1="260" y1="271" x2="272" y2="271" />
+    <line x1="474" y1="271" x2="486" y2="271" />
+    <line x1="688" y1="271" x2="700" y2="271" />
+    <line x1="902" y1="271" x2="914" y2="271" />
+  </g>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans CJK SC', sans-serif">
+    <text x="64" y="382" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="15" letter-spacing="1.6" fill="#7E8874">SURFACES / FOUR ENTRY POINTS</text>
+    <text x="1136" y="382" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="15" letter-spacing="1" fill="#C9F56D" text-anchor="end">SHARED CONFIG + COMBO TABLE</text>
+    <g font-size="18" fill="#AEB6A1">
+      <rect x="64" y="394" width="250" height="40" rx="11" fill="#12160F" stroke="#2D3526" />
+      <text x="82" y="419">Desktop · Electron</text>
+      <rect x="332" y="394" width="250" height="40" rx="11" fill="#12160F" stroke="#2D3526" />
+      <text x="350" y="419">TUI · OpenTUI</text>
+      <rect x="600" y="394" width="250" height="40" rx="11" fill="#12160F" stroke="#2D3526" />
+      <text x="618" y="419">Web · Node + SSE</text>
+      <rect x="868" y="394" width="250" height="40" rx="11" fill="#12160F" stroke="#2D3526" />
+      <text x="886" y="419">CLI · scriptable</text>
+    </g>
+  </g>
+</svg>
