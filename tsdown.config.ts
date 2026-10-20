@@ -7,6 +7,7 @@ export default defineConfig({
     'tui-bin': 'src/app/cli/tui-bin.ts',
     core: 'src/core/index.ts',
     main: 'src/app/electron/main.ts',
+    overlay: 'src/app/electron/overlay.ts',
     preload: 'src/app/electron/preload.ts',
     'gamepad-worker': 'src/app/electron/gamepad-worker.ts',
   },

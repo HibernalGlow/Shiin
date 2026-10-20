@@ -32,6 +32,7 @@ import {
   ScreenshotSoundEnum,
 } from '../../core/index.js'
 import { SOUND_DATA_URIS } from '../../ui/audio-data.js'
+import { showScreenshotNotification } from './overlay-window.js'
 
 import zhLocale from '../../locales/zh.json' with { type: 'json' }
 import zhTWLocale from '../../locales/zh-TW.json' with { type: 'json' }
@@ -519,7 +520,7 @@ async function createWindow(show = true) {
     titleBarStyle: isMac ? 'hiddenInset' : undefined,
     trafficLightPosition: isMac ? { x: 16, y: 14 } : undefined,
     autoHideMenuBar: true,
-    backgroundColor: theme === 'light' ? '#F4F6F1' : '#08090C',
+    backgroundColor: '#0C0E09',
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     show: false,
     webPreferences: {
@@ -638,122 +639,6 @@ async function showMainWindow(): Promise<{ ok: boolean; lightweight: boolean }> 
     win.webContents.send('lightweight-mode-changed', false)
   }
   return { ok: true, lightweight: false }
-}
-
-let overlayWindow: BrowserWindow | null = null
-let overlayTimeout: NodeJS.Timeout | null = null
-
-function showScreenshotNotification(options: {
-  img?: string
-  title?: string
-  desc?: string
-  type?: 'video' | 'text'
-  duration?: number
-}) {
-  if (manager?.config?.overlayNotify === 'hide') {
-    return
-  }
-
-  const {
-    img = '',
-    title = '截图成功',
-    desc = '已保存到本地',
-    type,
-    duration = 4500,
-  } = options
-
-  if (overlayWindow && !overlayWindow.isDestroyed()) {
-    try {
-      overlayWindow.close()
-    } catch {}
-    overlayWindow = null
-  }
-  if (overlayTimeout) {
-    clearTimeout(overlayTimeout)
-    overlayTimeout = null
-  }
-
-  const primaryDisplay = screen.getPrimaryDisplay()
-  const rawSizePreset = manager.config.overlayNotifySize ?? 1
-  let scale = typeof rawSizePreset === 'number' ? rawSizePreset : parseFloat(String(rawSizePreset))
-  if (!Number.isFinite(scale) || scale <= 0) scale = 1
-  scale = Math.min(2, Math.max(0.6, scale))
-
-  const baseWidth = 480
-  const baseHeight = 210
-  const overlayWidth = Math.round(baseWidth * scale)
-  const overlayHeight = Math.round(baseHeight * scale)
-
-  const pos = manager.config.overlayNotifyPosition === 'left' ? 'left' : 'right'
-  const x = pos === 'right' ? Math.max(0, primaryDisplay.bounds.width - overlayWidth - 24) : 24
-  const y = 32
-
-  overlayWindow = new BrowserWindow({
-    width: overlayWidth,
-    height: overlayHeight,
-    x,
-    y,
-    transparent: true,
-    frame: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    resizable: false,
-    focusable: false,
-    hasShadow: false,
-    show: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-    },
-  })
-
-  overlayWindow.setAlwaysOnTop(true, 'screen-saver')
-  overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  overlayWindow.setIgnoreMouseEvents(true)
-
-  const candidatePaths = [
-    path.join(__dirname, '../src/screenshot-notification.html'),
-    path.join(__dirname, 'screenshot-notification.html'),
-    path.join(process.cwd(), 'src/screenshot-notification.html'),
-  ]
-  const htmlPath = candidatePaths.find((p) => fs.existsSync(p)) || candidatePaths[0]
-
-  let imgUrl = img
-  if (img && !img.startsWith('file://') && !img.startsWith('data:')) {
-    imgUrl = `file://${path.resolve(img)}`
-  }
-
-  void overlayWindow.loadFile(htmlPath, {
-    query: {
-      img: imgUrl,
-      title,
-      desc,
-      type: type || (img ? '' : 'text'),
-      pos,
-      scale: String(scale),
-    },
-  })
-
-  overlayWindow.once('ready-to-show', () => {
-    overlayWindow?.showInactive()
-  })
-
-  overlayWindow.on('closed', () => {
-    overlayWindow = null
-    if (overlayTimeout) {
-      clearTimeout(overlayTimeout)
-      overlayTimeout = null
-    }
-  })
-
-  overlayTimeout = setTimeout(() => {
-    if (overlayWindow && !overlayWindow.isDestroyed()) {
-      try {
-        overlayWindow.close()
-      } catch {}
-      overlayWindow = null
-    }
-  }, duration)
 }
 
 function updateTrayMenu(isListening: boolean) {
@@ -998,7 +883,7 @@ function registerIpcHandlers() {
   })
 
   ipcMain.handle('show-screenshot-notification', (_, data) => {
-    showScreenshotNotification(data || {})
+    showScreenshotNotification(data || {}, manager?.config)
     return true
   })
 
@@ -1291,13 +1176,13 @@ app.on('ready', async () => {
           img: res.filePath || '',
           title: getI18nText('overlayNotify.screenshotSuccess', '截图成功'),
           desc: res.filePath ? path.basename(res.filePath) : getI18nText('overlayNotify.screenshotSaved', '已成功写入系统剪贴板'),
-        })
+        }, manager.config)
       } else {
         showScreenshotNotification({
           title: '截图失败',
           desc: res?.error || '无法截取当前画面',
           type: 'text',
-        })
+        }, manager.config)
       }
       if (hasLiveWin) {
         win!.webContents.send('screenshot-completed', res)
@@ -1309,7 +1194,7 @@ app.on('ready', async () => {
           title: getI18nText('overlayNotify.replayBufferSaved', 'OBS 精彩瞬间已保存'),
           desc: getI18nText('overlayNotify.replayBufferSavedDesc', '回放缓存已成功导出'),
           type: 'video',
-        })
+        }, manager.config)
       }
       if (hasLiveWin) {
         win!.webContents.send('obs-replay-completed', res)
