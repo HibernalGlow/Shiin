@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "project": "Shiin",
+  "brief": "为 Shiin 重做桌面设置页：把启动随机 / 固定组合的形状系统放到主角位置，同时收纳权限、启动、通知和数据；三版都按 Material 3 Expressive 的形状、色阶、字阶与弹簧动效标准绘制。",
+  "round": "01",
+  "nativeViewport": "1440x900",
+  "candidates": [
+    {
+      "id": "baseline",
+      "name": "现状",
+      "concept": "当前实现：单列卡片列表 + 大形状网格；用于对照信息密度与层级。",
+      "typography": "系统无衬线，12–18px；以卡片堆叠组织。",
+      "palette": ["#0a0c0f", "#b4f461", "#222630", "#eef5e8"],
+      "traits": ["单列卡片", "左应用导航", "形状网格占满整行", "缺少设置目录"],
+      "source": "assets/baseline-settings.png",
+      "kind": "image",
+      "baseline": true
+    },
+    {
+      "id": "rhythm-console",
+      "name": "01 · Rhythm Console",
+      "concept": "双栏控制台：左侧是设置目录，右侧把形状实验室和形状选择放在主角位置，权限与启动退到侧栏。",
+      "typography": "Avenir Next / PingFang SC；42px 标题、14px 正文、12px 标签；数字用等宽数字。",
+      "palette": ["#0b0e0b", "#c9f56d", "#33481c", "#1d251c", "#eef5e8"],
+      "traits": ["设置目录 + 详情双栏", "大尺寸形状舞台", "连接式按钮组", "侧栏状态卡", "暗色青柠"],
+      "source": "01-rhythm-console.html",
+      "interactive": true
+    },
+    {
+      "id": "expressive-bento",
+      "name": "02 · Expressive Bento",
+      "concept": "浅色 Bento：形状实验室占最大面积，权限、启动、通知各占一块；顶部用连接式分类条代替侧栏。",
+      "typography": "Helvetica Neue / PingFang SC；56px 标题、14.5px 正文、12.5px 标签；大号数字。",
+      "palette": ["#fdf8f4", "#a43b24", "#ffdad2", "#00696b", "#b8ece9"],
+      "traits": ["12 栏 Bento", "顶部连接式分类条", "大形状舞台", "波浪权限进度", "浅色陶土"],
+      "source": "02-expressive-bento.html",
+      "interactive": true
+    },
+    {
+      "id": "editorial-bands",
+      "name": "03 · Editorial Bands",
+      "concept": "像一本设置手册：超大衬线报头、编号分区和整幅横向条带；每个分区只有一句话和一个主动作。",
+      "typography": "Songti SC / Noto Serif SC 作展示字，Helvetica Neue / PingFang SC 作正文；116px 报头、31px 分区标题、14.5px 正文。",
+      "palette": ["#161017", "#ffc46b", "#4a3110", "#9be8c8", "#f7eef6"],
+      "traits": ["单列编号条带", "超大衬线报头", "细线分隔", "非对称按钮圆角", "暗色琥珀"],
+      "source": "03-editorial-bands.html",
+      "interactive": true
+    }
+  ]
+}
