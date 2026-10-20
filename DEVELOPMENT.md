@@ -26,6 +26,12 @@
 | `pnpm dist:app` | 生成安装包（exe 安装器 / dmg 镜像） |
 | `pnpm test` | 执行核心单元测试（Vitest） |
 | `pnpm typecheck` | 执行全工程 TypeScript 类型检查 |
+| `pnpm cli --help` | 构建后运行终端入口（`node lib/cli.mjs`） |
+| `pnpm serve` | 启动本地 Web 控制台（浏览器只做显示，Node 进程持有 ScreenshotManager） |
+| `pnpm tui` | 直接启动全屏终端工作台（OpenTUI；需要 Node ≥ 26 的 `node:ffi` 或 bun） |
+
+> 终端面的设计、键位与降级说明见 [`docs/cli.md`](docs/cli.md)。
+> `tests/tui.spec.tsx` 需要 FFI，Node 22 上会自动跳过；Node 26 上可单独跑。 React 版本固定为 19.x —— OpenTUI 的 reconciler 要求 `react >= 19.2`，降级到 18 会让 TUI 渲染空白。
 
 ---
 
