@@ -55,6 +55,8 @@ export interface IHostBridge {
   getListeningState?(): Promise<boolean>
   getRuntimeState?(): Promise<HostRuntimeState | null>
   onListeningStateChanged(cb: (isListening: boolean) => void): () => void
+  onScreenshotCompleted?(cb: (result: ScreenshotResult) => void): () => void
+  onObsReplayCompleted?(cb: (result: { ok: boolean; error?: string }) => void): () => void
 
   // 托盘、窗口控制与轻量模式（仅独立桌面端可用，Xaihi 面板下静默安全降级）
   minimizeWindow?(): void

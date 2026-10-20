@@ -67,24 +67,65 @@ interface I18nContextValue {
 
 const I18nContext = createContext<I18nContextValue | null>(null)
 
+async function readStoredLocale(): Promise<string | null> {
+  const api = typeof window !== 'undefined' ? (window as any).electronAPI : undefined
+  if (api?.getStore) {
+    return (await api.getStore('locale', DEFAULT_LOCALE)) ?? null
+  }
+  try {
+    const res = await fetch('/api/store/get', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'locale', defaultValue: DEFAULT_LOCALE }),
+    })
+    if (res.ok) {
+      const data = (await res.json()) as { value?: unknown }
+      if (typeof data.value === 'string') return data.value
+    }
+  } catch {
+    // 没有 Node Web 宿主时退回浏览器本地存储
+  }
+  try {
+    return localStorage.getItem('shiin_locale')
+  } catch {
+    return null
+  }
+}
+
+async function writeStoredLocale(locale: string): Promise<void> {
+  const api = typeof window !== 'undefined' ? (window as any).electronAPI : undefined
+  if (api?.setStore) {
+    await api.setStore('locale', locale)
+  } else {
+    try {
+      await fetch('/api/store/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'locale', value: locale }),
+      })
+    } catch {
+      // 交给下面的 localStorage 兜底
+    }
+  }
+  if (api?.applyLocale) await api.applyLocale(locale)
+  try {
+    localStorage.setItem('shiin_locale', locale)
+  } catch {
+    // ignore
+  }
+}
+
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [locale, setLocaleState] = useState<string>(DEFAULT_LOCALE)
 
-  // 挂载时从 Electron Store 或 localStorage 读取
+  // 挂载时从 Electron Store、Node Web 宿主或 localStorage 读取
   useEffect(() => {
     let mounted = true
     async function loadSavedLocale() {
       try {
-        if ((window as any).electronAPI?.getStore) {
-          const saved = await (window as any).electronAPI.getStore('locale', DEFAULT_LOCALE)
-          if (mounted && saved) {
-            setLocaleState(normalizeLocale(saved))
-          }
-        } else if (typeof localStorage !== 'undefined') {
-          const saved = localStorage.getItem('shiin_locale')
-          if (mounted && saved) {
-            setLocaleState(normalizeLocale(saved))
-          }
+        const saved = await readStoredLocale()
+        if (mounted && saved) {
+          setLocaleState(normalizeLocale(saved))
         }
       } catch (err) {
         console.warn('[i18n] Failed to load saved locale:', err)
@@ -100,15 +141,7 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const norm = normalizeLocale(nextLocale)
     setLocaleState(norm)
     try {
-      if ((window as any).electronAPI?.setStore) {
-        await (window as any).electronAPI.setStore('locale', norm)
-      }
-      if ((window as any).electronAPI?.applyLocale) {
-        await (window as any).electronAPI.applyLocale(norm)
-      }
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('shiin_locale', norm)
-      }
+      await writeStoredLocale(norm)
     } catch (err) {
       console.warn('[i18n] Failed to persist locale:', err)
     }

@@ -16,6 +16,8 @@ import {
   XButton,
 } from './md3e.js'
 import { AppIcon } from './components/AppIcon.js'
+import { Md3eShapeProvider } from './md3e-shape-context.js'
+import { DEFAULT_SHAPE_PREFERENCES } from './md3e-shapes.js'
 
 export const Probe = { react: React, version: React.version }
 
@@ -70,7 +72,8 @@ export default function Panel({ contribution, locale = 'zh', host }: XaihiPanelP
   }
 
   return (
-    <XMd3eNodeFrame data-testid="shiin-panel-md3e" data-ui-variant="md3e">
+    <Md3eShapeProvider preferences={DEFAULT_SHAPE_PREFERENCES}>
+    <XMd3eNodeFrame className="shiin-expressive-surface" data-testid="shiin-panel-md3e" data-ui-variant="md3e">
       <XMd3eHeroBanner
         title={isZh ? contribution.title.zh : contribution.title.en}
         description={
@@ -80,8 +83,8 @@ export default function Panel({ contribution, locale = 'zh', host }: XaihiPanelP
         }
         tone="primary"
         badge={
-          <XMd3eShapeBadge shape="sunny" size="sm" active>
-            🎮
+          <XMd3eShapeBadge size="sm" active>
+            <AppIcon name="gamepad" size={14} />
           </XMd3eShapeBadge>
         }
         meta={
@@ -89,7 +92,7 @@ export default function Panel({ contribution, locale = 'zh', host }: XaihiPanelP
             <span style={{
               borderRadius: 999,
               padding: '2px 8px',
-              background: 'rgba(255, 255, 255, 0.08)',
+              background: MD3E_ALIAS.surfaceHigh,
               color: MD3E_ALIAS.primary,
               fontSize: 10.5,
               fontWeight: 750,
@@ -99,7 +102,7 @@ export default function Panel({ contribution, locale = 'zh', host }: XaihiPanelP
             <span style={{
               borderRadius: 999,
               padding: '2px 8px',
-              background: 'rgba(255, 255, 255, 0.05)',
+              background: MD3E_ALIAS.surfaceLow,
               color: ALIAS.onSurfaceVariant,
               fontSize: 10.5,
             }}>
@@ -150,5 +153,6 @@ export default function Panel({ contribution, locale = 'zh', host }: XaihiPanelP
         </pre>
       </XMd3eSection>
     </XMd3eNodeFrame>
+    </Md3eShapeProvider>
   )
 }

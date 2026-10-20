@@ -145,7 +145,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({ open, onClose }) => 
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: 'rgba(0, 0, 0, 0.45)',
+        background: 'rgba(0, 0, 0, 0.6)',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
         display: 'flex',
@@ -165,8 +165,8 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({ open, onClose }) => 
           width: 440,
           maxWidth: '90vw',
           borderRadius: 20,
-          background: 'var(--surface-overlay, rgba(30, 32, 40, 0.94))',
-          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.36), 0 0 0 1px var(--line-strong)',
+          background: 'var(--surface-overlay, #fffdfb)',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--line-strong)',
           padding: 24,
           display: 'flex',
           flexDirection: 'column',
@@ -183,16 +183,16 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({ open, onClose }) => 
                 borderRadius: 12,
                 background:
                   state.status === 'uptodate'
-                    ? 'rgba(40, 199, 111, 0.16)'
+                    ? 'rgba(155, 232, 200, 0.14)'
                     : state.status === 'error'
-                    ? 'rgba(234, 84, 85, 0.16)'
-                    : 'var(--accent-soft, rgba(80, 140, 255, 0.16))',
+                    ? 'rgba(255, 180, 171, 0.14)'
+                    : 'var(--accent-soft, rgba(164, 59, 36, 0.14))',
                 color:
                   state.status === 'uptodate'
-                    ? '#28c76f'
+                    ? '#9be8c8'
                     : state.status === 'error'
-                    ? '#ea5455'
-                    : 'var(--accent, #3b82f6)',
+                    ? '#ffb4ab'
+                    : 'var(--accent, #a43b24)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -218,7 +218,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({ open, onClose }) => 
                 {state.latestVersion && state.latestVersion !== state.currentVersion && (
                   <>
                     <span style={{ opacity: 0.5 }}>→</span>
-                    <span style={{ color: 'var(--accent, #3b82f6)', fontWeight: 600 }}>v{state.latestVersion}</span>
+                    <span style={{ color: 'var(--accent, #a43b24)', fontWeight: 600 }}>v{state.latestVersion}</span>
                   </>
                 )}
               </div>
@@ -266,15 +266,15 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({ open, onClose }) => 
                   style={{
                     padding: '2px 8px',
                     borderRadius: 6,
-                    background: state.mode === 'hot' ? 'rgba(40, 199, 111, 0.15)' : 'rgba(80, 140, 255, 0.15)',
-                    color: state.mode === 'hot' ? '#28c76f' : 'var(--accent, #3b82f6)',
+                    background: state.mode === 'hot' ? 'rgba(155, 232, 200, 0.14)' : 'var(--accent-soft)',
+                    color: state.mode === 'hot' ? '#9be8c8' : 'var(--accent, #a43b24)',
                     fontWeight: 600,
                   }}
                 >
                   {state.mode === 'hot' ? t('Update.inApp', '应用内热更新') : t('Update.manualMode', '完整安装包')}
                 </span>
                 {state.mandatory && (
-                  <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(234, 84, 85, 0.15)', color: '#ea5455', fontWeight: 600 }}>
+                  <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(255, 180, 171, 0.14)', color: '#ba1a1a', fontWeight: 600 }}>
                     {t('Update.mandatory', '关键更新')}
                   </span>
                 )}
@@ -308,7 +308,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({ open, onClose }) => 
                   style={{
                     width: `${Math.min(100, Math.max(0, state.progress || 0))}%`,
                     height: '100%',
-                    background: 'var(--accent, #3b82f6)',
+                    background: 'var(--accent, #a43b24)',
                     borderRadius: 99,
                     transition: 'width 0.2s ease',
                   }}
@@ -339,7 +339,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({ open, onClose }) => 
 
           {state.status === 'error' && (
             <div style={{ textAlign: 'center', padding: '16px 0' }}>
-              <div style={{ fontWeight: 600, fontSize: 14, color: '#ea5455', marginBottom: 6 }}>
+              <div style={{ fontWeight: 600, fontSize: 14, color: '#ffb4ab', marginBottom: 6 }}>
                 {t('Update.error', '检查更新失败')}
               </div>
               <div style={{ fontSize: 11, color: 'var(--ink-3)', wordBreak: 'break-all' }}>{state.error}</div>

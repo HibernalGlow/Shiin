@@ -44,6 +44,8 @@ const ICONS: Record<string, string[]> = {
   language: ['M4 5h9v9H4Z', 'M7 9h3', 'M11 11l4 4', 'M13 20h8', 'M17 15l4 5'],
   shield: ['M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6Z'],
   bulb: ['M9 18h6', 'M10 21h4', 'M12 3a6 6 0 0 0-3 11v4h6v-4a6 6 0 0 0-3-11Z'],
+  lock: ['M6 11h12v9H6Z', 'M9 11V8a3 3 0 0 1 6 0v3'],
+  dice: ['M5 5h14v14H5Z', 'M9 9h.01', 'M15 9h.01', 'M12 12h.01', 'M9 15h.01', 'M15 15h.01'],
   minus: ['M5 12h14'],
   square: ['M6 6h12v12H6Z'],
   restore: ['M9 4h11v11', 'M4 9h11v11H4Z'],

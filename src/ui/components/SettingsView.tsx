@@ -1,6 +1,21 @@
 import * as React from 'react'
 import { AppIcon } from './AppIcon.js'
-import type { ScreenshotConfig } from '../../core/types.js'
+import { LANGUAGES } from '../i18n.js'
+import {
+  MD3E_ICON_SHAPES,
+  MD3E_SHAPE_PRESETS,
+  MD3E_SHAPE_ROLES,
+  MD3E_SHAPE_ROLE_META,
+  MD3E_TEXT_SHAPES,
+  getIconShape,
+  getPressedShape,
+  sessionRoleShapeIds,
+  type Md3eShapePreferences,
+  type Md3eShapeRole,
+  type Md3eShapeSession,
+} from '../md3e-shapes.js'
+import { BentoSelect, BentoWavyProgress, Md3eMorphShape } from './bento-controls.js'
+import { ScreenshotSoundEnum, type ScreenshotConfig } from '../../core/types.js'
 import type { MacOSPermissionsStatus, MacPermissionPane } from '../adapter/types.js'
 
 export interface SettingsViewProps {
@@ -9,14 +24,21 @@ export interface SettingsViewProps {
   onClearLogs?: () => void
   onCheckUpdate?: () => void
   onOpenGithub?: () => void
+  onOpenFolder?: () => void
+  onSelectFolder?: () => void
+  onSelectLocale?: (locale: string) => void
   appVersion?: string
-  locale?: 'zh' | 'en'
+  locale?: string
   isMac?: boolean
   macPermissions?: MacOSPermissionsStatus | null
   onOpenMacPreference?: (pane: MacPermissionPane) => void
   onOpenPermissionsView?: () => void
   onToggleAutoStart?: (enable: boolean) => void
   onEnterLightweightMode?: () => void
+  shapePreferences: Md3eShapePreferences
+  shapeSession: Md3eShapeSession
+  onShapePreferencesChange: (next: Md3eShapePreferences) => void
+  onRerollShapeSession: () => void
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -25,6 +47,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onClearLogs,
   onCheckUpdate,
   onOpenGithub,
+  onOpenFolder,
+  onSelectFolder,
+  onSelectLocale,
   appVersion = '2.0.0',
   locale = 'zh',
   isMac = false,
@@ -33,352 +58,711 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onOpenPermissionsView,
   onToggleAutoStart,
   onEnterLightweightMode,
+  shapePreferences,
+  shapeSession,
+  onShapePreferencesChange,
+  onRerollShapeSession,
 }) => {
-  const isZh = locale === 'zh'
+  const isZh = locale.startsWith('zh')
+  const isRandom = shapePreferences.mode === 'random'
+  const [selectedRole, setSelectedRole] = React.useState<Md3eShapeRole>('hero')
+  const selectedRoleMeta = MD3E_SHAPE_ROLE_META[selectedRole]
+  const roleShape = shapeSession.shapes[selectedRole]
+  const deviceShape = shapeSession.shapes.device
+  const textShape = shapeSession.text
+  const volumePercent = Math.round((config.soundPower ?? 1) * 100)
+  const notifyOn = (config.overlayNotify || 'show') === 'show'
+
+  const screenGranted = Boolean(macPermissions?.screenCapture)
+  const accessibilityGranted = Boolean(macPermissions?.accessibility)
+  const inputGranted = Boolean(macPermissions?.inputMonitoring ?? macPermissions?.accessibility)
+  const folderGranted = macPermissions ? (macPermissions.folderAccess ?? !macPermissions.folderError) : false
+  const permissionCount = isMac
+    ? [screenGranted, accessibilityGranted, inputGranted, folderGranted].filter(Boolean).length
+    : 4
+  const permissionPercent = (permissionCount / 4) * 100
+  const missingCount = 4 - permissionCount
+
+  const permissionItems = [
+    {
+      id: 'screen',
+      label: isZh ? '屏幕录制' : 'Screen recording',
+      granted: isMac ? screenGranted : true,
+      state: isMac
+        ? macPermissions
+          ? screenGranted
+            ? isZh ? '已授权' : 'Granted'
+            : isZh ? '未授权' : 'Denied'
+          : isZh ? '检测中' : 'Checking'
+        : isZh ? '平台直通' : 'Platform',
+    },
+    {
+      id: 'accessibility',
+      label: isZh ? '辅助功能' : 'Accessibility',
+      granted: isMac ? accessibilityGranted : true,
+      state: isMac
+        ? macPermissions
+          ? accessibilityGranted
+            ? isZh ? '已授权' : 'Granted'
+            : isZh ? '未授权' : 'Denied'
+          : isZh ? '检测中' : 'Checking'
+        : isZh ? '平台直通' : 'Platform',
+    },
+    {
+      id: 'input',
+      label: isZh ? '输入监控' : 'Input monitoring',
+      granted: isMac ? inputGranted : true,
+      state: isMac
+        ? macPermissions
+          ? inputGranted
+            ? isZh ? '已就绪' : 'Ready'
+            : isZh ? '待授权' : 'Pending'
+          : isZh ? '检测中' : 'Checking'
+        : isZh ? '平台直通' : 'Platform',
+    },
+    {
+      id: 'folder',
+      label: isZh ? '截图目录' : 'Screenshot folder',
+      granted: isMac ? folderGranted : true,
+      state: isMac
+        ? macPermissions
+          ? folderGranted
+            ? isZh ? '可读写' : 'Writable'
+            : isZh ? '异常' : 'Blocked'
+          : isZh ? '检测中' : 'Checking'
+        : isZh ? '可读写' : 'Writable',
+    },
+  ]
+
+  const updateMode = (mode: Md3eShapePreferences['mode']) => {
+    onShapePreferencesChange({ ...shapePreferences, mode, preset: mode === 'random' ? 'custom' : shapePreferences.preset })
+  }
+
+  const selectRoleShape = (icon: Md3eShapePreferences['shapes'][Md3eShapeRole]) => {
+    onShapePreferencesChange({
+      ...shapePreferences,
+      mode: 'fixed',
+      preset: 'custom',
+      shapes: { ...sessionRoleShapeIds(shapeSession), [selectedRole]: icon },
+      text: textShape.id,
+    })
+  }
+
+  const selectTextShape = (text: Md3eShapePreferences['text']) => {
+    onShapePreferencesChange({
+      ...shapePreferences,
+      mode: 'fixed',
+      preset: 'custom',
+      shapes: sessionRoleShapeIds(shapeSession),
+      text,
+    })
+  }
+
+  const applyPreset = (presetId: string) => {
+    const preset = MD3E_SHAPE_PRESETS.find((item) => item.id === presetId)
+    if (!preset) return
+    onShapePreferencesChange({
+      ...shapePreferences,
+      mode: 'fixed',
+      preset: preset.id,
+      shapes: { ...preset.shapes },
+      text: preset.text,
+    })
+  }
+
+  const lockCurrent = () => {
+    onShapePreferencesChange({
+      mode: 'fixed',
+      preset: 'custom',
+      shapes: sessionRoleShapeIds(shapeSession),
+      text: textShape.id,
+    })
+  }
+
+  const randomizeAll = () => {
+    onShapePreferencesChange({ ...shapePreferences, mode: 'random', preset: 'custom' })
+    onRerollShapeSession()
+  }
+
+  const [pressedShape, setPressedShape] = React.useState<string | null>(null)
+  const shapeRailRef = React.useRef<HTMLDivElement | null>(null)
+  const scrollShapeRail = (direction: number) => {
+    const node = shapeRailRef.current
+    if (!node) return
+    node.scrollBy({ left: direction * Math.max(node.clientWidth * 0.72, 160), behavior: 'smooth' })
+  }
+  React.useEffect(() => {
+    const rail = shapeRailRef.current
+    if (!rail) return
+    const centerSelected = () => {
+      const selected = rail.querySelector<HTMLButtonElement>('.sb-shape-option[aria-pressed="true"]')
+      if (!selected) return
+      const railRect = rail.getBoundingClientRect()
+      const tileRect = selected.getBoundingClientRect()
+      const centered =
+        rail.scrollLeft + tileRect.left - railRect.left - (rail.clientWidth - tileRect.width) / 2
+      rail.scrollTo({ left: Math.max(0, centered), behavior: 'auto' })
+    }
+    centerSelected()
+    const timer = window.setTimeout(centerSelected, 80)
+    return () => window.clearTimeout(timer)
+  }, [roleShape.id, selectedRole])
+
+  const handleAutoStart = (value: boolean) => {
+    if (onToggleAutoStart) onToggleAutoStart(value)
+    else onChange({ autoStart: value })
+  }
+
+  const handleLocaleChange = (next: string) => {
+    onSelectLocale?.(next)
+    onChange({ locale: next } as Partial<ScreenshotConfig>)
+  }
+
+  const testNotification = async () => {
+    const { playCaptureSound } = await import('../audio.js')
+    void playCaptureSound(config.sound, config.soundPower)
+    if ((window as any).electronAPI?.showScreenshotNotification) {
+      void (window as any).electronAPI.showScreenshotNotification({
+        title: isZh ? '截图测试通知' : 'Screenshot toast test',
+        desc: isZh ? '通知浮层与音效工作正常' : 'Toast and sound are working properly',
+        duration: 3500,
+      })
+    }
+  }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>
-        {isZh ? '系统与运行设置' : 'System & Behavior Settings'}
-      </h2>
-
-      {/* macOS 专用系统权限与集成卡片 */}
-      {isMac && (
-        <div className="shiin-card" style={{ gap: 12, border: '1px solid rgba(110, 227, 240, 0.25)', background: 'rgba(110, 227, 240, 0.03)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent, #b4f461)' }}>
-              <AppIcon name="cpu" size={14} />
-              {isZh ? 'macOS 系统权限与环境检测' : 'macOS System Permissions & Environment'}
-            </span>
-            {onOpenPermissionsView && (
-              <button
-                className="shiin-btn"
-                data-variant="filled"
-                style={{ height: 26, fontSize: 11, padding: '0 10px', gap: 4 }}
-                onClick={onOpenPermissionsView}
-              >
-                <AppIcon name="shield" size={12} />
-                {isZh ? '打开权限自检中心' : 'Open Diagnostics'}
-              </button>
-            )}
+    <div className="shiin-bento">
+      <div className="sb-page">
+        <header className="sb-masthead">
+          <div>
+            <p className="sb-eyebrow">PREFERENCES</p>
+            <h2>{isZh ? '设置' : 'Settings'}</h2>
+            <p className="sb-lede">
+              {isZh
+                ? '形状、权限和启动行为都在这一页完成。改动即时生效，并只保存在这台设备。'
+                : 'Shape, permissions and startup behavior live on one page. Changes apply instantly and stay on this device.'}
+            </p>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>
-            {/* 屏幕录制权限 */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span className="sb-save-state" role="status" aria-live="polite">
+            <i />
+            {isZh ? '本机设置 · 自动保存' : 'Local settings · Auto-saved'}
+          </span>
+        </header>
+
+        <div className="sb-grid">
+          <section className="sb-tile sb-shape-tile" id="settings-shape" aria-label={isZh ? '形状实验室' : 'Shape lab'}>
+            <div className="sb-tile-head">
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>{isZh ? '屏幕录制权限 (Screen Recording)' : 'Screen Recording'}</span>
-                  <span style={{
-                    fontSize: 10,
-                    padding: '1px 6px',
-                    borderRadius: 4,
-                    background: macPermissions?.screenCapture ? 'rgba(74, 222, 128, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                    color: macPermissions?.screenCapture ? '#4ade80' : '#ef4444',
-                    fontWeight: 600,
-                  }}>
-                    {macPermissions?.screenCapture ? (isZh ? '已授权' : 'Granted') : (isZh ? '未授权' : 'Denied')}
-                  </span>
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                  {isZh ? '截取桌面与游戏窗口画面的核心系统权限' : 'Required to capture desktop screens and game windows'}
-                </div>
-              </div>
-              {!macPermissions?.screenCapture && (
-                <button
-                  className="shiin-btn"
-                  data-variant="tonal"
-                  style={{ height: 26, fontSize: 11, padding: '0 10px' }}
-                  onClick={() => onOpenMacPreference?.('screen')}
-                >
-                  {isZh ? '前往系统设置' : 'Open Settings'}
-                </button>
-              )}
-            </div>
-
-            {/* 辅助功能权限 */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>{isZh ? '辅助功能 / 输入监控 (Accessibility)' : 'Accessibility / Input Monitoring'}</span>
-                  <span style={{
-                    fontSize: 10,
-                    padding: '1px 6px',
-                    borderRadius: 4,
-                    background: macPermissions?.accessibility ? 'rgba(74, 222, 128, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                    color: macPermissions?.accessibility ? '#4ade80' : '#ef4444',
-                    fontWeight: 600,
-                  }}>
-                    {macPermissions?.accessibility ? (isZh ? '已授权' : 'Granted') : (isZh ? '未授权' : 'Denied')}
-                  </span>
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                  {isZh ? '全局键盘快捷键监听所需权限（手柄监听无需此权限）' : 'Required for background global hotkeys'}
-                </div>
-              </div>
-              {!macPermissions?.accessibility && (
-                <button
-                  className="shiin-btn"
-                  data-variant="tonal"
-                  style={{ height: 26, fontSize: 11, padding: '0 10px' }}
-                  onClick={() => onOpenMacPreference?.('accessibility')}
-                >
-                  {isZh ? '前往系统设置' : 'Open Settings'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 启动与窗口行为 */}
-      <div className="shiin-card" style={{ gap: 12 }}>
-        <span style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <AppIcon name="power" size={14} />
-          {isZh ? '启动与托盘（含轻量模式）' : 'Startup, Tray & Lightweight Mode'}
-        </span>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div>{isZh ? '开机自启动' : 'Launch at Startup'}</div>
-              <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                {isZh ? '登录系统后自动在后台启动' : 'Start automatically upon system login'}
-              </div>
-            </div>
-            <input
-              type="checkbox"
-              checked={config.autoStart || false}
-              onChange={(e) => {
-                const val = e.target.checked
-                onChange({ autoStart: val })
-                onToggleAutoStart?.(val)
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div>{isZh ? '启动时直接进入轻量托盘模式 (--tray)' : 'Launch Directly in Lightweight Mode (--tray)'}</div>
-              <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                {isZh
-                  ? '启动时不创建主窗口与 React 渲染进程，仅初始化后台手柄监听与托盘'
-                  : 'Skip creating main window and renderer on startup'}
-              </div>
-            </div>
-            <input
-              type="checkbox"
-              checked={config.startInLightweightMode || false}
-              onChange={(e) => {
-                onChange({ startInLightweightMode: e.target.checked })
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div>{isZh ? '关闭主窗口策略' : 'Close Button Behavior'}</div>
-              <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                {isZh
-                  ? '保留「普通隐藏到托盘（保留界面）」与「轻量模式（销毁主窗口释放内存）」两个独立选项'
-                  : 'Choose between exiting, hiding to tray, or destroying the window in lightweight mode'}
-              </div>
-            </div>
-            <select
-              className="shiin-select"
-              value={config.closeType || 'exit'}
-              onChange={(e) => onChange({ closeType: e.target.value as any })}
-            >
-              <option value="exit">{isZh ? '直接退出程序' : 'Exit application'}</option>
-              <option value="tray">{isZh ? '隐藏到系统托盘（保留界面资源）' : 'Hide to tray (Keep UI in memory)'}</option>
-              <option value="lightweight">{isZh ? '进入轻量模式（销毁窗口释放内存）' : 'Lightweight mode (Destroy UI window)'}</option>
-            </select>
-          </div>
-
-          {onEnterLightweightMode && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div>{isZh ? '立即切换至轻量模式' : 'Enter Lightweight Mode Now'}</div>
-                <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                <h3>{isZh ? '形状实验室' : 'Shape lab'}</h3>
+                <p>
                   {isZh
-                    ? '立即销毁当前主窗口并释放前端渲染内存，手柄后台监听与托盘继续运行（可通过托盘随时恢复界面）'
-                    : 'Destroy main window to free renderer memory while keeping gamepad listener active in tray'}
+                    ? '不同控件类别各取一形；同类控件保持一致。'
+                    : 'Each control class draws its own shape; controls of one class stay consistent.'}
+                </p>
+              </div>
+              <span className="sb-chip tertiary">{isZh ? '35 档' : '35 shapes'}</span>
+            </div>
+            <div className="sb-shape-lab">
+              <div className="sb-stage" aria-hidden="true">
+                <Md3eMorphShape className="sb-stage-ghost" path={roleShape.svgPath} />
+                <div className="sb-hero-shape">
+                  <Md3eMorphShape path={roleShape.svgPath} />
+                  <AppIcon name={selectedRole === 'metric' ? 'sliders' : selectedRole === 'icon' ? 'shield' : 'gamepad'} size={46} />
+                </div>
+                <span className="sb-stage-label">
+                  {selectedRoleMeta.nameEn.toUpperCase()} · {isZh ? roleShape.name : roleShape.nameEn}
+                </span>
+                <span className="sb-stage-role">{selectedRoleMeta.description}</span>
+              </div>
+              <div className="sb-shape-controls">
+                <div className="sb-role-picker">
+                  <div className="sb-picker-head">
+                    <span className="sb-ribbon-label">{isZh ? '按角色编辑' : 'EDIT BY ROLE'}</span>
+                    <span className="sb-readout-pill">{MD3E_SHAPE_ROLES.length}</span>
+                  </div>
+                  <div className="sb-role-list" role="group" aria-label={isZh ? '形状角色' : 'Shape roles'}>
+                    {MD3E_SHAPE_ROLES.map((role) => {
+                      const meta = MD3E_SHAPE_ROLE_META[role]
+                      return (
+                        <button
+                          key={role}
+                          type="button"
+                          className="sb-role-row"
+                          aria-pressed={selectedRole === role}
+                          onClick={() => setSelectedRole(role)}
+                        >
+                          <span className="sb-role-row-shape" aria-hidden="true">
+                            <Md3eMorphShape path={shapeSession.shapes[role].svgPath} />
+                          </span>
+                          <span className="sb-role-row-copy">
+                            <strong>{meta.name}</strong>
+                            <small>{meta.description}</small>
+                          </span>
+                          <span className="sb-readout-pill">{shapeSession.shapes[role].name}</span>
+                          <AppIcon name="chevronRight" size={14} />
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <div className="sb-picker-head">
+                    <span className="sb-ribbon-label">
+                      {isZh ? `${selectedRoleMeta.name}形状` : `${selectedRoleMeta.nameEn.toUpperCase()} SHAPE`}
+                    </span>
+                    <span className="sb-readout-pill">{MD3E_ICON_SHAPES.length}</span>
+                  </div>
+                  <div className="sb-shape-picker">
+                    <button
+                      type="button"
+                      className="sb-picker-scroll"
+                      data-dir="prev"
+                      onClick={() => scrollShapeRail(-1)}
+                      aria-label={isZh ? '上一组形状' : 'Previous shapes'}
+                    >
+                      <AppIcon name="chevronRight" size={16} />
+                    </button>
+                    <div
+                      className="sb-shape-ribbon"
+                      ref={shapeRailRef}
+                      role="group"
+                      aria-label={isZh ? `${selectedRoleMeta.name}形状` : `${selectedRoleMeta.nameEn} shape`}
+                    >
+                      {MD3E_ICON_SHAPES.map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className="sb-shape-option"
+                          aria-pressed={roleShape.id === option.id}
+                          onPointerDown={() => setPressedShape(option.id)}
+                          onPointerUp={() => setPressedShape(null)}
+                          onPointerLeave={() => setPressedShape(null)}
+                          onPointerCancel={() => setPressedShape(null)}
+                          onClick={() => selectRoleShape(option.id)}
+                        >
+                          <Md3eMorphShape
+                            path={option.svgPath}
+                            pressed={pressedShape === option.id}
+                            pressedPath={getPressedShape(option.id).svgPath}
+                            className="sb-choice-shape"
+                          />
+                          <span>{isZh ? option.name : option.nameEn}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="sb-picker-scroll"
+                      onClick={() => scrollShapeRail(1)}
+                      aria-label={isZh ? '下一组形状' : 'Next shapes'}
+                    >
+                      <AppIcon name="chevronRight" size={16} />
+                    </button>
+                  </div>
+                </div>
+                <div className="sb-text-shape-row">
+                  <span className="sb-text-label">{isZh ? '文字按钮' : 'TEXT BUTTON'}</span>
+                  <div className="sb-text-options" role="group" aria-label={isZh ? '文字按钮形态' : 'Text button shape'}>
+                    {MD3E_TEXT_SHAPES.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className="sb-text-option"
+                        data-text={option.id}
+                        aria-pressed={textShape.id === option.id}
+                        onClick={() => selectTextShape(option.id)}
+                      >
+                        {isZh ? option.name : option.nameEn}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <button
-                className="shiin-btn"
-                data-variant="tonal"
-                style={{ height: 28, fontSize: 11, padding: '0 12px' }}
-                onClick={onEnterLightweightMode}
-              >
-                <AppIcon name="minimize" size={12} />
-                {isZh ? '进入轻量模式' : 'Lightweight Mode'}
-              </button>
             </div>
-          )}
+          </section>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div>{isZh ? '同名文件冲突策略' : 'Filename Conflict'}</div>
-              <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                {isZh ? '截图保存路径已存在同名文件时的处理方案' : 'Action when file already exists'}
+          <section className="sb-tile sb-session-tile" aria-label={isZh ? '形状策略' : 'Shape strategy'}>
+            <Md3eMorphShape className="sb-session-tile-ghost" path={deviceShape.svgPath} />
+            <div className="sb-tile-head">
+              <div>
+                <h3>{isZh ? '形状策略' : 'Shape strategy'}</h3>
+                <p>
+                  {isZh
+                    ? '启动时按类别独立取形，使用中不重抽。'
+                    : 'Each class is drawn independently at launch and stays stable while in use.'}
+                </p>
+              </div>
+              <span className={`sb-chip ${isRandom ? 'tertiary' : ''}`}>
+                {isRandom ? (isZh ? '每次启动' : 'At launch') : isZh ? '固定组合' : 'Fixed set'}
+              </span>
+            </div>
+            <div className="sb-strategy">
+              <div className="sb-connected sb-strategy-group" role="group" aria-label={isZh ? '形状策略' : 'Shape strategy'}>
+                <button type="button" aria-pressed={!isRandom} onClick={() => updateMode('fixed')}>
+                  <AppIcon name="lock" size={17} />
+                  {isZh ? '固定组合' : 'Fixed'}
+                </button>
+                <button type="button" aria-pressed={isRandom} onClick={() => updateMode('random')}>
+                  <AppIcon name="dice" size={17} />
+                  {isZh ? '启动随机' : 'Random'}
+                </button>
+              </div>
+              <span className="sb-strategy-note">
+                {isRandom
+                  ? isZh
+                    ? '每次启动为每个角色重新抽取，同类控件共享同一轮廓。'
+                    : 'Each launch redraws every role; controls of one class share a silhouette.'
+                  : isZh
+                    ? '保持当前各类轮廓，下次启动不变。'
+                    : 'Keeps every class silhouette across launches.'}
+              </span>
+            </div>
+            <div className="sb-preset-section">
+              <div className="sb-picker-head">
+                <span className="sb-ribbon-label">{isZh ? '快速预设' : 'QUICK PRESETS'}</span>
+                <span className="sb-readout-pill">{MD3E_SHAPE_PRESETS.length}</span>
+              </div>
+              <div className="sb-preset-cards">
+                {MD3E_SHAPE_PRESETS.slice(0, 4).map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className="sb-preset-card"
+                    aria-pressed={!isRandom && shapePreferences.preset === preset.id}
+                    onClick={() => applyPreset(preset.id)}
+                  >
+                    <span className="sb-preset-art" aria-hidden="true">
+                      {(['hero', 'icon', 'metric'] as const).map((role) => (
+                        <svg key={role} viewBox="0 0 100 100" focusable="false">
+                          <path d={getIconShape(preset.shapes[role]).svgPath} />
+                        </svg>
+                      ))}
+                    </span>
+                    <span>{isZh ? preset.name : preset.nameEn}</span>
+                  </button>
+                ))}
               </div>
             </div>
-            <select
-              className="shiin-select"
-              value={config.filenameConflictResolution || 'overwrite'}
-              onChange={(e) => onChange({ filenameConflictResolution: e.target.value as any })}
-            >
-              <option value="overwrite">{isZh ? '直接覆盖' : 'Overwrite'}</option>
-              <option value="appendTimestamp">{isZh ? '追加时间戳' : 'Append Timestamp'}</option>
-              <option value="notSave">{isZh ? '放弃保存' : 'Do Not Save'}</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* 语言与区域 */}
-      <div className="shiin-card" style={{ gap: 12 }}>
-        <span style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <AppIcon name="sparkles" size={14} />
-          {isZh ? '界面语言 (Language)' : 'Interface Language'}
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
-          <div>
-            <div>{isZh ? '系统界面多语言' : 'Display Language'}</div>
-            <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-              {isZh ? '即时切换，无需重启应用' : 'Hot-switched instantly without restart'}
-            </div>
-          </div>
-          <select
-            className="shiin-select"
-            value={locale}
-            onChange={(e) => {
-              const nextLoc = e.target.value
-              if ((window as any).electronAPI?.applyLocale) {
-                void (window as any).electronAPI.applyLocale(nextLoc)
-              }
-              if ((window as any).electronAPI?.setStore) {
-                void (window as any).electronAPI.setStore('locale', nextLoc)
-              }
-              onChange({ locale: nextLoc } as any)
-            }}
-          >
-            <option value="zh">简体中文 (zh)</option>
-            <option value="zh-TW">繁體中文 (zh-TW)</option>
-            <option value="en">English (en)</option>
-            <option value="ja">日本語 (ja)</option>
-            <option value="ko">한국어 (ko)</option>
-            <option value="de">Deutsch (de)</option>
-            <option value="fr">Français (fr)</option>
-            <option value="es">Español (es)</option>
-            <option value="ru">Русский (ru)</option>
-          </select>
-        </div>
-      </div>
-
-      {/* 截图通知浮窗 */}
-      <div className="shiin-card" style={{ gap: 12 }}>
-        <span style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <AppIcon name="bell" size={14} />
-          {isZh ? '覆层通知与提示' : 'Overlay Toast Notifications'}
-        </span>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div>{isZh ? '截图成功屏幕悬浮通知' : 'Overlay Toast Notification'}</div>
-              <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                {isZh ? '截图完成后在屏幕角展示缩略图卡片' : 'Show preview toast on completion'}
-              </div>
-            </div>
-            <select
-              className="shiin-select"
-              value={config.overlayNotify || 'show'}
-              onChange={(e) => onChange({ overlayNotify: e.target.value as any })}
-            >
-              <option value="show">{isZh ? '开启显示' : 'Enabled'}</option>
-              <option value="hide">{isZh ? '关闭' : 'Disabled'}</option>
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div>{isZh ? '悬浮通知显示位置' : 'Toast Position'}</div>
-              <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                {isZh ? '屏幕左上角或右上角浮层展示' : 'Top-left or top-right of the screen'}
-              </div>
-            </div>
-            <select
-              className="shiin-select"
-              value={config.overlayNotifyPosition || 'right'}
-              onChange={(e) => onChange({ overlayNotifyPosition: e.target.value as any })}
-            >
-              <option value="right">{isZh ? '屏幕右上角' : 'Top Right'}</option>
-              <option value="left">{isZh ? '屏幕左上角' : 'Top Left'}</option>
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div>{isZh ? '测试通知与音效' : 'Test Notification & Sound'}</div>
-              <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                {isZh ? '立即预览当前音效与屏幕浮层通知效果' : 'Preview toast overlay and shutter sound'}
-              </div>
-            </div>
-            <button
-              className="shiin-btn"
-              data-variant="tonal"
-              style={{ height: 28, fontSize: 11, padding: '0 12px' }}
-              onClick={async () => {
-                const { playCaptureSound } = await import('../audio.js')
-                void playCaptureSound(config.sound, config.soundPower)
-                if ((window as any).electronAPI?.showScreenshotNotification) {
-                  void (window as any).electronAPI.showScreenshotNotification({
-                    title: isZh ? '截图测试通知' : 'Screenshot Toast Test',
-                    desc: isZh ? '通知浮层与音效工作正常' : 'Toast and sound are working properly',
-                    duration: 3500,
-                  })
-                }
-              }}
-            >
-              <AppIcon name="sparkles" size={13} />
-              {isZh ? '测试通知浮层' : 'Test Overlay'}
+            <button type="button" className="sb-randomize-all" onClick={randomizeAll}>
+              <AppIcon name="dice" size={18} />
+              {isZh ? '随机全部形状' : 'Randomize all shapes'}
             </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 数据与版本 */}
-      <div className="shiin-card" style={{ gap: 12 }}>
-        <span style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <AppIcon name="database" size={14} />
-          {isZh ? '数据维护与更新' : 'Data & Updates'}
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontWeight: 550 }}>Gamepad Screenshot Tool · Shiin</div>
-            <div style={{ fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
-              Version {appVersion}
+            <div className="sb-session-combo">
+              <span className="sb-session-combo-art" aria-hidden="true">
+                <Md3eMorphShape path={deviceShape.svgPath} />
+                <AppIcon name="gamepad" size={18} />
+              </span>
+              <div>
+                <strong>
+                  {isZh ? deviceShape.name : deviceShape.nameEn} · {isZh ? textShape.name : textShape.nameEn}
+                </strong>
+                <small>{isZh ? '会话头像 · 文字形态' : 'Session artwork · Text buttons'}</small>
+              </div>
             </div>
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {onClearLogs && (
-              <button className="shiin-btn" data-variant="danger" onClick={onClearLogs}>
-                <AppIcon name="trash" size={13} />
-                {isZh ? '清理日志' : 'Clear Logs'}
+            <div className="sb-session-actions">
+              <button type="button" className="sb-lock" disabled={!isRandom} onClick={lockCurrent}>
+                <AppIcon name="lock" size={15} />
+                {isZh ? '固定当前组合' : 'Lock current'}
               </button>
-            )}
-            {onCheckUpdate && (
-              <button className="shiin-btn" data-variant="tonal" onClick={onCheckUpdate}>
-                <AppIcon name="refresh" size={13} />
-                {isZh ? '检查更新' : 'Check Updates'}
+              <button type="button" className="sb-next" disabled={!isRandom} onClick={onRerollShapeSession}>
+                <AppIcon name="dice" size={15} />
+                {isZh ? '模拟下次启动' : 'Next launch'}
               </button>
-            )}
-            {onOpenGithub && (
-              <button className="shiin-btn" data-variant="ghost" onClick={onOpenGithub}>
-                <AppIcon name="github" size={13} />
-                GitHub
+            </div>
+          </section>
+
+          <section
+            className="sb-tile sb-permission-tile"
+            id="settings-permission"
+            aria-label={isZh ? '权限与环境' : 'Permissions'}
+          >
+            <div className="sb-tile-head">
+              <div>
+                <h3>{isZh ? '权限与环境' : 'Permissions & environment'}</h3>
+                <p>{isZh ? '截图、窗口识别与目录读写。' : 'Capture, window recognition and folder access.'}</p>
+              </div>
+              <span className={`sb-chip ${missingCount > 0 ? 'warn' : 'tertiary'}`}>
+                {missingCount > 0
+                  ? isZh
+                    ? `${missingCount} 项待处理`
+                    : `${missingCount} pending`
+                  : isZh
+                    ? '已就绪'
+                    : 'Ready'}
+              </span>
+            </div>
+            <div className="sb-permission-grid">
+              <div className="sb-permission-big">
+                {permissionCount}
+                <small> / 4 {isZh ? '已授予' : 'granted'}</small>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="sb-secondary-button"
+                  onClick={isMac ? onOpenPermissionsView : onOpenFolder}
+                  disabled={isMac ? !onOpenPermissionsView : !onOpenFolder}
+                >
+                  <AppIcon name={isMac ? 'shield' : 'folder'} size={14} />
+                  {isMac ? (isZh ? '处理权限' : 'Resolve') : isZh ? '打开截图目录' : 'Open folder'}
+                </button>
+                {isMac && onOpenMacPreference && !screenGranted && (
+                  <button type="button" className="sb-secondary-button" onClick={() => onOpenMacPreference('screen')}>
+                    {isZh ? '系统设置' : 'System settings'}
+                  </button>
+                )}
+              </div>
+              <div className="sb-wavy">
+                <BentoWavyProgress value={permissionPercent} />
+              </div>
+              <ul className="sb-permission-list">
+                {permissionItems.map((item) => (
+                  <li key={item.id}>
+                    <i className={`sb-dot ${item.granted ? '' : 'bad'}`} />
+                    {item.label}
+                    <span className={`sb-state ${item.granted ? '' : 'bad'}`}>{item.state}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+
+          <section
+            className="sb-tile sb-startup-tile"
+            id="settings-startup"
+            aria-label={isZh ? '启动与托盘' : 'Startup & tray'}
+          >
+            <div className="sb-tile-head">
+              <div>
+                <h3>{isZh ? '启动与托盘' : 'Startup & tray'}</h3>
+                <p>{isZh ? '登录后保持监听，不打断游戏。' : 'Keep listening after login without interrupting play.'}</p>
+              </div>
+            </div>
+            <div className="sb-toggle-group sb-toggle-group--two" role="group" aria-label={isZh ? '启动与托盘开关' : 'Startup and tray toggles'}>
+              <button
+                type="button"
+                className="sb-toggle"
+                aria-pressed={Boolean(config.autoStart)}
+                onClick={() => handleAutoStart(!config.autoStart)}
+              >
+                <span className="sb-toggle-icon"><AppIcon name="power" size={18} /></span>
+                <span className="sb-toggle-copy">
+                  <strong>{isZh ? '开机自启动' : 'Launch at login'}</strong>
+                  <small>{isZh ? '登录后驻留托盘' : 'Stay in tray'}</small>
+                </span>
               </button>
+              <button
+                type="button"
+                className="sb-toggle"
+                aria-pressed={Boolean(config.startInLightweightMode)}
+                onClick={() => onChange({ startInLightweightMode: !config.startInLightweightMode })}
+              >
+                <span className="sb-toggle-icon"><AppIcon name="minus" size={18} /></span>
+                <span className="sb-toggle-copy">
+                  <strong>{isZh ? '轻量模式启动' : 'Lightweight start'}</strong>
+                  <small>{isZh ? '不创建主窗口' : 'No main window'}</small>
+                </span>
+              </button>
+            </div>
+            <div className="sb-settings-grid">
+              <div className="sb-field">
+                <span className="sb-field-label">{isZh ? '关闭主窗口' : 'CLOSE BEHAVIOR'}</span>
+                <BentoSelect
+                  value={config.closeType || 'exit'}
+                  options={[
+                    { value: 'exit', label: isZh ? '直接退出' : 'Exit' },
+                    { value: 'tray', label: isZh ? '隐藏到托盘' : 'Hide to tray' },
+                    { value: 'lightweight', label: isZh ? '轻量模式' : 'Lightweight' },
+                  ]}
+                  onChange={(next) => onChange({ closeType: next as ScreenshotConfig['closeType'] })}
+                  ariaLabel={isZh ? '关闭主窗口' : 'Close behavior'}
+                />
+              </div>
+              <div className="sb-field">
+                <span className="sb-field-label">{isZh ? '同名文件冲突' : 'FILENAME CONFLICT'}</span>
+                <BentoSelect
+                  value={config.filenameConflictResolution || 'overwrite'}
+                  options={[
+                    { value: 'overwrite', label: isZh ? '直接覆盖' : 'Overwrite' },
+                    { value: 'appendTimestamp', label: isZh ? '追加时间戳' : 'Append timestamp' },
+                    { value: 'notSave', label: isZh ? '放弃保存' : 'Do not save' },
+                  ]}
+                  onChange={(next) => onChange({ filenameConflictResolution: next as ScreenshotConfig['filenameConflictResolution'] })}
+                  ariaLabel={isZh ? '同名文件冲突' : 'Filename conflict'}
+                />
+              </div>
+            </div>
+            {onEnterLightweightMode && (
+              <div className="sb-setting-action">
+                <div className="sb-row-copy">
+                  <strong>{isZh ? '立即释放界面内存' : 'Free UI memory now'}</strong>
+                  <small>{isZh ? '销毁主窗口，保留后台监听' : 'Destroy the window and keep listening'}</small>
+                </div>
+                <button type="button" className="sb-secondary-button" onClick={onEnterLightweightMode}>
+                  <AppIcon name="minus" size={14} />
+                  {isZh ? '进入' : 'Enter'}
+                </button>
+              </div>
             )}
-          </div>
+          </section>
+
+          <section
+            className="sb-tile sb-notify-tile"
+            id="settings-notify"
+            aria-label={isZh ? '通知与声音' : 'Notifications & sound'}
+          >
+            <div className="sb-tile-head">
+              <div>
+                <h3>{isZh ? '快门声音' : 'Shutter sound'}</h3>
+                <p>{isZh ? '与悬浮通知共用一次反馈。' : 'One feedback with the overlay toast.'}</p>
+              </div>
+            </div>
+            <div className="sb-sound-row">
+              <div className="sb-sound-label">
+                <strong>{isZh ? '反馈音量' : 'Volume'}</strong>
+                <output>{volumePercent}%</output>
+              </div>
+              <div className="sb-volume-control">
+                <button
+                  type="button"
+                  className="sb-volume-step"
+                  onClick={() => onChange({ soundPower: Math.max(0, volumePercent - 5) / 100 })}
+                  disabled={volumePercent <= 0}
+                  aria-label={isZh ? '降低音量' : 'Lower volume'}
+                >
+                  <AppIcon name="minus" size={16} />
+                </button>
+                <input
+                  className="sb-slider"
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={volumePercent}
+                  style={{ '--sb-progress': `${volumePercent}%` } as React.CSSProperties}
+                  onChange={(event) => onChange({ soundPower: Number(event.target.value) / 100 })}
+                  aria-label={isZh ? '反馈音量' : 'Feedback volume'}
+                />
+                <button
+                  type="button"
+                  className="sb-volume-step"
+                  onClick={() => onChange({ soundPower: Math.min(100, volumePercent + 5) / 100 })}
+                  disabled={volumePercent >= 100}
+                  aria-label={isZh ? '提高音量' : 'Raise volume'}
+                >
+                  <AppIcon name="plus" size={16} />
+                </button>
+              </div>
+            </div>
+            <BentoSelect
+              className="sb-notify-select-control"
+              variant="notify"
+              value={config.sound}
+              options={[
+                { value: ScreenshotSoundEnum.Sound1, label: isZh ? '徕卡 M10 · 96ms' : 'Leica M10 · 96ms' },
+                { value: ScreenshotSoundEnum.Sound2, label: isZh ? '柔和铃声 · 373ms' : 'Soft chime · 373ms' },
+                { value: ScreenshotSoundEnum.Sound3, label: isZh ? '单反快门 · 100ms' : 'Shutter · 100ms' },
+                { value: ScreenshotSoundEnum.Sound4, label: isZh ? '机械反光板 · 143ms' : 'SLR clack · 143ms' },
+                { value: ScreenshotSoundEnum.Sound5, label: isZh ? '佳能 5D · 164ms' : 'Canon 5D · 164ms' },
+                { value: ScreenshotSoundEnum.None, label: isZh ? '静音' : 'Mute' },
+              ]}
+              onChange={(next) => onChange({ sound: next as ScreenshotConfig['sound'] })}
+              ariaLabel={isZh ? '快门音效' : 'Shutter sound'}
+            />
+            <button
+              type="button"
+              className="sb-notify-toggle"
+              aria-pressed={notifyOn}
+              onClick={() => onChange({ overlayNotify: notifyOn ? 'hide' : 'show' })}
+            >
+              <span className="sb-toggle-icon"><AppIcon name="bell" size={18} /></span>
+              <span className="sb-toggle-copy">
+                <strong>{isZh ? '悬浮通知' : 'Overlay toast'}</strong>
+                <small>{isZh ? '截图完成后显示缩略图' : 'Show a preview after capture'}</small>
+              </span>
+              <span className="sb-notify-track" data-on={notifyOn}>
+                <span className="sb-notify-thumb">
+                  <AppIcon name="check" size={13} />
+                </span>
+              </span>
+            </button>
+            <div className="sb-notify-position-field">
+              <span className="sb-field-label">{isZh ? '通知位置' : 'TOAST POSITION'}</span>
+              <BentoSelect
+                className="sb-notify-select-control"
+                variant="notify"
+                value={config.overlayNotifyPosition || 'right'}
+                options={[
+                  { value: 'right', label: isZh ? '右上角' : 'Top right' },
+                  { value: 'left', label: isZh ? '左上角' : 'Top left' },
+                ]}
+                onChange={(next) => onChange({ overlayNotifyPosition: next as ScreenshotConfig['overlayNotifyPosition'] })}
+                ariaLabel={isZh ? '通知位置' : 'Toast position'}
+              />
+            </div>
+            <div className="sb-notify-actions">
+              <button type="button" onClick={() => void testNotification()}>
+                {isZh ? '测试通知' : 'Test toast'}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void import('../audio.js').then(({ playCaptureSound }) =>
+                    playCaptureSound(config.sound, config.soundPower)
+                  )
+                }
+              >
+                {isZh ? '试听' : 'Preview'}
+              </button>
+            </div>
+          </section>
+
+          <section className="sb-tile sb-data-tile" id="settings-data" aria-label={isZh ? '数据与更新' : 'Data & updates'}>
+            <div className="sb-version">{appVersion}</div>
+            <div className="sb-data-meta">SHIIN · {isZh ? '游戏手柄截图与即时回放' : 'GAMEPAD CAPTURE'}</div>
+            <div className="sb-data-lang">
+              <span>{isZh ? '界面语言' : 'Language'}</span>
+              <BentoSelect
+                className="sb-language-select"
+                value={locale}
+                options={LANGUAGES.map((language) => ({ value: language.code, label: language.native }))}
+                onChange={handleLocaleChange}
+                ariaLabel={isZh ? '界面语言' : 'Language'}
+              />
+            </div>
+            <div className="sb-data-actions">
+              {onOpenFolder && (
+                <button type="button" className="sb-secondary-button" onClick={onOpenFolder}>
+                  <AppIcon name="folder" size={14} />
+                  {isZh ? '打开目录' : 'Open folder'}
+                </button>
+              )}
+              {onSelectFolder && (
+                <button type="button" className="sb-secondary-button" onClick={onSelectFolder}>
+                  <AppIcon name="save" size={14} />
+                  {isZh ? '更换目录' : 'Change folder'}
+                </button>
+              )}
+              {onClearLogs && (
+                <button type="button" className="sb-secondary-button" onClick={onClearLogs}>
+                  <AppIcon name="trash" size={14} />
+                  {isZh ? '清理日志' : 'Clear logs'}
+                </button>
+              )}
+              {onCheckUpdate && (
+                <button type="button" className="sb-secondary-button" onClick={onCheckUpdate}>
+                  <AppIcon name="refresh" size={14} />
+                  {isZh ? '检查更新' : 'Check updates'}
+                </button>
+              )}
+              {onOpenGithub && (
+                <button type="button" className="sb-secondary-button" onClick={onOpenGithub}>
+                  <AppIcon name="github" size={14} />
+                  GitHub
+                </button>
+              )}
+            </div>
+          </section>
         </div>
       </div>
     </div>

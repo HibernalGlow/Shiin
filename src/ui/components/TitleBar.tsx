@@ -1,15 +1,12 @@
 import * as React from 'react'
 import { AppIcon } from './AppIcon.js'
 import { ALIAS, MD3E_ALIAS } from '../md3e.js'
+import { useMd3eShapes } from '../md3e-shape-context.js'
 import { LANGUAGES, getLanguage } from '../i18n.js'
 import type { MacOSPermissionsStatus } from '../adapter/types.js'
 
 export interface TitleBarProps {
   listening: boolean
-  isDark: boolean
-  onToggleTheme: () => void
-  accent: string
-  onSetAccent: (accent: string) => void
   uiScale: number
   onSetUiScale: (scale: number) => void
   locale?: string
@@ -27,14 +24,6 @@ export interface TitleBarProps {
   onOpenPermissions?: () => void
 }
 
-const ACCENT_COLORS = [
-  { key: 'lime', color: '#B4F461', name: '青柠 (Lime)' },
-  { key: 'violet', color: '#A996FF', name: '紫罗兰 (Violet)' },
-  { key: 'cyan', color: '#6EE3F0', name: '青绿 (Cyan)' },
-  { key: 'amber', color: '#FFC15E', name: '琥珀 (Amber)' },
-  { key: 'rose', color: '#FF8CA0', name: '蔷薇 (Rose)' },
-  { key: 'azure', color: '#7CB8FF', name: '蔚蓝 (Azure)' },
-]
 
 const UI_SCALES = [
   { value: 0.9, label: '90%' },
@@ -45,47 +34,29 @@ const UI_SCALES = [
 
 interface TitleBarButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   active?: boolean
+  tone?: 'default' | 'danger' | 'success'
 }
 
 const TitleBarButton: React.FC<TitleBarButtonProps> = ({
   active,
+  tone = 'default',
   children,
   style,
   ...rest
 }) => {
-  const [hovered, setHovered] = React.useState(false)
+  const { session } = useMd3eShapes()
   return (
     <button
       type="button"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        width: 30,
-        height: 30,
-        padding: 0,
-        margin: 0,
-        borderRadius: '50%',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        border: `1px solid ${active || hovered ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.08)'}`,
-        background: active
-          ? 'rgba(255, 255, 255, 0.14)'
-          : hovered
-          ? 'rgba(255, 255, 255, 0.09)'
-          : 'rgba(255, 255, 255, 0.04)',
-        color: active || hovered ? ALIAS.onSurface : ALIAS.onSurfaceVariant,
-        outline: 'none',
-        transition: 'all 160ms cubic-bezier(.22, 1.4, .36, 1)',
-        transform: hovered ? 'translateY(-1px)' : 'none',
-        userSelect: 'none',
-        flexShrink: 0,
-        boxSizing: 'border-box',
-        ...style,
-      }}
+      className="xaihi-titlebar-icon-button"
+      data-active={active ? 'true' : 'false'}
+      data-tone={tone}
+      style={style}
       {...rest}
     >
+      <svg className="xaihi-titlebar-shape" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+        <path d={session.shapes.icon.svgPath} />
+      </svg>
       {children}
     </button>
   )
@@ -133,10 +104,6 @@ const WinControlButton: React.FC<{
 
 export const TitleBar: React.FC<TitleBarProps> = ({
   listening,
-  isDark,
-  onToggleTheme,
-  accent,
-  onSetAccent,
   uiScale,
   onSetUiScale,
   locale = 'zh',
@@ -155,23 +122,18 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 }) => {
   const isZh = locale.startsWith('zh')
   const currentLang = getLanguage(locale)
-  const [accentOpen, setAccentOpen] = React.useState(false)
   const [scaleOpen, setScaleOpen] = React.useState(false)
   const [langOpen, setLangOpen] = React.useState(false)
 
-  const accentWrapperRef = React.useRef<HTMLDivElement>(null)
   const scaleWrapperRef = React.useRef<HTMLDivElement>(null)
   const langWrapperRef = React.useRef<HTMLDivElement>(null)
 
   // 点击外部自动收起浮层
   React.useEffect(() => {
-    if (!accentOpen && !scaleOpen && !langOpen) return
+    if (!scaleOpen && !langOpen) return
 
     const handlePointerDown = (e: PointerEvent) => {
       const target = e.target as Node
-      if (accentOpen && accentWrapperRef.current && !accentWrapperRef.current.contains(target)) {
-        setAccentOpen(false)
-      }
       if (scaleOpen && scaleWrapperRef.current && !scaleWrapperRef.current.contains(target)) {
         setScaleOpen(false)
       }
@@ -184,20 +146,18 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown)
     }
-  }, [accentOpen, scaleOpen, langOpen])
-
-  const currentColor = ACCENT_COLORS.find((c) => c.key === accent)?.color || '#b4f461'
+  }, [scaleOpen, langOpen])
 
   return (
     <header
       style={{
-        height: 44,
+        height: 48,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: `0 0 0 ${isMac ? '78px' : '14px'}`,
-        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-        background: MD3E_ALIAS.surfaceLowest,
+        padding: `0 0 0 ${isMac ? '78px' : '16px'}`,
+        borderBottom: '1px solid var(--shiin-outline-soft, rgba(36, 23, 19, 0.09))',
+        background: MD3E_ALIAS.surface,
         userSelect: 'none',
         WebkitAppRegion: 'drag' as any,
         position: 'relative',
@@ -213,16 +173,19 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           <button
             type="button"
             onClick={onOpenUpdate}
+            className="xaihi-titlebar-version"
             title={hasUpdate ? (isZh ? '发现新版本，点击查看' : 'New version available') : (isZh ? '检查更新' : 'Check for updates')}
             style={{
               fontSize: 10,
               fontWeight: 700,
               padding: '1.5px 6px',
               borderRadius: 999,
-              background: hasUpdate ? 'rgba(59, 130, 246, 0.2)' : MD3E_ALIAS.surfaceHigh,
-              color: hasUpdate ? '#60a5fa' : ALIAS.onSurfaceVariant,
+              background: hasUpdate
+                ? 'color-mix(in srgb, var(--xaihi-md3e-tertiary, #7df2d2) 14%, transparent)'
+                : MD3E_ALIAS.surfaceHigh,
+              color: hasUpdate ? 'var(--xaihi-md3e-tertiary, #7df2d2)' : ALIAS.onSurfaceVariant,
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-              border: `1px solid ${hasUpdate ? 'rgba(96, 165, 250, 0.4)' : 'rgba(255, 255, 255, 0.06)'}`,
+              border: `1px solid ${hasUpdate ? 'color-mix(in srgb, var(--xaihi-md3e-tertiary, #7df2d2) 30%, transparent)' : 'var(--shiin-outline-soft, rgba(238, 241, 229, 0.1))'}`,
               cursor: onOpenUpdate ? 'pointer' : 'default',
               display: 'inline-flex',
               alignItems: 'center',
@@ -234,8 +197,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             {hasUpdate && (
               <span style={{
                 fontSize: 8.5,
-                background: '#3b82f6',
-                color: '#ffffff',
+                background: 'var(--xaihi-md3e-primary, #c9f56d)',
+                color: 'var(--xaihi-md3e-on-primary, #1c2a05)',
                 padding: '0.5px 4px',
                 borderRadius: 4,
                 fontWeight: 800,
@@ -266,17 +229,17 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           borderRadius: 999,
           fontSize: 11,
           fontWeight: 700,
-          border: `1px solid ${listening ? 'rgba(180, 244, 97, 0.35)' : 'rgba(255, 255, 255, 0.08)'}`,
-          color: listening ? MD3E_ALIAS.primary : ALIAS.onSurfaceVariant,
-          background: listening ? 'rgba(180, 244, 97, 0.12)' : MD3E_ALIAS.surfaceHigh,
+          border: `1px solid ${listening ? 'color-mix(in srgb, var(--xaihi-md3e-tertiary, #7df2d2) 30%, transparent)' : 'var(--shiin-outline-soft, rgba(238, 241, 229, 0.1))'}`,
+          color: listening ? 'var(--xaihi-md3e-on-tertiary-container, #c9ffee)' : ALIAS.onSurfaceVariant,
+          background: listening ? MD3E_ALIAS.tertiaryContainer : MD3E_ALIAS.surfaceHigh,
           backdropFilter: 'blur(12px)',
         }}>
           <i style={{
             width: 6,
             height: 6,
             borderRadius: '50%',
-            background: listening ? MD3E_ALIAS.primary : 'rgba(255, 255, 255, 0.25)',
-            boxShadow: listening ? '0 0 8px #b4f461' : 'none',
+            background: listening ? 'var(--xaihi-md3e-tertiary, #7df2d2)' : 'rgba(238, 241, 229, 0.28)',
+            boxShadow: listening ? '0 0 8px color-mix(in srgb, var(--xaihi-md3e-tertiary, #7df2d2) 50%, transparent)' : 'none',
           }} />
           {listening ? (isZh ? '正在监听' : 'Listening') : (isZh ? '闲置' : 'Idle')}
         </span>
@@ -291,29 +254,20 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             title={
               permissions?.isMac && !permissions?.allGranted
                 ? isZh
-                  ? '⚠️ 存在未授权的核心权限（屏幕录制等），点击打开检查'
-                  : '⚠️ Missing system permissions, click to inspect and grant'
+                  ? '存在未授权的核心权限（屏幕录制等），点击打开检查'
+                  : 'Missing system permissions, click to inspect and grant'
                 : isZh
                   ? '系统权限正常 (点击打开权限自检中心)'
                   : 'Permissions OK (click to view diagnostics)'
             }
-            style={{
-              position: 'relative',
-              color:
-                permissions?.isMac && !permissions?.allGranted
-                  ? '#fb5f76'
-                  : permissions?.isMac && permissions?.allGranted
-                  ? '#4ade80'
-                  : undefined,
-              borderColor:
-                permissions?.isMac && !permissions?.allGranted
-                  ? 'rgba(251, 95, 118, 0.45)'
-                  : undefined,
-              background:
-                permissions?.isMac && !permissions?.allGranted
-                  ? 'rgba(251, 95, 118, 0.14)'
-                  : undefined,
-            }}
+            tone={
+              permissions?.isMac && !permissions?.allGranted
+                ? 'danger'
+                : permissions?.isMac && permissions?.allGranted
+                ? 'success'
+                : 'default'
+            }
+            style={{ position: 'relative' }}
           >
             <AppIcon name="shield" size={15} />
             {permissions?.isMac && !permissions?.allGranted && (
@@ -325,89 +279,16 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                   width: 6,
                   height: 6,
                   borderRadius: '50%',
-                  background: '#fb5f76',
-                  boxShadow: '0 0 6px #fb5f76',
+                  background: '#ffb4ab',
+                  boxShadow: '0 0 6px rgba(255, 180, 171, 0.5)',
                 }}
               />
             )}
           </TitleBarButton>
         )}
 
-        {/* 深浅色切换 */}
-        <TitleBarButton
-          onClick={onToggleTheme}
-          title={isZh ? '切换深浅色' : 'Toggle theme'}
-        >
-          <AppIcon name={isDark ? 'sun' : 'moon'} size={15} />
-        </TitleBarButton>
-
-        {/* 主色调选择 */}
-        <div style={{ position: 'relative' }} ref={accentWrapperRef}>
-          <TitleBarButton
-            active={accentOpen}
-            onClick={() => setAccentOpen((prev) => !prev)}
-            title={isZh ? '切换主题色' : 'Accent color'}
-          >
-            <span style={{
-              display: 'inline-block',
-              width: 13,
-              height: 13,
-              borderRadius: '50%',
-              background: currentColor,
-              boxShadow: `0 0 6px ${currentColor}99`,
-              flexShrink: 0,
-            }} />
-          </TitleBarButton>
-          {accentOpen && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              right: 0,
-              marginTop: 8,
-              padding: 10,
-              borderRadius: 16,
-              background: MD3E_ALIAS.surfaceHigh,
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: 8,
-              boxShadow: '0 16px 36px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.4)',
-              backdropFilter: 'blur(20px)',
-              zIndex: 100,
-            }}>
-              {ACCENT_COLORS.map((c) => {
-                const isSelected = accent === c.key
-                return (
-                  <button
-                    key={c.key}
-                    type="button"
-                    onClick={() => {
-                      onSetAccent(c.key)
-                      setAccentOpen(false)
-                    }}
-                    title={c.name}
-                    style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: '50%',
-                      background: c.color,
-                      border: 'none',
-                      outline: isSelected ? '2px solid #ffffff' : 'none',
-                      outlineOffset: 2,
-                      cursor: 'pointer',
-                      boxShadow: isSelected ? `0 0 10px ${c.color}` : 'none',
-                      transition: 'transform 150ms ease',
-                      padding: 0,
-                    }}
-                  />
-                )
-              })}
-            </div>
-          )}
-        </div>
-
         {/* 缩放选择 */}
-        <div style={{ position: 'relative' }} ref={scaleWrapperRef}>
+        <div className="xaihi-titlebar-compact-hide" style={{ position: 'relative' }} ref={scaleWrapperRef}>
           <TitleBarButton
             active={scaleOpen}
             onClick={() => setScaleOpen((prev) => !prev)}
@@ -423,12 +304,12 @@ export const TitleBar: React.FC<TitleBarProps> = ({
               marginTop: 8,
               padding: 6,
               borderRadius: 14,
-              background: MD3E_ALIAS.surfaceHigh,
-              border: '1px solid rgba(255, 255, 255, 0.12)',
+              background: MD3E_ALIAS.surface,
+              border: '1px solid var(--shiin-outline-soft, rgba(255, 255, 255, 0.1))',
               display: 'flex',
               flexDirection: 'column',
               gap: 4,
-              boxShadow: '0 16px 36px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.4)',
+              boxShadow: '0 18px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)',
               backdropFilter: 'blur(20px)',
               zIndex: 100,
               minWidth: 84,
@@ -466,7 +347,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
         </div>
 
         {/* 语言选择下拉 */}
-        <div style={{ position: 'relative' }} ref={langWrapperRef}>
+        <div className="xaihi-titlebar-compact-hide" style={{ position: 'relative' }} ref={langWrapperRef}>
           <TitleBarButton
             active={langOpen}
             onClick={() => setLangOpen((prev) => !prev)}
@@ -484,12 +365,12 @@ export const TitleBar: React.FC<TitleBarProps> = ({
               marginTop: 8,
               padding: 6,
               borderRadius: 14,
-              background: MD3E_ALIAS.surfaceHigh,
-              border: '1px solid rgba(255, 255, 255, 0.12)',
+              background: MD3E_ALIAS.surface,
+              border: '1px solid var(--shiin-outline-soft, rgba(255, 255, 255, 0.1))',
               display: 'flex',
               flexDirection: 'column',
               gap: 4,
-              boxShadow: '0 16px 36px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.4)',
+              boxShadow: '0 18px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)',
               backdropFilter: 'blur(20px)',
               zIndex: 100,
               minWidth: 110,

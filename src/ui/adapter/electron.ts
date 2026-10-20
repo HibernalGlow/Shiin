@@ -22,29 +22,120 @@ declare global {
 
 async function fetchLocalApi<T>(endpoint: string, body?: unknown): Promise<T | null> {
   if (typeof fetch === 'undefined') return null
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 1500)
   try {
     const res = await fetch(endpoint, {
       method: body !== undefined ? 'POST' : 'GET',
       headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     })
     if (!res.ok) return null
     return (await res.json()) as T
   } catch {
     return null
+  } finally {
+    clearTimeout(timer)
   }
 }
 
 export class ElectronHostBridge implements IHostBridge {
   public readonly hostType = 'electron'
 
+  private eventSource: EventSource | null = null
+  private screenshotListeners = new Set<(result: ScreenshotResult) => void>()
+  private replayListeners = new Set<(result: { ok: boolean; error?: string }) => void>()
+  private listeningListeners = new Set<(isListening: boolean) => void>()
+  private deviceListeners = new Set<(devices: GamepadDeviceInfo[]) => void>()
+  private gamepadStateCache: { at: number; value: { buttons: boolean[]; axes: number[] } | null } | null = null
+
   private get api() {
     return window.electronAPI || {}
+  }
+
+  /** 有 preload 就走 IPC；否则把同一个 URL 当作 Node Web 宿主。 */
+  private get hasElectronApi(): boolean {
+    return typeof window !== 'undefined' && Boolean(window.electronAPI)
+  }
+
+  private addListener<T>(listeners: Set<T>, callback: T): () => void {
+    listeners.add(callback)
+    return () => {
+      listeners.delete(callback)
+    }
+  }
+
+  /**
+   * Web 宿主的事件通道。页面关闭不影响后台监听；重新打开时从 `/api/state` 恢复，
+   * 之后由 SSE 推送截图、回放、设备插拔与监听状态。
+   */
+  private ensureEventSource(): void {
+    if (this.hasElectronApi || this.eventSource || typeof EventSource === 'undefined') return
+    const source = new EventSource('/api/events')
+    const payloadOf = (event: Event): any => {
+      try {
+        return JSON.parse((event as MessageEvent).data)
+      } catch {
+        return null
+      }
+    }
+
+    source.addEventListener('ready', (event) => {
+      const data = payloadOf(event)?.data
+      if (typeof data?.listening === 'boolean') {
+        for (const callback of this.listeningListeners) callback(data.listening)
+      }
+      if (Array.isArray(data?.devices)) {
+        for (const callback of this.deviceListeners) callback(data.devices)
+      }
+    })
+    source.addEventListener('screenshot', (event) => {
+      const data = payloadOf(event)?.data
+      if (data) for (const callback of this.screenshotListeners) callback(data)
+    })
+    source.addEventListener('replayBuffer', (event) => {
+      const data = payloadOf(event)?.data
+      if (data) for (const callback of this.replayListeners) callback(data)
+    })
+    source.addEventListener('statusChanged', (event) => {
+      const data = payloadOf(event)?.data
+      const listening = typeof data?.listening === 'boolean' ? data.listening : Boolean(data)
+      for (const callback of this.listeningListeners) callback(listening)
+    })
+    source.addEventListener('deviceChanged', (event) => {
+      const data = payloadOf(event)?.data
+      if (Array.isArray(data)) {
+        for (const callback of this.deviceListeners) callback(data)
+      }
+    })
+    this.eventSource = source
+  }
+
+  private async fetchGamepadState(): Promise<{ buttons: boolean[]; axes: number[] } | null> {
+    const now = Date.now()
+    if (this.gamepadStateCache && now - this.gamepadStateCache.at < 25) {
+      return this.gamepadStateCache.value
+    }
+    const res = await fetchLocalApi<{ buttons?: unknown; axes?: unknown }>('/api/gamepad/state')
+    const value =
+      res && Array.isArray(res.buttons) && Array.isArray(res.axes)
+        ? {
+            buttons: res.buttons.map(Boolean),
+            axes: res.axes.map((axis) => Number(axis) || 0),
+          }
+        : null
+    this.gamepadStateCache = { at: now, value }
+    return value
   }
 
   public async getStore<T>(key: string, defaultValue: T): Promise<T> {
     if (this.api.getStore) {
       return await this.api.getStore(key, defaultValue)
+    }
+    if (!this.hasElectronApi) {
+      const res = await fetchLocalApi<{ value: T }>('/api/store/get', { key, defaultValue })
+      if (res && 'value' in res) return res.value
     }
     const val = localStorage.getItem(key)
     if (val === null) return defaultValue
@@ -58,35 +149,44 @@ export class ElectronHostBridge implements IHostBridge {
   public async setStore<T>(key: string, value: T): Promise<void> {
     if (this.api.setStore) {
       await this.api.setStore(key, value)
-    } else {
-      localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value))
+      return
     }
+    if (!this.hasElectronApi) {
+      const res = await fetchLocalApi<{ ok: boolean }>('/api/store/set', { key, value })
+      if (res?.ok) return
+    }
+    localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value))
+  }
+
+  private browserGamepads(): Gamepad[] {
+    if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') return []
+    return Array.from(navigator.getGamepads() || []).filter((gp): gp is Gamepad => Boolean(gp))
   }
 
   public async getConnectedGamepads(): Promise<GamepadDeviceInfo[]> {
-    let mainDevices: GamepadDeviceInfo[] = []
     if (this.api.getAllGamePad) {
       try {
-        mainDevices = await this.api.getAllGamePad()
+        const mainDevices = await this.api.getAllGamePad()
+        if (Array.isArray(mainDevices) && mainDevices.length > 0) return mainDevices
       } catch {}
     }
-    if (mainDevices.length > 0) return mainDevices
 
-    // Web Gamepad API Fallback (仅当独立 SDL Worker 未检出设备时作为降级来源)
-    if (typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function') {
-      const raw = Array.from(navigator.getGamepads() || []).filter(Boolean) as Gamepad[]
-      if (raw.length > 0) {
-        return raw.map((gp, idx) => ({
-          _index: idx,
-          id: gp.id,
-          name: gp.id || `Gamepad #${idx + 1}`,
-          type: 'gamecontroller',
-        }))
-      }
+    // Node 宿主优先：它的 ButtonN 与全局监听用的是同一套 SDL 索引。
+    if (!this.hasElectronApi) {
+      const apiDevs = await fetchLocalApi<GamepadDeviceInfo[]>('/api/gamepads')
+      if (apiDevs) return apiDevs
     }
 
-    const apiDevs = await fetchLocalApi<GamepadDeviceInfo[]>('/api/gamepads')
-    if (apiDevs && apiDevs.length > 0) return apiDevs
+    // 仅当没有 Node 宿主时用 Web Gamepad API 兜底（索引口径与 SDL 不保证一致）。
+    const raw = this.browserGamepads()
+    if (raw.length > 0) {
+      return raw.map((gp, idx) => ({
+        _index: idx,
+        id: gp.id,
+        name: gp.id || `Gamepad #${idx + 1}`,
+        type: 'gamecontroller',
+      }))
+    }
 
     return []
   }
@@ -95,12 +195,20 @@ export class ElectronHostBridge implements IHostBridge {
     if (this.api.openSdl2Device) {
       return await this.api.openSdl2Device(device)
     }
-    return true
+    if (!this.hasElectronApi) {
+      const res = await fetchLocalApi<{ ok: boolean }>('/api/gamepads/open', { device })
+      if (res) return Boolean(res.ok)
+    }
+    return false
   }
 
   public async closeGamepad(): Promise<void> {
     if (this.api.closeSdl2DeviceInstance) {
       await this.api.closeSdl2DeviceInstance()
+      return
+    }
+    if (!this.hasElectronApi) {
+      await fetchLocalApi('/api/gamepads/close', {})
     }
   }
 
@@ -108,35 +216,43 @@ export class ElectronHostBridge implements IHostBridge {
     if (this.api.onGamepadDevicesChanged) {
       return this.api.onGamepadDevicesChanged(cb)
     }
+    if (!this.hasElectronApi) {
+      const unbind = this.addListener(this.deviceListeners, cb)
+      this.ensureEventSource()
+      return unbind
+    }
     return () => {}
   }
 
   public async getCurrentButtons(): Promise<boolean[]> {
-    // 若浏览器环境存在 Web Gamepad 输入，仅作为后台无原生 Worker 时的降级补充上报（主进程在已有 Worker 状态时会自动忽略）
-    let webButtons: boolean[] = []
-    if (typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function') {
-      const raw = Array.from(navigator.getGamepads() || []).filter(Boolean) as Gamepad[]
-      if (raw.length > 0) {
-        const active = raw[0]
-        webButtons = active.buttons.map((b) => b.pressed)
-        const webAxes = active.axes.map((a) => a)
-        if (this.api.syncWebGamepad) {
-          void this.api.syncWebGamepad(
-            raw.map((gp, idx) => ({ _index: idx, id: gp.id, name: gp.id, type: 'gamecontroller' })),
-            webButtons,
-            webAxes
-          )
-        }
-      }
-    }
-
     if (this.api.getCurrentButtonsValue) {
       const mainButtons = await this.api.getCurrentButtonsValue()
       if (Array.isArray(mainButtons) && mainButtons.length > 0) {
         return mainButtons
       }
     }
-    return webButtons
+
+    if (!this.hasElectronApi) {
+      const state = await this.fetchGamepadState()
+      if (state) return state.buttons
+    }
+
+    // Electron 主进程没有 SDL Worker 时的降级：把页面里的 Web Gamepad 状态注入主进程。
+    const raw = this.browserGamepads()
+    if (raw.length > 0) {
+      const active = raw[0]
+      const webButtons = active.buttons.map((button) => button.pressed)
+      if (this.api.syncWebGamepad) {
+        void this.api.syncWebGamepad(
+          raw.map((gp, idx) => ({ _index: idx, id: gp.id, name: gp.id, type: 'gamecontroller' })),
+          webButtons,
+          active.axes.slice(),
+        )
+      }
+      return webButtons
+    }
+
+    return []
   }
 
   public async getCurrentAxes(): Promise<number[]> {
@@ -147,14 +263,13 @@ export class ElectronHostBridge implements IHostBridge {
       }
     }
 
-    if (typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function') {
-      const raw = Array.from(navigator.getGamepads() || []).filter(Boolean) as Gamepad[]
-      if (raw.length > 0) {
-        return raw[0].axes.map((a) => a)
-      }
+    if (!this.hasElectronApi) {
+      const state = await this.fetchGamepadState()
+      if (state) return state.axes
     }
 
-    return []
+    const raw = this.browserGamepads()
+    return raw.length > 0 ? raw[0].axes.slice() : []
   }
 
   public async getScreenSources(): Promise<CaptureDisplayInfo[]> {
@@ -225,7 +340,11 @@ export class ElectronHostBridge implements IHostBridge {
       this.api.updateTrayListeningState(true)
       this.api.updateTrayIcon(true)
     }
-    return true
+    if (!this.hasElectronApi) {
+      const res = await fetchLocalApi<{ ok: boolean; reason?: string }>('/api/listen/start', { config })
+      if (res) return Boolean(res.ok)
+    }
+    return false
   }
 
   public async stopListening(): Promise<void> {
@@ -237,11 +356,18 @@ export class ElectronHostBridge implements IHostBridge {
       this.api.updateTrayListeningState(false)
       this.api.updateTrayIcon(false)
     }
+    if (!this.hasElectronApi) {
+      await fetchLocalApi('/api/listen/stop', {})
+    }
   }
 
   public async getListeningState(): Promise<boolean> {
     if (this.api.getListeningState) {
       return Boolean(await this.api.getListeningState())
+    }
+    if (!this.hasElectronApi) {
+      const res = await fetchLocalApi<{ listening: boolean }>('/api/listen/state')
+      if (res) return Boolean(res.listening)
     }
     return false
   }
@@ -249,6 +375,9 @@ export class ElectronHostBridge implements IHostBridge {
   public async getRuntimeState(): Promise<HostRuntimeState | null> {
     if (this.api.getRuntimeState) {
       return await this.api.getRuntimeState()
+    }
+    if (!this.hasElectronApi) {
+      return await fetchLocalApi<HostRuntimeState>('/api/state')
     }
     return null
   }
@@ -263,10 +392,38 @@ export class ElectronHostBridge implements IHostBridge {
     const stopHandler = () => cb(false)
     if (this.api.onStartListenFromTray) this.api.onStartListenFromTray(startHandler)
     if (this.api.onStopListenFromTray) this.api.onStopListenFromTray(stopHandler)
+    if (!this.hasElectronApi) {
+      unbinds.push(this.addListener(this.listeningListeners, cb))
+      this.ensureEventSource()
+    }
 
     return () => {
       unbinds.forEach((u) => u())
     }
+  }
+
+  public onScreenshotCompleted(cb: (result: ScreenshotResult) => void): () => void {
+    if (this.api.onScreenshotCompleted) {
+      return this.api.onScreenshotCompleted(cb)
+    }
+    if (!this.hasElectronApi) {
+      const unbind = this.addListener(this.screenshotListeners, cb)
+      this.ensureEventSource()
+      return unbind
+    }
+    return () => {}
+  }
+
+  public onObsReplayCompleted(cb: (result: { ok: boolean; error?: string }) => void): () => void {
+    if (this.api.onObsReplayCompleted) {
+      return this.api.onObsReplayCompleted(cb)
+    }
+    if (!this.hasElectronApi) {
+      const unbind = this.addListener(this.replayListeners, cb)
+      this.ensureEventSource()
+      return unbind
+    }
+    return () => {}
   }
 
   public minimizeWindow(): void {
@@ -324,7 +481,11 @@ export class ElectronHostBridge implements IHostBridge {
     if (this.api.saveOBSReplay) {
       return await this.api.saveOBSReplay()
     }
-    return { ok: true }
+    if (!this.hasElectronApi) {
+      const res = await fetchLocalApi<{ ok: boolean; error?: string }>('/api/obs/save-replay', {})
+      if (res) return res
+    }
+    return { ok: false, error: 'Host bridge unavailable' }
   }
 
   public async openExternal(url: string): Promise<void> {
@@ -357,7 +518,8 @@ export class ElectronHostBridge implements IHostBridge {
     if (this.api.getMacOSPermissions) {
       return await this.api.getMacOSPermissions(options)
     }
-    const apiRes = await fetchLocalApi<MacOSPermissionsStatus>('/api/permissions', options || {})
+    const endpoint = options?.activeProbe ? '/api/permissions?activeProbe=1' : '/api/permissions'
+    const apiRes = await fetchLocalApi<MacOSPermissionsStatus>(endpoint)
     if (apiRes) return apiRes
     return {
       isMac: this.isMac,
@@ -452,9 +614,13 @@ export class ElectronHostBridge implements IHostBridge {
   public async showItemInFolder(fullPath: string): Promise<void> {
     if (this.api.showItemInFolder) {
       await this.api.showItemInFolder(fullPath)
-    } else {
-      await this.openFolder(fullPath)
+      return
     }
+    if (!this.hasElectronApi) {
+      const res = await fetchLocalApi<{ ok: boolean }>('/api/show-in-folder', { path: fullPath })
+      if (res?.ok) return
+    }
+    await this.openFolder(fullPath)
   }
 
   public onOpenPermissionDialog(cb: (data?: any) => void): () => void {
