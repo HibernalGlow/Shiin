@@ -35,3 +35,14 @@ package-lock.json
 # 本地 Vue DevTools 扩展（由 npm run devtools:fetch 生成）
 /devtools-extension
 *.crx
+
+# 本地运行时产物：应用启动后写在可执行文件旁的配置（含各人自己的截图目录）
+/config
+
+# 设计探索的自动截图（由探索脚本重跑生成，2.2M，不入库）
+/design/settings-explore/shots
+
+# 调试日志与助手草稿目录
+/mcp_debug.log
+/.workbuddy
+.workbuddy
