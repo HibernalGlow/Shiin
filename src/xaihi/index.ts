@@ -62,7 +62,7 @@ export function apply(ctx: any, config: Config): void {
     status: async () => {
       const devices = manager.gamepad.getConnectedDevices()
       const deviceNames = devices.map((d) => `#${d._index}: ${d.name}`).join(', ') || '无'
-      const statusText = manager.listening ? '🟢 正在监听手柄' : '⚪ 闲置'
+      const statusText = manager.listening ? '正在监听手柄' : '闲置'
       return `【手柄截图工具】\n状态: ${statusText}\n连接设备: ${deviceNames}\n保存路径: ${manager.config.path || '默认目录'}\n格式: ${manager.config.imageFormat}`
     },
 
