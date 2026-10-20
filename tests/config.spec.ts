@@ -9,6 +9,23 @@ describe('Config Storage', () => {
     expect(config.imageFormat).toBe('jpg')
     expect(config.screenshotWay).toBe(ScreenShotWayEnum.DesktopCapturer)
     expect(config.comboKeys).toEqual([])
+    expect(config.windowCaptureMode).toBe('focused')
+  })
+
+  it('migrates a legacy pinned window into specified mode', async () => {
+    const storage = new MemoryConfigStorage()
+    await storage.set('globalConfig', JSON.stringify({ windowSourceId: 42 }))
+
+    const loaded = await loadFullConfig(storage)
+    expect(loaded.windowCaptureMode).toBe('specified')
+  })
+
+  it('keeps an explicitly saved focused mode even when a pinned id exists', async () => {
+    const storage = new MemoryConfigStorage()
+    await storage.set('globalConfig', JSON.stringify({ windowSourceId: 42, windowCaptureMode: 'focused' }))
+
+    const loaded = await loadFullConfig(storage)
+    expect(loaded.windowCaptureMode).toBe('focused')
   })
 
   it('persists and reloads config accurately', async () => {

@@ -34,10 +34,13 @@ export function isDirectoryWritable(dirPath: string): boolean {
 
 /**
  * 获取安全的默认配置目录（兼容开发模式与 macOS `.app` 独立打包模式）
+ *
+ * @param preferCwd - 允许落在 `<cwd>/config`。默认 true（桌面端/开发模式的历史行为）；
+ *   全局安装的 CLI 从任意目录调用时传 false，避免把配置写进使用者的当前目录。
  */
-export function getDefaultConfigDir(): string {
+export function getDefaultConfigDir(preferCwd = true): string {
   const cwd = process.cwd()
-  if (isDirectoryWritable(cwd)) {
+  if (preferCwd && isDirectoryWritable(cwd)) {
     const candidate = path.join(cwd, 'config')
     try {
       if (!fs.existsSync(candidate)) {
@@ -54,7 +57,9 @@ export function getDefaultConfigDir(): string {
   const fallback =
     process.platform === 'darwin'
       ? path.join(home, 'Library', 'Application Support', 'Shiin')
-      : path.join(home, '.config', 'shiin')
+      : process.platform === 'win32'
+        ? path.join(process.env.APPDATA || path.join(home, 'AppData', 'Roaming'), 'Shiin')
+        : path.join(home, '.config', 'shiin')
 
   try {
     if (!fs.existsSync(fallback)) {
@@ -163,6 +168,13 @@ export async function loadFullConfig(storage: IConfigStorage, deviceName?: strin
   // 保证组合键兼容老格式
   if (Array.isArray(result.comboKeys)) {
     result.comboKeys = result.comboKeys.map((k) => (typeof k === 'number' ? `Button${k}` : String(k)))
+  }
+
+  // 老存档没有 windowCaptureMode：选过窗口的继续按“指定窗口”，没选过的用新的“聚焦窗口”。
+  if (parsedGlobal.windowCaptureMode !== 'focused' && parsedGlobal.windowCaptureMode !== 'specified') {
+    const hasPinnedWindow =
+      result.windowSourceId !== undefined && result.windowSourceId !== null && result.windowSourceId !== ''
+    result.windowCaptureMode = hasPinnedWindow ? 'specified' : 'focused'
   }
 
   // 补齐缺省值

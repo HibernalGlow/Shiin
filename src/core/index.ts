@@ -111,13 +111,13 @@ export class ScreenshotManager {
     }
   }
 
-  public async init(deviceName?: string): Promise<void> {
+  public async init(deviceName?: string, options: { preferCwd?: boolean } = {}): Promise<void> {
     this.currentDeviceName = deviceName || ''
     this.config = await loadFullConfig(this.storage, deviceName)
 
-    // 确保默认截图目录已初始化解析
+    // 确保默认截图目录已初始化解析（全局 CLI 传 preferCwd=false，落到用户图片目录）
     if (!this.config.path || !this.config.path.trim()) {
-      this.config.path = resolveScreenshotSaveDir('')
+      this.config.path = resolveScreenshotSaveDir('', options.preferCwd ?? true)
     }
 
     // 如果首选屏幕没有配，自动选中第一块屏幕
@@ -141,6 +141,27 @@ export class ScreenshotManager {
       } else if (!this.config.keyboardTrigger && this.keyboard.isRunning) {
         this.keyboard.stop()
       }
+    }
+  }
+
+  /**
+   * 绑定当前活动手柄，并把该设备存过的组合键读回来。
+   *
+   * 组合键在存储里是**按设备**存的（`saveFullConfig` 把它从 globalConfig 摘出来放到设备名下），
+   * 所以命令行必须先认一个设备，否则读不到、也写不回去。
+   */
+  public async bindDevice(deviceName: string): Promise<void> {
+    this.currentDeviceName = deviceName || ''
+    if (!this.currentDeviceName) return
+    const saved = await this.storage.get(this.currentDeviceName, '')
+    if (!saved) return
+    try {
+      const pad = typeof saved === 'string' ? JSON.parse(saved) : saved
+      if (Array.isArray(pad?.comboKeys)) {
+        this.config.comboKeys = pad.comboKeys.map((key: unknown) => (typeof key === 'number' ? `Button${key}` : String(key)))
+      }
+    } catch {
+      // 设备条目坏了就当没有：不要因此拦住启动
     }
   }
 

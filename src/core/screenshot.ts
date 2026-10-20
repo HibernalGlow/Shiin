@@ -30,10 +30,13 @@ if (process.platform === 'darwin') {
 
 /**
  * 解析并确保截图保存目录可用（解决 macOS `.app` 下 process.cwd() 为只读 `/` 导致无法创建或打开目录的问题）
+ *
+ * @param preferCwd - 未配置目录时是否允许落在 `<cwd>/screenshots`。默认 true；
+ *   全局安装的 CLI 从任意目录调用时传 false，落到 `~/Pictures/Shiin`。
  */
-export function resolveScreenshotSaveDir(configuredPath?: string): string {
+export function resolveScreenshotSaveDir(configuredPath?: string, preferCwd = true): string {
   const home = os.homedir()
-  const macFallback = path.join(home, 'Pictures', 'Shiin')
+  const picturesFallback = path.join(home, 'Pictures', 'Shiin')
   const raw = typeof configuredPath === 'string' ? configuredPath.trim() : ''
 
   let candidate = ''
@@ -47,46 +50,57 @@ export function resolveScreenshotSaveDir(configuredPath?: string): string {
     } else {
       // 相对路径（如 ./screenshots）：如果当前工作目录可写则基于 cwd，否则基于用户图片目录
       const cwd = process.cwd()
-      if (isDirectoryWritable(cwd)) {
+      if (preferCwd && isDirectoryWritable(cwd)) {
         candidate = path.resolve(cwd, raw)
       } else {
         candidate = raw === './screenshots' || raw === 'screenshots'
-          ? macFallback
-          : path.resolve(macFallback, raw)
+          ? picturesFallback
+          : path.resolve(picturesFallback, raw)
       }
     }
   } else {
     const cwd = process.cwd()
-    if (isDirectoryWritable(cwd) && cwd !== home) {
+    if (preferCwd && isDirectoryWritable(cwd) && cwd !== home) {
       candidate = path.resolve(cwd, 'screenshots')
     } else {
-      candidate = macFallback
+      candidate = picturesFallback
     }
   }
 
   // 防止落入 macOS 只读根目录 `/screenshots` 或 `.app/Contents`
   if (candidate === '/screenshots' || candidate === '/' || candidate.includes('.app/Contents')) {
-    candidate = macFallback
+    candidate = picturesFallback
   }
 
   const safeFallback = path.join(home, 'screenshots')
+  const appData = process.env.APPDATA || path.join(home, 'AppData', 'Roaming')
+  // Windows 上 `~/Pictures` 可能是指向已失效 OneDrive 的 junction（本机就是），
+  // 递归 mkdir 会直接 ENOENT；这种情况下退到 AppData。
+  const fallbacks = process.platform === 'win32'
+    ? [path.join(appData, 'Shiin', 'Screenshots'), safeFallback]
+    : [safeFallback]
 
-  try {
-    if (!fs.existsSync(candidate)) {
-      fs.mkdirSync(candidate, { recursive: true })
+  const ensureWritable = (dir: string): void => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
     }
     // 测试是否真正具备写入权限（防止 Windows 坏死 Junction 或只读目录）
-    const testFile = path.join(candidate, `.shiin_probe_${Date.now()}`)
+    const testFile = path.join(dir, `.shiin_probe_${Date.now()}`)
     fs.writeFileSync(testFile, '')
     fs.unlinkSync(testFile)
+  }
+
+  try {
+    ensureWritable(candidate)
     return candidate
   } catch {
-    try {
-      if (!fs.existsSync(safeFallback)) {
-        fs.mkdirSync(safeFallback, { recursive: true })
+    for (const dir of fallbacks) {
+      try {
+        ensureWritable(dir)
+        return dir
+      } catch {
+        // 继续试下一个
       }
-    } catch {
-      // ignore
     }
     return safeFallback
   }
@@ -258,6 +272,85 @@ export async function getCaptureWindows(): Promise<CaptureWindowInfo[]> {
   return []
 }
 
+export interface ResolvedWindowTarget {
+  id: string | number
+  title?: string
+  ownerName?: string
+  /** 解析聚焦窗口时已经取过的前台信息，复用它给文件名模板，避免再调一次 active-win。 */
+  active?: ActiveWinResult | null
+}
+
+function findWindowByHints(
+  windows: CaptureWindowInfo[],
+  hints: { title?: string; ownerName?: string },
+): CaptureWindowInfo | undefined {
+  const title = hints.title?.trim()
+  if (title) {
+    const exact = windows.filter((window) => window.title === title)
+    if (exact.length === 1) return exact[0]
+    if (exact.length > 1) {
+      const ownerName = hints.ownerName?.trim()
+      return ownerName ? exact.find((window) => window.ownerName === ownerName) : undefined
+    }
+  }
+
+  const ownerName = hints.ownerName?.trim()
+  if (ownerName) {
+    const owned = windows.filter((window) => window.ownerName === ownerName)
+    if (owned.length === 1) return owned[0]
+  }
+  return undefined
+}
+
+/**
+ * active-win 在 macOS 权限不足时只回退到前台应用名（没有窗口 id）。
+ * 这时按标题 / 唯一属主把前台窗口对回可捕获窗口列表；对不上就明确报错，不猜一个窗口。
+ */
+export function pickFocusedWindow(
+  active: ActiveWinResult | null,
+  windows: CaptureWindowInfo[],
+): ResolvedWindowTarget {
+  if (active?.id !== undefined && active.id !== null) {
+    return { id: active.id, title: active.title, ownerName: active.owner?.name, active }
+  }
+
+  const matched = active ? findWindowByHints(windows, { title: active.title, ownerName: active.owner?.name }) : undefined
+  if (matched) {
+    return { id: matched.id, title: matched.title, ownerName: matched.ownerName, active }
+  }
+
+  throw new Error(
+    active?.title
+      ? `Focused window "${active.title}" is not a capturable window on this desktop.`
+      : 'No focused window detected. Focus the target window and try again.',
+  )
+}
+
+/**
+ * 按配置解析这一次截图要用的窗口：
+ * - specified：用保存的 windowSourceId（没选就报错，不静默换成别的窗口）
+ * - focused：每次触发时重新读取当前聚焦的前台窗口
+ */
+export async function resolveWindowCaptureTarget(
+  config: Pick<ScreenshotConfig, 'windowCaptureMode' | 'windowSourceId'>,
+): Promise<ResolvedWindowTarget> {
+  if (config.windowCaptureMode === 'focused') {
+    const active = await getActiveWindowInfo()
+    if (active?.id !== undefined && active.id !== null) {
+      return { id: active.id, title: active.title, ownerName: active.owner?.name, active }
+    }
+    return pickFocusedWindow(active, await getCaptureWindows())
+  }
+
+  const id = config.windowSourceId
+  if (id === undefined || id === null || id === '') {
+    throw new Error(
+      'No target window selected. Pick a window, or switch the window capture mode to "focused".',
+    )
+  }
+  return { id }
+}
+
 /**
  * 获取当前聚焦的前台活动窗口信息
  */
@@ -366,7 +459,11 @@ export async function captureMacScreenNative(options: {
  * 优先采用 Window 抓取，如果遇到 3D 游戏（DirectX/Vulkan 独占渲染）导致的卡死或黑帧，
  * 自动无缝降级回退为「DXGI DDA 显存屏幕捕获 + 窗口区域精准裁切」，macOS 下同时支持 screencapture -l。
  */
-async function captureWindowBuffer(windowId: string | number, format: 'jpg' | 'png'): Promise<Buffer> {
+async function captureWindowBuffer(
+  windowId: string | number,
+  format: 'jpg' | 'png',
+  hints?: { title?: string; ownerName?: string },
+): Promise<Buffer> {
   if (process.platform === 'darwin' && windowId !== undefined && windowId !== '') {
     try {
       const macWinBuf = await captureMacScreenNative({ format, windowId })
@@ -379,10 +476,22 @@ async function captureWindowBuffer(windowId: string | number, format: 'jpg' | 'p
   }
 
   const windows = ScreenshotWindow.all()
-  const target = windows.find((item: any) => {
+  const byId = (item: any) => {
     const id = typeof item.id === 'function' ? item.id() : item.id
     return String(id) === String(windowId)
+  }
+  const toInfo = (item: any): CaptureWindowInfo => ({
+    id: typeof item.id === 'function' ? item.id() : item.id,
+    title: typeof item.title === 'function' ? item.title() : item.title,
+    ownerName: typeof item.appName === 'function' ? item.appName() : item.appName,
   })
+  // 聚焦窗口的 id 来自 active-win；如果两边编号对不上，按标题/属主再对一次。
+  const hinted = hints ? findWindowByHints(windows.map(toInfo), hints) : undefined
+  const target =
+    windows.find(byId) ??
+    (hinted
+      ? windows.find((item: any) => String(typeof item.id === 'function' ? item.id() : item.id) === String(hinted.id))
+      : undefined)
 
   if (!target) {
     throw new Error(`Target window id ${windowId} not found in desktop window manager`)
@@ -495,6 +604,7 @@ export async function performScreenshot(
 ): Promise<ScreenshotResult> {
   const format = config.imageFormat === 'png' ? 'png' : 'jpg'
   let buffer: Buffer
+  let resolvedActiveWindow: ActiveWinResult | null | undefined
 
   try {
     const isWindow =
@@ -502,7 +612,9 @@ export async function performScreenshot(
       (config.captureTargetType as any) === 'window' ||
       (config.captureTargetType as any) === 1
     if (isWindow) {
-      buffer = await captureWindowBuffer(config.windowSourceId, format)
+      const target = await resolveWindowCaptureTarget(config)
+      resolvedActiveWindow = target.active
+      buffer = await captureWindowBuffer(target.id, format, target)
     } else {
       const screenId = config.screenSourceId
       if (process.platform === 'darwin') {
@@ -561,12 +673,18 @@ export async function performScreenshot(
   let finalPath: string | null = null
   const needSaveFile = config.screenShotSaveWay !== ScreenShotSaveWayEnum.CilpboardOnly
   const needClipboard = config.screenShotSaveWay !== ScreenShotSaveWayEnum.FileOnly
+  // 聚焦模式已经在解析目标时取过前台窗口；指定模式在这里只补一次，供归档目录与文件名模板共用。
+  let namingActive = resolvedActiveWindow
+  const readNamingActive = async () => {
+    if (namingActive === undefined) namingActive = await getActiveWindowInfo()
+    return namingActive
+  }
 
   if (needSaveFile) {
     let saveDir = resolveScreenshotSaveDir(config.path)
 
     if (config.saveByActiveWinTitle) {
-      const active = await getActiveWindowInfo()
+      const active = await readNamingActive()
       const subFolder = sanitizeToValidFolderName(active?.title || 'UnknownWindow')
       saveDir = path.join(saveDir, subFolder)
     }
@@ -582,7 +700,7 @@ export async function performScreenshot(
       }
     }
 
-    const activeWinInfo = await getActiveWindowInfo()
+    const activeWinInfo = await readNamingActive()
     const fileName = formatFileName(config.fileNameTemplate, activeWinInfo)
     let candidatePath = path.join(saveDir, `${fileName}.${format}`)
 

@@ -38,6 +38,13 @@ export type FilenameConflictResolution = 'overwrite' | 'appendTimestamp' | 'notS
 export type ListenNotifyPolicy = 'all' | 'start' | 'stop' | 'none'
 export type AutoListenResolution = 'never' | 'onAppStart' | 'whenDeviceAvailable'
 
+/**
+ * 窗口目标的两种口径：
+ * - specified：始终截 `windowSourceId` 指定的那一扇窗口（id 失效时直接报错）
+ * - focused：每次触发时重新取当前聚焦的前台窗口，不需要预先指定
+ */
+export type WindowCaptureMode = 'specified' | 'focused'
+
 export interface GamepadDeviceInfo {
   _index: number
   id: string
@@ -90,6 +97,7 @@ export interface ScreenshotConfig {
   soundPower: number
   screenshotWay: ScreenShotWayEnum
   captureTargetType: CaptureTargetTypeEnum
+  windowCaptureMode: WindowCaptureMode
   screenSourceId: string | number
   windowSourceId: string | number
   screenShotSaveWay: ScreenShotSaveWayEnum
@@ -129,6 +137,7 @@ export const DEFAULT_CONFIG: ScreenshotConfig = {
   soundPower: 1,
   screenshotWay: ScreenShotWayEnum.DesktopCapturer,
   captureTargetType: CaptureTargetTypeEnum.Screen,
+  windowCaptureMode: 'focused',
   screenSourceId: '',
   windowSourceId: '',
   screenShotSaveWay: ScreenShotSaveWayEnum.FileOnly,
