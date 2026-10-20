@@ -4,38 +4,40 @@
  * 参考 shellect / bitv 最佳工程实践，完全基于 CSS 变量 --xaihi-* 与 --dsw-alias-*
  */
 import * as React from 'react'
+import { useMd3eShapes } from './md3e-shape-context.js'
+import { getIconShape, type Md3eExpressiveShapeId } from './md3e-shapes.js'
 
 
 export const ALIAS = {
-  surface: 'var(--xaihi-surface, var(--dsw-alias-bg-layer-1, #12141a))',
-  onSurface: 'var(--xaihi-on-surface, var(--dsw-alias-label-primary, #f2f4f8))',
-  onSurfaceVariant: 'var(--xaihi-on-surface-variant, var(--dsw-alias-label-secondary, #98a1b0))',
-  outline: 'var(--xaihi-outline, var(--dsw-alias-border-l2, rgba(255, 255, 255, 0.12)))',
-  primary: 'var(--xaihi-primary, var(--dsw-alias-label-primary, #b4f461))',
-  onPrimary: 'var(--xaihi-on-primary, var(--dsw-alias-label-primary-inverted, #0a0c08))',
-  secondaryContainer: 'var(--xaihi-secondary-container, var(--dsw-alias-interactive-bg-hover, rgba(128, 128, 128, 0.16)))',
-  onSecondaryContainer: 'var(--xaihi-on-secondary-container, var(--dsw-alias-label-primary, #ffffff))',
+  surface: 'var(--xaihi-surface, var(--dsw-alias-bg-layer-1, #191c14))',
+  onSurface: 'var(--xaihi-on-surface, var(--dsw-alias-label-primary, #eef1e5))',
+  onSurfaceVariant: 'var(--xaihi-on-surface-variant, var(--dsw-alias-label-secondary, #aeb6a1))',
+  outline: 'var(--xaihi-outline, var(--dsw-alias-border-l2, rgba(238, 241, 229, 0.12)))',
+  primary: 'var(--xaihi-primary, var(--dsw-alias-label-primary, #c9f56d))',
+  onPrimary: 'var(--xaihi-on-primary, var(--dsw-alias-label-primary-inverted, #1c2a05))',
+  secondaryContainer: 'var(--xaihi-secondary-container, var(--dsw-alias-interactive-bg-hover, #3d4b28))',
+  onSecondaryContainer: 'var(--xaihi-on-secondary-container, var(--dsw-alias-label-primary, #dcebbe))',
   error: 'var(--xaihi-error, var(--dsw-alias-state-error-primary, #fb5f76))',
 } as const
 
 export const MD3E_ALIAS = {
-  surface: 'var(--xaihi-md3e-surface, var(--md3e-surface, var(--xaihi-surface, #12141a)))',
-  surfaceLowest: 'var(--xaihi-md3e-surface-lowest, var(--md3e-surface-lowest, #0a0c0f))',
-  surfaceLow: 'var(--xaihi-md3e-surface-low, var(--md3e-surface-low, #181b22))',
-  surfaceHigh: 'var(--xaihi-md3e-surface-high, var(--md3e-surface-high, #222630))',
-  primary: 'var(--xaihi-md3e-primary, var(--md3e-primary, #b4f461))',
-  onPrimary: 'var(--xaihi-md3e-on-primary, var(--md3e-on-primary, #0a0c08))',
-  primaryContainer: 'var(--xaihi-md3e-primary-container, var(--md3e-primary-container, color-mix(in srgb, #b4f461 24%, #181b22)))',
-  onPrimaryContainer: 'var(--xaihi-md3e-on-primary-container, var(--md3e-on-primary-container, #d5ff88))',
-  secondaryContainer: 'var(--xaihi-md3e-secondary-container, var(--md3e-secondary-container, rgba(255, 255, 255, 0.08)))',
-  onSecondaryContainer: 'var(--xaihi-md3e-on-secondary-container, var(--md3e-on-secondary-container, #f2f4f8))',
-  tertiaryContainer: 'var(--xaihi-md3e-tertiary-container, var(--md3e-tertiary-container, color-mix(in srgb, #61d5f4 20%, #181b22)))',
-  onTertiaryContainer: 'var(--xaihi-md3e-on-tertiary-container, var(--md3e-on-tertiary-container, #b0f0ff))',
+  surface: 'var(--xaihi-md3e-surface, var(--md3e-surface, var(--xaihi-surface, #191c14)))',
+  surfaceLowest: 'var(--xaihi-md3e-surface-lowest, var(--md3e-surface-lowest, #0c0e09))',
+  surfaceLow: 'var(--xaihi-md3e-surface-low, var(--md3e-surface-low, #141710))',
+  surfaceHigh: 'var(--xaihi-md3e-surface-high, var(--md3e-surface-high, #24281d))',
+  primary: 'var(--xaihi-md3e-primary, var(--md3e-primary, #c9f56d))',
+  onPrimary: 'var(--xaihi-md3e-on-primary, var(--md3e-on-primary, #1c2a05))',
+  primaryContainer: 'var(--xaihi-md3e-primary-container, var(--md3e-primary-container, color-mix(in srgb, #c9f56d 24%, #141710)))',
+  onPrimaryContainer: 'var(--xaihi-md3e-on-primary-container, var(--md3e-on-primary-container, #e5ffb2))',
+  secondaryContainer: 'var(--xaihi-md3e-secondary-container, var(--md3e-secondary-container, #3d4b28))',
+  onSecondaryContainer: 'var(--xaihi-md3e-on-secondary-container, var(--md3e-on-secondary-container, #dcebbe))',
+  tertiaryContainer: 'var(--xaihi-md3e-tertiary-container, var(--md3e-tertiary-container, #164a3e))',
+  onTertiaryContainer: 'var(--xaihi-md3e-on-tertiary-container, var(--md3e-on-tertiary-container, #c9ffee))',
   error: 'var(--xaihi-md3e-error, var(--md3e-error, #fb5f76))',
 } as const
 
 export type XMd3eTone = 'primary' | 'secondary' | 'tertiary' | 'neutral' | 'error'
-export type XMd3eBadgeShape = 'circle' | 'rounded' | 'clover' | 'sunny' | 'gem' | 'arch' | 'pebble'
+export type XMd3eBadgeShape = Md3eExpressiveShapeId
 
 export const MD3E_CSS = `
 .xaihi-md3e-node-frame {
@@ -119,27 +121,42 @@ export const MD3E_CSS = `
 }
 
 .xaihi-md3e-badge {
+  position: relative;
+  isolation: isolate;
   display: inline-grid;
   width: 40px;
   height: 40px;
   flex: 0 0 auto;
   place-items: center;
-  background: ${MD3E_ALIAS.primary};
+  background: transparent;
   color: ${MD3E_ALIAS.onPrimary};
-  transition: transform 220ms cubic-bezier(.22, 1.4, .36, 1);
   font-weight: 800;
   font-size: 16px;
   user-select: none;
 }
 .xaihi-md3e-badge[data-size="sm"] { width: 30px; height: 30px; font-size: 13px; }
 .xaihi-md3e-badge[data-size="lg"] { width: 50px; height: 50px; font-size: 20px; }
-.xaihi-md3e-badge[data-shape="circle"] { border-radius: 50%; }
-.xaihi-md3e-badge[data-shape="rounded"] { border-radius: 14px 8px 12px 6px; }
-.xaihi-md3e-badge[data-shape="clover"] { clip-path: polygon(50% 5%, 62% 18%, 78% 8%, 82% 26%, 98% 30%, 84% 50%, 98% 70%, 82% 74%, 78% 92%, 62% 82%, 50% 95%, 38% 82%, 22% 92%, 18% 74%, 2% 70%, 16% 50%, 2% 30%, 18% 26%, 22% 8%, 38% 18%); }
-.xaihi-md3e-badge[data-shape="sunny"] { clip-path: polygon(50% 0%, 58% 15%, 70% 4%, 72% 22%, 90% 14%, 84% 32%, 100% 38%, 82% 50%, 100% 62%, 84% 68%, 90% 86%, 72% 78%, 70% 96%, 58% 85%, 50% 100%, 42% 85%, 30% 96%, 28% 78%, 10% 86%, 16% 68%, 0% 62%, 18% 50%, 0% 38%, 16% 32%, 10% 14%, 28% 22%, 30% 4%, 42% 15%); }
-.xaihi-md3e-badge[data-shape="gem"] { clip-path: polygon(22% 4%, 78% 4%, 98% 50%, 50% 98%, 2% 50%); }
-.xaihi-md3e-badge[data-shape="pebble"] { border-radius: 58% 42% 56% 44% / 42% 54% 46% 58%; }
-.xaihi-md3e-badge[data-active="true"] { transform: rotate(-5deg) scale(1.08); }
+.xaihi-md3e-shape-surface {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: -1;
+  fill: ${MD3E_ALIAS.primary};
+  transition: fill 180ms ease, transform 260ms cubic-bezier(.2, 1.6, .4, 1);
+}
+.xaihi-md3e-badge[data-active="true"] .xaihi-md3e-shape-surface {
+  transform: rotate(-5deg) scale(1.08);
+}
+.xaihi-md3e-badge-content {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
 
 .xaihi-md3e-action-group {
   display: flex;
@@ -160,6 +177,35 @@ export const MD3E_CSS = `
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
+.shiin-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  background: ${MD3E_ALIAS.surfaceLow};
+  color: ${ALIAS.onSurface};
+}
+.shiin-select,
+.shiin-input {
+  max-width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: ${MD3E_ALIAS.surfaceHigh};
+  color: ${ALIAS.onSurface};
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+.shiin-select:focus,
+.shiin-input:focus {
+  border-color: ${MD3E_ALIAS.primary};
+}
+
 .xaihi-md3e-section-header {
   display: flex;
   min-width: 0;
@@ -167,6 +213,10 @@ export const MD3E_CSS = `
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+}
+.xaihi-md3e-section-header > .xaihi-md3e-action-group {
+  flex: 1 1 auto;
+  justify-content: flex-end;
 }
 
 .xaihi-md3e-section-title {
@@ -357,7 +407,9 @@ export const MD3E_CSS = `
   white-space: nowrap;
 }
 
-button {
+.xaihi-md3e-node-frame button,
+.xaihi-md3e-app-layout button,
+.xaihi-md3e-navigation-dock button {
   font-family: inherit;
   font-size: inherit;
   color: inherit;
@@ -373,11 +425,13 @@ button {
   box-sizing: border-box;
   padding: 8px 16px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--shiin-text-radius, 999px);
   font: inherit;
   font-size: 12px;
   font-weight: 750;
   cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
   transition: transform 180ms cubic-bezier(.22, 1.4, .36, 1), background-color 160ms ease;
   user-select: none;
 }
@@ -432,7 +486,7 @@ button {
     grid-template-columns: 1fr !important;
   }
 }
-@container (max-width: 580px) {
+@container (max-width: 760px) {
   .xaihi-md3e-stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
@@ -491,7 +545,7 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 38px;
+  height: 48px;
   padding: 0 14px;
   box-sizing: border-box;
   border: 0;
@@ -523,6 +577,37 @@ button {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+.xaihi-nav-shape-icon {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  color: var(--xaihi-md3e-on-surface-variant, #aeb6a1);
+}
+.xaihi-nav-shape-mask {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: rgba(255, 255, 255, .1);
+  transition: fill 200ms ease;
+}
+.xaihi-nav-shape-icon .app-icon {
+  position: relative;
+  width: 13px;
+  height: 13px;
+}
+.xaihi-md3e-sidebar-item[data-active="true"] .xaihi-nav-shape-icon,
+.xaihi-md3e-rail-item[data-active="true"] .xaihi-nav-shape-icon,
+.xaihi-md3e-navigation-item[data-active="true"] .xaihi-nav-shape-icon {
+  color: var(--xaihi-md3e-on-primary, #1c2a05);
+}
+.xaihi-md3e-sidebar-item[data-active="true"] .xaihi-nav-shape-mask,
+.xaihi-md3e-rail-item[data-active="true"] .xaihi-nav-shape-mask,
+.xaihi-md3e-navigation-item[data-active="true"] .xaihi-nav-shape-mask {
+  fill: var(--xaihi-md3e-primary, #c9f56d);
 }
 .xaihi-md3e-sidebar-item-label {
   flex: 1;
@@ -590,7 +675,7 @@ button {
 
 .xaihi-md3e-navigation-item {
   display: inline-flex;
-  min-width: 54px;
+  min-width: 64px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -610,8 +695,8 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 26px;
+  width: 56px;
+  height: 32px;
   border-radius: 999px;
   transition: all 200ms cubic-bezier(.34, 1.56, .64, 1);
 }
@@ -629,43 +714,343 @@ button {
   font-weight: 800;
 }
 
-@media (max-width: 860px) {
-  .xaihi-md3e-sidebar {
-    display: none !important;
-  }
+.xaihi-md3e-navigation-rail {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 96px;
+  flex: 0 0 96px;
+  padding: 12px 8px;
+  box-sizing: border-box;
+  background: ${MD3E_ALIAS.surfaceLow};
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.xaihi-md3e-rail-brand {
+  display: grid;
+  width: 100%;
+  place-items: center;
+  padding: 2px 0 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.xaihi-md3e-rail-items {
+  display: flex;
+  width: 100%;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.xaihi-md3e-rail-item {
+  position: relative;
+  display: flex;
+  width: 80px;
+  min-height: 56px;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  box-sizing: border-box;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: ${ALIAS.onSurfaceVariant};
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 180ms ease, background-color 180ms ease;
+  user-select: none;
+}
+.xaihi-md3e-rail-indicator {
+  position: relative;
+  display: inline-flex;
+  width: 56px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  transition: background-color 200ms cubic-bezier(.34, 1.56, .64, 1), color 200ms ease;
+}
+.xaihi-md3e-rail-item:hover .xaihi-md3e-rail-indicator {
+  background: ${MD3E_ALIAS.secondaryContainer};
+  color: ${ALIAS.onSurface};
+}
+.xaihi-md3e-rail-item[data-active="true"] {
+  color: ${ALIAS.onSurface};
+  font-weight: 800;
+}
+.xaihi-md3e-rail-item[data-active="true"] .xaihi-md3e-rail-indicator {
+  background: ${MD3E_ALIAS.primaryContainer};
+  color: ${MD3E_ALIAS.onPrimaryContainer};
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, ${MD3E_ALIAS.primary} 32%, transparent);
+}
+.xaihi-md3e-rail-label {
+  max-width: 100%;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xaihi-md3e-rail-footer {
+  display: grid;
+  width: 100%;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.xaihi-md3e-nav-badge {
+  position: absolute;
+  top: 0;
+  right: 1px;
+  min-width: 14px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: ${MD3E_ALIAS.primary};
+  color: ${MD3E_ALIAS.onPrimary};
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+
+/* 标题栏图标按钮使用当前会话形状；填充由 SVG 承载，图标保持独立色彩。 */
+.xaihi-titlebar-icon-button {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: ${ALIAS.onSurfaceVariant};
+  cursor: pointer;
+  transition: color 160ms ease, transform 180ms cubic-bezier(.22, 1.4, .36, 1);
+  user-select: none;
+}
+.xaihi-titlebar-icon-button > .xaihi-titlebar-shape {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: color-mix(in srgb, ${MD3E_ALIAS.surfaceHigh} 72%, transparent);
+  transition: fill 160ms ease, transform 220ms cubic-bezier(.2, 1.6, .4, 1);
+}
+.xaihi-titlebar-icon-button:hover {
+  color: ${ALIAS.onSurface};
+  transform: translateY(-1px);
+}
+.xaihi-titlebar-icon-button:hover > .xaihi-titlebar-shape {
+  fill: ${MD3E_ALIAS.secondaryContainer};
+}
+.xaihi-titlebar-icon-button:active {
+  transform: scale(.94);
+}
+.xaihi-titlebar-icon-button:active > .xaihi-titlebar-shape {
+  transform: scale(.9) rotate(-5deg);
+}
+.xaihi-titlebar-icon-button[data-active="true"] {
+  color: ${MD3E_ALIAS.onPrimaryContainer};
+}
+.xaihi-titlebar-icon-button[data-active="true"] > .xaihi-titlebar-shape {
+  fill: ${MD3E_ALIAS.primaryContainer};
+}
+.xaihi-titlebar-icon-button[data-tone="danger"] {
+  color: ${MD3E_ALIAS.error};
+}
+.xaihi-titlebar-icon-button[data-tone="danger"] > .xaihi-titlebar-shape {
+  fill: color-mix(in srgb, ${MD3E_ALIAS.error} 22%, transparent);
+}
+.xaihi-titlebar-icon-button[data-tone="success"] {
+  color: var(--xaihi-md3e-on-tertiary-container, #c9ffee);
+}
+.xaihi-titlebar-icon-button[data-tone="success"] > .xaihi-titlebar-shape {
+  fill: color-mix(in srgb, var(--xaihi-md3e-tertiary, #7df2d2) 18%, transparent);
+}
+
+.shiin-app-shell {
+  container: shiin-shell / inline-size;
+}
+.shiin-expressive-surface {
+  color-scheme: dark;
+  /* Lime seed → green-tinted neutral surfaces, low-chroma green secondary,
+     teal tertiary. No off-hue accent containers. */
+  --shiin-outline-soft: rgba(238, 241, 229, 0.1);
+  --shiin-shadow-soft: 0 18px 50px rgba(0, 0, 0, 0.35);
+  --xaihi-md3e-surface: #191c14;
+  --xaihi-md3e-surface-lowest: #0c0e09;
+  --xaihi-md3e-surface-low: #141710;
+  --xaihi-md3e-surface-high: #24281d;
+  --xaihi-md3e-primary: #c9f56d;
+  --xaihi-md3e-on-primary: #1c2a05;
+  --xaihi-md3e-primary-container: #34491c;
+  --xaihi-md3e-on-primary-container: #e5ffb2;
+  --xaihi-md3e-secondary: #c2d3a0;
+  --xaihi-md3e-on-secondary: #28341a;
+  --xaihi-md3e-secondary-container: #3d4b28;
+  --xaihi-md3e-on-secondary-container: #dcebbe;
+  --xaihi-md3e-tertiary: #7df2d2;
+  --xaihi-md3e-on-tertiary: #00382d;
+  --xaihi-md3e-tertiary-container: #164a3e;
+  --xaihi-md3e-on-tertiary-container: #c9ffee;
+  --xaihi-md3e-error: #ffb4ab;
+  --xaihi-surface: #191c14;
+  --xaihi-on-surface: #eef1e5;
+  --xaihi-on-surface-variant: #aeb6a1;
+  --xaihi-outline: #55604a;
+  --xaihi-primary: #c9f56d;
+  --xaihi-on-primary: #1c2a05;
+  --xaihi-secondary: #c2d3a0;
+  --xaihi-on-secondary: #28341a;
+  --xaihi-secondary-container: #3d4b28;
+  --xaihi-on-secondary-container: #dcebbe;
+  --xaihi-tertiary: #7df2d2;
+  --xaihi-on-tertiary: #00382d;
+  --xaihi-error: #ffb4ab;
+  --ink: #eef1e5;
+  --ink-1: #eef1e5;
+  --ink-2: #aeb6a1;
+  --ink-3: #8b937e;
+  --line: rgba(238, 241, 229, 0.1);
+  --line-strong: #55604a;
+  --surface-1: #191c14;
+  --surface-2: #24281d;
+  --surface-overlay: #191c14;
+  --accent: var(--xaihi-md3e-primary);
+  --accent-soft: color-mix(in srgb, var(--xaihi-md3e-primary) 18%, transparent);
+  --accent-ink: #1c2a05;
+  --danger: #ffb4ab;
+  --success: #7df2d2;
+  --font-family: "Google Sans", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SFMono-Regular", "Cascadia Mono", Menlo, Monaco, monospace;
+  font-family: "Google Sans", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Segoe UI", system-ui, sans-serif;
+}
+.shiin-expressive-surface .xaihi-md3e-sidebar,
+.shiin-expressive-surface .xaihi-md3e-navigation-rail {
+  box-shadow: inset -1px 0 0 var(--shiin-outline-soft);
+}
+.shiin-expressive-surface .xaihi-md3e-sidebar-brand,
+.shiin-expressive-surface .xaihi-md3e-rail-brand,
+.shiin-expressive-surface .xaihi-md3e-sidebar-footer,
+.shiin-expressive-surface .xaihi-md3e-rail-footer {
+  border-color: var(--shiin-outline-soft);
+}
+.shiin-expressive-surface .xaihi-md3e-sidebar-item-badge {
+  background: var(--xaihi-md3e-surface-high);
+  color: var(--xaihi-md3e-on-surface-variant);
+}
+.shiin-expressive-surface .xaihi-md3e-sidebar-item[data-active="true"] .xaihi-md3e-sidebar-item-badge {
+  background: rgba(201, 245, 109, 0.22);
+  color: var(--xaihi-md3e-on-primary-container);
+}
+.shiin-expressive-surface .xaihi-md3e-navigation-dock {
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.shiin-expressive-surface .xaihi-md3e-hero {
+  background: var(--xaihi-md3e-primary-container);
+  border: 1px solid color-mix(in srgb, var(--xaihi-md3e-primary) 14%, transparent);
+  box-shadow: none;
+}
+.shiin-expressive-surface .xaihi-md3e-section {
+  background: var(--xaihi-md3e-surface);
+  border: 1px solid var(--shiin-outline-soft);
+  box-shadow: none;
+}
+.shiin-expressive-surface .xaihi-md3e-stat {
+  background: var(--xaihi-md3e-surface);
+  border: 1px solid var(--shiin-outline-soft);
+}
+.shiin-expressive-surface .xaihi-md3e-stat:hover {
+  box-shadow: var(--shiin-shadow-soft);
+}
+.shiin-expressive-surface .xaihi-md3e-switch-row,
+.shiin-expressive-surface .xaihi-md3e-slider-card {
+  background: var(--xaihi-md3e-surface-low);
+}
+.shiin-expressive-surface .xaihi-md3e-fact + .xaihi-md3e-fact {
+  border-top-color: var(--shiin-outline-soft);
+}
+.shiin-expressive-surface .xaihi-md3e-switch-track {
+  background: var(--xaihi-md3e-surface-high);
+}
+.shiin-expressive-surface .xaihi-md3e-main-grid {
+  gap: 16px;
+}
+.shiin-studio-hero-art {
+  position: absolute;
+  top: 50%;
+  right: 26px;
+  width: 190px;
+  height: 190px;
+  transform: translateY(-50%);
+  opacity: 0.14;
+  pointer-events: none;
+}
+.shiin-studio-hero-art svg {
+  width: 100%;
+  height: 100%;
+  fill: var(--xaihi-md3e-primary, #a43b24);
+}
+@container shiin-shell (max-width: 1080px) {
+  .shiin-studio-hero-art { display: none; }
+}
+
+/* M3E NavigationSuite：<600 底部栏 / 600–839 紧凑侧轨 / ≥840 展开侧栏。 */
+@container shiin-shell (max-width: 599px) {
+  .xaihi-md3e-sidebar { display: none; }
+  .xaihi-md3e-navigation-rail { display: none; }
   .xaihi-md3e-dock-wrapper {
-    display: block !important;
+    display: block;
     max-width: calc(100vw - 16px);
     box-sizing: border-box;
   }
   .xaihi-md3e-node-frame {
-    padding-bottom: 84px !important;
+    padding: 10px 10px 84px;
+    gap: 10px;
   }
+  .xaihi-titlebar-status-pill { display: none; }
+  .xaihi-titlebar-compact-hide { display: none; }
 }
-
-@media (max-width: 640px) {
-  .xaihi-titlebar-status-pill {
-    display: none !important;
-  }
+@container shiin-shell (min-width: 600px) and (max-width: 839px) {
+  .xaihi-md3e-sidebar { display: none; }
+  .xaihi-md3e-navigation-rail { display: flex; }
+  .xaihi-md3e-dock-wrapper { display: none; }
 }
-
-@media (max-width: 460px) {
+@container shiin-shell (min-width: 840px) {
+  .xaihi-md3e-sidebar { display: flex; }
+  .xaihi-md3e-navigation-rail { display: none; }
+  .xaihi-md3e-dock-wrapper { display: none; }
+}
+@container shiin-shell (max-width: 719px) {
+  .xaihi-titlebar-status-pill { display: none; }
+}
+@container shiin-shell (max-width: 439px) {
+  .xaihi-titlebar-version { display: none; }
+}
+@container shiin-shell (max-width: 419px) {
   .xaihi-md3e-navigation-item {
-    min-width: 44px !important;
-    padding: 3px 2px !important;
+    min-width: 44px;
+    padding: 3px 2px;
   }
   .xaihi-md3e-nav-indicator {
-    width: 38px !important;
-    height: 24px !important;
-  }
-}
-
-@media (min-width: 861px) {
-  .xaihi-md3e-sidebar {
-    display: flex !important;
-  }
-  .xaihi-md3e-dock-wrapper {
-    display: none !important;
+    width: 38px;
+    height: 24px;
   }
 }
 `
@@ -726,7 +1111,7 @@ export function XMd3eHeroBanner({
 }
 
 export function XMd3eShapeBadge({
-  shape = 'rounded',
+  shape,
   size = 'md',
   active = false,
   children,
@@ -738,15 +1123,26 @@ export function XMd3eShapeBadge({
   active?: boolean
   children?: React.ReactNode
 } & React.HTMLAttributes<HTMLSpanElement>): React.ReactElement {
+  const { session } = useMd3eShapes()
+  const shapeId = shape ?? session.shapes.hero.id
+  const spec = getIconShape(shapeId)
   return (
     <span
       className={`xaihi-md3e-badge ${className}`.trim()}
-      data-shape={shape}
+      data-shape={shapeId}
       data-size={size}
       data-active={active ? 'true' : 'false'}
       {...rest}
     >
-      {children}
+      <svg
+        className="xaihi-md3e-shape-surface"
+        viewBox="0 0 100 100"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path d={spec.svgPath} />
+      </svg>
+      <span className="xaihi-md3e-badge-content">{children}</span>
     </span>
   )
 }
@@ -967,8 +1363,10 @@ export function XButton({
 export interface XMd3eDockItem {
   id: string
   label: React.ReactNode
+  shortLabel?: React.ReactNode
   icon?: React.ReactNode
   badge?: React.ReactNode
+  title?: string
 }
 
 export function XMd3eNavigationDock({
@@ -996,11 +1394,59 @@ export function XMd3eNavigationDock({
         >
           <span className="xaihi-md3e-nav-indicator" style={{ position: 'relative' }}>
             {item.icon}
-            {item.badge}
+            {item.badge !== undefined && <span className="xaihi-md3e-nav-badge">{item.badge}</span>}
           </span>
           <span style={{ fontSize: 10.5, lineHeight: 1.2 }}>{item.label}</span>
         </button>
       ))}
+    </nav>
+  )
+}
+
+export function XMd3eNavigationRail({
+  items,
+  value,
+  onValueChange,
+  header,
+  footer,
+  className = '',
+  ...rest
+}: {
+  items: readonly XMd3eDockItem[]
+  value?: string
+  onValueChange?: (val: string) => void
+  header?: React.ReactNode
+  footer?: React.ReactNode
+} & React.HTMLAttributes<HTMLElement>): React.ReactElement {
+  return (
+    <nav
+      className={`xaihi-md3e-navigation-rail ${className}`.trim()}
+      role="tablist"
+      aria-orientation="vertical"
+      {...rest}
+    >
+      {header !== undefined && <div className="xaihi-md3e-rail-brand">{header}</div>}
+      <div className="xaihi-md3e-rail-items">
+        {items.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={item.id === value}
+            title={item.title}
+            className="xaihi-md3e-rail-item"
+            data-active={item.id === value ? 'true' : 'false'}
+            onClick={() => onValueChange?.(item.id)}
+          >
+            <span className="xaihi-md3e-rail-indicator">
+              {item.icon}
+              {item.badge !== undefined && <span className="xaihi-md3e-nav-badge">{item.badge}</span>}
+            </span>
+            <span className="xaihi-md3e-rail-label">{item.shortLabel ?? item.label}</span>
+          </button>
+        ))}
+      </div>
+      {footer !== undefined && <div className="xaihi-md3e-rail-footer">{footer}</div>}
     </nav>
   )
 }
