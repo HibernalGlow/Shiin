@@ -30,6 +30,7 @@
   },
   "files": [
     "lib/**",
+    "src/screenshot-notification.html",
     "dist/**",
     "cordis.patch.yml",
     "icon.svg",
@@ -252,26 +253,31 @@
     "electron:start": "electron lib/main.mjs",
     "preview": "node src/app/preview.mjs",
     "cli": "node lib/cli.mjs",
+    "serve": "node lib/cli.mjs serve",
     "tui": "node lib/cli.mjs tui",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "release": "node scripts/release.js"
   },
   "dependencies": {
+    "@clack/prompts": "^1.8.1",
     "@deepseek-ai/schemastery": "~3.18.4",
     "@kmamal/sdl": "^0.11.13",
     "@opentui/core": "^0.6.6",
     "@opentui/react": "^0.6.6",
     "active-win": "^8.2.1",
+    "boxen": "^9.0.0",
+    "chalk": "^6.0.1",
     "electron-log": "^4.4.8",
     "howler": "^2.2.4",
+    "mkdirp": "^0.5.6",
     "node-screenshots": "0.2.0",
     "obs-websocket-js": "^5.0.7",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "rimraf": "^2.6.3",
-    "mkdirp": "^0.5.6",
     "screenshot-desktop": "^1.15.6",
+    "string-width": "^8.3.0",
     "temp": "^0.9.4",
     "uiohook-napi": "^1.5.5"
   },
@@ -297,8 +303,8 @@
     "@rspack/core": "^1.2.0",
     "@types/howler": "^2.2.12",
     "@types/node": "^22.10.0",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "cross-env": "^7.0.3",
     "electron": "^28.3.3",
     "electron-builder": "^24.13.3",
@@ -340,13 +346,17 @@
     ],
     "mac": {
       "category": "public.app-category.games",
-      "target": ["dir"],
+      "target": [
+        "dir"
+      ],
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "icon": "src/assets/icon_mac.png"
     },
     "win": {
-      "target": ["portable"],
+      "target": [
+        "portable"
+      ],
       "icon": "gamepad.ico"
     }
   }
