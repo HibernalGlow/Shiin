@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { canLoadNativeSdl, GamepadCore } from '../src/core/gamepad.js'
+import { canLoadNativeSdl, GamepadCore, normalizeTriggerAxis } from '../src/core/gamepad.js'
 import { ScreenshotManager, MemoryConfigStorage } from '../src/core/index.js'
 
 describe('GamepadCore SDL role isolation & lightweight background combo engine', () => {
@@ -130,5 +130,34 @@ describe('GamepadCore SDL role isolation & lightweight background combo engine',
     expect(manager.gamepad.listening).toBe(true)
 
     manager.dispose()
+  })
+
+  it('normalizes analog triggers so rest offset ~= 0.5 is clamped to 0 and full pull is 1', () => {
+    // Resting state on initial=-32768 mapping in @kmamal/sdl (32768 / 65535 ~= 0.5000076)
+    expect(normalizeTriggerAxis(0.5000076295109483)).toBe(0)
+    // Resting state on initial=0 mapping
+    expect(normalizeTriggerAxis(0)).toBe(0)
+    // Partial pull
+    const partial = normalizeTriggerAxis(0.75)
+    expect(partial).toBeGreaterThan(0.49)
+    expect(partial).toBeLessThan(0.51)
+    // Full pull
+    expect(normalizeTriggerAxis(1.0)).toBe(1.0)
+    // Out-of-bounds or invalid values
+    expect(normalizeTriggerAxis(-0.1)).toBe(0)
+    expect(normalizeTriggerAxis(NaN)).toBe(0)
+  })
+
+  it('re-opens closed device instance on openDevice call rather than short-circuiting', () => {
+    const core = new GamepadCore()
+    // Mock a closed device instance
+    ;(core as any).deviceInstance = { index: 0, closed: true, virtual: false }
+    ;(core as any).activeDeviceIndex = 0
+
+    // Calling openDevice(0) must not short-circuit when closed is true
+    const ok = core.openDevice(0)
+    expect(ok).toBe(true)
+    expect((core as any).deviceInstance?.closed).not.toBe(true)
+    core.closeDevice()
   })
 })

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { pickFocusedWindow, resolveWindowCaptureTarget } from '../src/core/screenshot.js'
-import type { ActiveWinResult, CaptureWindowInfo } from '../src/core/types.js'
+import { type ActiveWinResult, type CaptureWindowInfo, DEFAULT_CONFIG } from '../src/core/types.js'
 
 const windows: CaptureWindowInfo[] = [
   { id: 101, title: 'Elden Ring', ownerName: 'Game' },
@@ -58,5 +58,11 @@ describe('configured window target', () => {
     await expect(
       resolveWindowCaptureTarget({ windowCaptureMode: 'specified', windowSourceId: '' }),
     ).rejects.toThrow(/No target window selected/)
+  })
+})
+
+describe('window shadow configuration', () => {
+  it('disables window shadow by default to prevent white background padding in JPG', () => {
+    expect(DEFAULT_CONFIG.disableWindowShadow).toBe(true)
   })
 })

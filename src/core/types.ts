@@ -53,6 +53,7 @@ export interface GamepadDeviceInfo {
   buttonsCount?: number
   axesCount?: number
   hatsCount?: number
+  inputLayout?: 'standard' | 'raw'
   guid?: string
   vendorId?: number
   productId?: number
@@ -128,6 +129,7 @@ export interface ScreenshotConfig {
   imageQuality?: number
   imageLossless?: boolean
   imageEffort?: number
+  disableWindowShadow?: boolean
   fileNameTemplate: string
   saveByActiveWinTitle: boolean
   keyboardTrigger: boolean
@@ -183,6 +185,7 @@ export const DEFAULT_CONFIG: ScreenshotConfig = {
   imageQuality: 90,
   imageLossless: false,
   imageEffort: 4,
+  disableWindowShadow: true,
   fileNameTemplate: 'Screenshot_%timestamp%',
   saveByActiveWinTitle: false,
   keyboardTrigger: false,

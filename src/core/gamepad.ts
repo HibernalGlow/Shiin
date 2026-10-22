@@ -83,6 +83,24 @@ const CONTROLLER_BUTTON_INDEX_MAP: Record<string, number> = {
   guide: 16,        // Home / PS 键
 }
 
+export const TRIGGER_PRESS_THRESHOLD = 0.90
+
+/**
+ * 针对 @kmamal/sdl 归一化模拟扳机轴 (L2 / R2)
+ *
+ * 在部分系统或驱动下，SDL 为触发器设置的 initial state 为 -32768，
+ * 导致静止 (0) 时的 mapAxisValue 计算为 (0 - (-32768)) / 65535 ~= 0.5000076，
+ * 完全按下 (32767) 时为 1.0。若未做偏移归一化，会导致 L2/R2 静止时被误判定为持续按下。
+ */
+export function normalizeTriggerAxis(val: number): number {
+  if (typeof val !== 'number' || isNaN(val)) return 0
+  let normalized = val
+  if (val >= 0.499 && val <= 1.0) {
+    normalized = (val - 0.5000076295109483) / (1 - 0.5000076295109483)
+  }
+  return Math.max(0, Math.min(1, normalized))
+}
+
 export class GamepadCore {
   private deviceInstance: any = null
   private isControllerDevice = false
@@ -119,17 +137,34 @@ export class GamepadCore {
     const sdlInstance = getSdl()
     try {
       if (sdlInstance && sdlInstance.controller && typeof sdlInstance.controller.on === 'function') {
-        sdlInstance.controller.on('deviceAdd', () => this.notifyDeviceChanged())
-        sdlInstance.controller.on('deviceRemove', () => this.notifyDeviceChanged())
+        sdlInstance.controller.on('deviceAdd', () => this.handleDeviceAdd())
+        sdlInstance.controller.on('deviceRemove', () => this.handleDeviceRemove())
       }
       if (sdlInstance && sdlInstance.joystick && typeof sdlInstance.joystick.on === 'function') {
-        sdlInstance.joystick.on('deviceAdd', () => this.notifyDeviceChanged())
-        sdlInstance.joystick.on('deviceRemove', () => this.notifyDeviceChanged())
+        sdlInstance.joystick.on('deviceAdd', () => this.handleDeviceAdd())
+        sdlInstance.joystick.on('deviceRemove', () => this.handleDeviceRemove())
       }
       this.hasBoundSdlEvents = true
     } catch (e) {
       console.warn('[GamepadCore] Failed to bind global SDL controller/joystick events:', e)
     }
+  }
+
+  private handleDeviceRemove(): void {
+    if (this.deviceInstance && (this.deviceInstance.closed || this.deviceInstance.virtual !== true)) {
+      if (this.deviceInstance.closed) {
+        this.deviceInstance = null
+        this.resetDeviceState()
+      }
+    }
+    this.notifyDeviceChanged()
+  }
+
+  private handleDeviceAdd(): void {
+    if (!this.deviceInstance || this.deviceInstance.closed) {
+      this.openDevice(this.activeDeviceIndex)
+    }
+    this.notifyDeviceChanged()
   }
 
   private notifyDeviceChanged(): void {
@@ -185,6 +220,7 @@ export class GamepadCore {
           productId: d.product,
           version: d.version,
           mapping: d.mapping,
+          inputLayout: cDevices.includes(d) ? 'standard' : 'raw',
           controllerFamily: detection.family,
         }
       })
@@ -220,7 +256,7 @@ export class GamepadCore {
    */
   public openDevice(deviceIndex: number): boolean {
     const targetIndex = Number.isInteger(deviceIndex) && deviceIndex >= 0 ? deviceIndex : 0
-    if (this.deviceInstance && this.activeDeviceIndex === targetIndex) {
+    if (this.deviceInstance && !this.deviceInstance.closed && this.activeDeviceIndex === targetIndex) {
       return true
     }
 
@@ -271,11 +307,13 @@ export class GamepadCore {
           else if (data.axis === 'rightStickX') this.axes[2] = data.value
           else if (data.axis === 'rightStickY') this.axes[3] = data.value
           else if (data.axis === 'leftTrigger') {
-            this.axes[4] = data.value
-            this.buttons[6] = data.value >= 0.5
+            const norm = normalizeTriggerAxis(data.value)
+            this.axes[4] = norm
+            this.buttons[6] = norm >= TRIGGER_PRESS_THRESHOLD
           } else if (data.axis === 'rightTrigger') {
-            this.axes[5] = data.value
-            this.buttons[7] = data.value >= 0.5
+            const norm = normalizeTriggerAxis(data.value)
+            this.axes[5] = norm
+            this.buttons[7] = norm >= TRIGGER_PRESS_THRESHOLD
           }
         })
 
@@ -401,8 +439,8 @@ export class GamepadCore {
         Boolean(b.y),
         Boolean(b.leftShoulder),
         Boolean(b.rightShoulder),
-        (Number(a.leftTrigger) || 0) >= 0.5,
-        (Number(a.rightTrigger) || 0) >= 0.5,
+        normalizeTriggerAxis(Number(a.leftTrigger) || 0) >= TRIGGER_PRESS_THRESHOLD,
+        normalizeTriggerAxis(Number(a.rightTrigger) || 0) >= TRIGGER_PRESS_THRESHOLD,
         Boolean(b.back),
         Boolean(b.start),
         Boolean(b.leftStick),
@@ -610,6 +648,10 @@ export class GamepadCore {
    */
   public injectWebGamepadState(devices: GamepadDeviceInfo[], buttons: boolean[], axes: number[]): void {
     if (this.hasWorkerState && this.virtualDevices.length > 0) {
+      return
+    }
+    // 当本地 SDL 已经成功打开物理手柄（且未关闭）时，原生输入具备更低延迟与最高优先级，不被网页轮询覆盖
+    if (this.deviceInstance && !this.deviceInstance.virtual && !this.deviceInstance.closed) {
       return
     }
     if (devices && devices.length > 0) {

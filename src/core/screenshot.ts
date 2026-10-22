@@ -483,12 +483,17 @@ export async function captureMacScreenNative(options?: {
   format?: 'jpg' | 'png' | ImageFormat
   screenId?: string | number
   windowId?: string | number
+  disableShadow?: boolean
 }): Promise<Buffer> {
   const ext = options?.format === 'jpg' ? 'jpg' : 'png'
   const tmpFile = path.join(os.tmpdir(), `shiin_mac_cap_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`)
   const args: string[] = ['-x', '-t', ext]
 
   if (options?.windowId !== undefined && options?.windowId !== '') {
+    // 默认关闭阴影以保证紧贴窗口边缘裁剪，避免在 JPG 格式或贴图时产生包含阴影的外围留白/白框
+    if (options?.disableShadow !== false) {
+      args.push('-o')
+    }
     args.push('-l', String(options.windowId))
   } else if (options?.screenId !== undefined && options?.screenId !== '' && Number(options.screenId) > 0) {
     // screencapture 的 -D 参数从 1 开始表示主显示器
@@ -524,14 +529,18 @@ export async function captureMacScreenNative(options?: {
  */
 async function captureWindowBuffer(
   windowId: string | number,
-  hintsOrFormat?: 'jpg' | 'png' | ImageFormat | { title?: string; ownerName?: string },
-  maybeHints?: { title?: string; ownerName?: string },
+  hintsOrFormat?: 'jpg' | 'png' | ImageFormat | { title?: string; ownerName?: string; disableShadow?: boolean },
+  maybeHints?: { title?: string; ownerName?: string; disableShadow?: boolean },
 ): Promise<Buffer> {
   const hints = typeof hintsOrFormat === 'object' ? hintsOrFormat : maybeHints
 
   if (process.platform === 'darwin' && windowId !== undefined && windowId !== '') {
     try {
-      const macWinBuf = await captureMacScreenNative({ format: 'png', windowId })
+      const macWinBuf = await captureMacScreenNative({
+        format: 'png',
+        windowId,
+        disableShadow: hints?.disableShadow,
+      })
       if (macWinBuf && macWinBuf.length > 0) {
         return macWinBuf
       }
@@ -684,7 +693,10 @@ export async function performScreenshot(
     if (isWindow) {
       const target = await resolveWindowCaptureTarget(config)
       resolvedActiveWindow = target.active
-      rawPngBuffer = await captureWindowBuffer(target.id, target)
+      rawPngBuffer = await captureWindowBuffer(target.id, {
+        ...target,
+        disableShadow: config.disableWindowShadow ?? true,
+      })
     } else {
       const screenId = config.screenSourceId
       if (process.platform === 'darwin') {
@@ -770,6 +782,7 @@ export async function performScreenshot(
 
   // SCMP v1.0 截图元数据组装与无损注入
   let scmpMetadata: SCMPMetadata | undefined
+  let embedded = false
   const privacySettings: SCMPPrivacySettings = {
     enabled: config.metadataRecordingEnabled !== false,
     recordAppName: config.recordAppName !== false,
@@ -804,6 +817,7 @@ export async function performScreenshot(
     }
 
     const storageMode = config.metadataStorageMode || 'embedIfSupported'
+    embedded = false
     if (storageMode === 'embedIfSupported' || storageMode === 'both') {
       try {
         if (['png', 'jpg', 'jpeg', 'webp'].includes(format)) {
@@ -813,6 +827,7 @@ export async function performScreenshot(
             scmpMetadata,
             privacySettings,
           )
+          embedded = true
         }
       } catch (injectErr) {
         console.warn('[ScreenshotCore] Failed to embed metadata chunk losslessly:', injectErr)
@@ -861,9 +876,15 @@ export async function performScreenshot(
         fs.writeFileSync(candidatePath, buffer)
         finalPath = candidatePath
 
-        // 如果配置了需要写 Sidecar (.xmp)
+        // 如果配置了需要写 Sidecar (.xmp)，或在 embedIfSupported 模式下格式无法物理内嵌(如 AVIF)时自动降级输出
         const storageMode = config.metadataStorageMode || 'embedIfSupported'
-        if (scmpMetadata && (storageMode === 'sidecarOnly' || storageMode === 'both')) {
+        const shouldWriteSidecar =
+          scmpMetadata &&
+          (storageMode === 'sidecarOnly' ||
+            storageMode === 'both' ||
+            (storageMode === 'embedIfSupported' && !embedded))
+
+        if (shouldWriteSidecar && scmpMetadata) {
           try {
             const xmpXml = serializeSCMPToXmp(scmpMetadata, privacySettings)
             await writeSidecar(candidatePath, xmpXml, config.sidecarNaming)

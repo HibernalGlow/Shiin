@@ -194,6 +194,7 @@ export async function loadFullConfig(storage: IConfigStorage, deviceName?: strin
   if (typeof result.imageEffort !== 'number' || Number.isNaN(result.imageEffort)) {
     result.imageEffort = 4
   }
+  result.disableWindowShadow = result.disableWindowShadow !== false
 
   return result
 }
