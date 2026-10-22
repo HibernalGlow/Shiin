@@ -242,7 +242,8 @@
     }
   },
   "scripts": {
-    "build:node": "tsdown",
+    "build:packages": "pnpm -r --filter \"./packages/*\" build",
+    "build:node": "pnpm build:packages && tsdown",
     "build:plugin-ui": "rspack build",
     "build:app-ui": "cross-env BUILD_TARGET=app rspack build",
     "build:plugin": "pnpm build:node && rspack build",

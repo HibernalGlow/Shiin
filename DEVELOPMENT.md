@@ -18,7 +18,8 @@
 
 | 脚本命令 | 说明 |
 | :--- | :--- |
-| `pnpm build:node` | 编译核心库 `src/core` 及相关 Node.js / Electron 入口到 `lib/` |
+| `pnpm build:packages` | 先编译 `packages/*` 两个 workspace 包到各自的 `dist/`（干净检出必须先跑这一步） |
+| `pnpm build:node` | 先构建 workspace 包，再编译核心库 `src/core` 及相关 Node.js / Electron 入口到 `lib/` |
 | `pnpm build:app-ui` | 使用 Rspack 编译独立客户端 UI 资源 |
 | `pnpm build:app` | 一键编译核心库 + 独立客户端 UI 资源 |
 | `pnpm electron:start` | 启动开发环境桌面端 Electron |
