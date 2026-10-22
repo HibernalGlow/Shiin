@@ -1,0 +1,31 @@
+{
+  "name": "@hibernalglow/capture-metadata-profile",
+  "version": "1.0.0",
+  "description": "Shiin Capture Metadata Profile (SCMP v1.0) - Open standard XMP/IPTC screenshot metadata serializer, parser, and lossless zero-reencode binary chunk injector for PNG, JPEG, and WebP.",
+  "author": "AmagiSakuya",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "files": [
+    "src",
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.3"
+  }
+}
