@@ -19,6 +19,11 @@ export default isApp
         clean: true,
       },
       resolve: {
+        alias: {
+          '@': path.resolve(__dirname, 'src'),
+          '@hibernalglow/gamepad-expressive/css': path.resolve(__dirname, 'packages/gamepad-expressive/src/styles/gamepad-expressive.css'),
+          '@hibernalglow/gamepad-expressive': path.resolve(__dirname, 'packages/gamepad-expressive/src'),
+        },
         extensions: ['.tsx', '.ts', '.jsx', '.js'],
         extensionAlias: {
           '.js': ['.ts', '.tsx', '.js'],
@@ -78,6 +83,11 @@ export default isApp
         publicPath: 'auto',
       },
       resolve: {
+        alias: {
+          '@': path.resolve(__dirname, 'src'),
+          '@hibernalglow/gamepad-expressive/css': path.resolve(__dirname, 'packages/gamepad-expressive/src/styles/gamepad-expressive.css'),
+          '@hibernalglow/gamepad-expressive': path.resolve(__dirname, 'packages/gamepad-expressive/src'),
+        },
         extensions: ['.tsx', '.ts', '.jsx', '.js'],
         extensionAlias: {
           '.js': ['.ts', '.tsx', '.js'],

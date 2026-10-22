@@ -14,9 +14,11 @@
     "outDir": "lib",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@hibernalglow/gamepad-expressive": ["packages/gamepad-expressive/src/index.ts"],
+      "@hibernalglow/gamepad-expressive/*": ["packages/gamepad-expressive/src/*"]
     }
   },
-  "include": ["src/**/*", "tests/**/*"],
+  "include": ["src/**/*", "packages/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist", "lib"]
 }

@@ -1,5 +1,6 @@
 packages:
   - '.'
+  - 'packages/*'
 
 overrides:
   rollup: 4.64.9

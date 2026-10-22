@@ -46,3 +46,6 @@ package-lock.json
 /mcp_debug.log
 /.workbuddy
 .workbuddy
+
+# workspace 包的构建产物（包入口与别名都指向 src，dist 不入库）
+/packages/*/dist
