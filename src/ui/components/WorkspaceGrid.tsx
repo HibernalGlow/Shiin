@@ -308,11 +308,22 @@ export const WorkspaceLayoutToolbar: React.FC = () => {
   const grid = useWorkspaceGrid()
   const reduceMotion = useReducedMotion()
   const [addOpen, setAddOpen] = React.useState(false)
+  const [confirmReset, setConfirmReset] = React.useState(false)
   const isEditing = grid?.isEditing ?? false
 
   React.useEffect(() => {
-    if (!isEditing) setAddOpen(false)
+    if (!isEditing) {
+      setAddOpen(false)
+      setConfirmReset(false)
+    }
   }, [isEditing])
+
+  // "恢复默认" asks once, then quietly forgets after a moment.
+  React.useEffect(() => {
+    if (!confirmReset) return
+    const timer = window.setTimeout(() => setConfirmReset(false), 3600)
+    return () => window.clearTimeout(timer)
+  }, [confirmReset])
 
   if (!grid || !grid.isEditing) return null
 
@@ -383,12 +394,23 @@ export const WorkspaceLayoutToolbar: React.FC = () => {
 
       <button
         type="button"
-        className="shiin-ws-tool"
-        onClick={grid.reset}
-        title={isZh ? '恢复默认排版' : 'Reset layout'}
-        aria-label={isZh ? '恢复默认排版' : 'Reset layout'}
+        className="shiin-ws-tool shiin-ws-tool--label"
+        data-confirming={confirmReset || undefined}
+        onClick={() => {
+          if (confirmReset) {
+            grid.reset()
+            setConfirmReset(false)
+            return
+          }
+          setConfirmReset(true)
+        }}
+        title={isZh ? '把所有卡片恢复成默认排版' : 'Restore every card to the default layout'}
+        aria-label={isZh ? '恢复默认排版' : 'Restore default layout'}
       >
-        <AppIcon name="restore" size={15} />
+        <AppIcon name="restore" size={14} />
+        <span>
+          {confirmReset ? (isZh ? '确认恢复' : 'Confirm') : isZh ? '恢复默认' : 'Restore'}
+        </span>
       </button>
 
       <button

@@ -2679,6 +2679,10 @@ export const EXPRESSIVE_CSS = String.raw`
 .shiin-node .shiin-bento .shiin-ws-cell__body > * {
   flex: 1 1 auto;
   min-width: 0;
+  width: 100%;
+  /* Legacy tiles pin align-self: start from their grid-item days; inside a cell
+     the card always has to fill the column. */
+  align-self: stretch;
 }
 
 /* Editing: a hairline of intent, never a full editor skin */
@@ -2856,6 +2860,30 @@ export const EXPRESSIVE_CSS = String.raw`
   background: var(--shiin-olive);
   color: var(--shiin-on-olive);
   border-color: transparent;
+}
+
+/* Labelled tool ("恢复默认") — wider, still part of the same cluster */
+.shiin-ws-tool--label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  padding: 0 13px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.shiin-ws-tool--label[data-confirming] {
+  background: var(--shiin-accent);
+  border-color: transparent;
+  color: var(--shiin-on-accent);
+}
+
+.shiin-ws-tool--label[data-confirming]:hover {
+  background: color-mix(in srgb, var(--shiin-accent) 86%, var(--shiin-ink));
+  color: var(--shiin-on-accent);
 }
 
 .shiin-ws-tool__count {
