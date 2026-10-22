@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="470" viewBox="0 0 1200 470" role="img" aria-labelledby="pipe-en-title pipe-en-desc">
+  <title id="pipe-en-title">Shiin capture pipeline: lossless first, then encoded to your spec</title>
+  <desc id="pipe-en-desc">Four stages: capture always grabs a lossless PNG; sharp encodes it to JPG, PNG, WebP or AVIF using imageFormat, imageQuality, imageLossless and imageEffort; SCMP v1.0 context is embedded as XMP in PNG, JPEG and WebP, while AVIF or a failed embed falls back to a .xmp sidecar; the result lands in a file, the clipboard, an OBS replay clip and a corner overlay.</desc>
+
+  <defs>
+    <marker id="pipe-en-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#C9F56D" />
+    </marker>
+  </defs>
+
+  <rect width="1200" height="470" fill="#0C0E09" />
+  <rect x="20.5" y="20.5" width="1159" height="430" rx="2" fill="none" stroke="#242C1D" stroke-width="1" />
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+    <text x="64" y="66" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="16" letter-spacing="2.4" fill="#C9F56D">PIPELINE / LOSSLESS FIRST</text>
+    <text x="64" y="118" font-size="42" font-weight="750" fill="#EDE5D3">Encoding and metadata for one capture</text>
+    <text x="64" y="152" font-size="20" fill="#9AA28E">Capture is always lossless PNG; format, quality and metadata come from one config.</text>
+  </g>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+    <rect x="64" y="190" width="250" height="178" rx="16" fill="#12160F" stroke="#2D3526" stroke-width="1.2" />
+    <text x="82" y="218" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#7E8874">01 / CAPTURE</text>
+    <text x="82" y="252" font-size="24" font-weight="700" fill="#EDE5D3">Capture</text>
+    <g font-size="16" fill="#AEB6A1">
+      <text x="82" y="284">screencapture -t png</text>
+      <text x="82" y="310">node-screenshots</text>
+      <text x="82" y="336">OBS scene PNG</text>
+      <text x="82" y="362">window / chosen monitor</text>
+    </g>
+
+    <rect x="332" y="190" width="250" height="178" rx="16" fill="#1A2113" stroke="#C9F56D" stroke-width="1.6" />
+    <text x="350" y="218" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#C9F56D">02 / ENCODE</text>
+    <text x="350" y="252" font-size="24" font-weight="700" fill="#EDE5D3">Encode</text>
+    <g font-size="16" fill="#AEB6A1">
+      <text x="350" y="284">JPG · PNG · WebP · AVIF</text>
+      <text x="350" y="310">quality 1–100, default 90</text>
+      <text x="350" y="336">lossless WebP / AVIF</text>
+      <text x="350" y="362">effort 0–9, default 4</text>
+    </g>
+
+    <rect x="600" y="190" width="250" height="178" rx="16" fill="#12160F" stroke="#2D3526" stroke-width="1.2" />
+    <text x="618" y="218" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#7E8874">03 / METADATA</text>
+    <text x="618" y="252" font-size="24" font-weight="700" fill="#EDE5D3">SCMP v1.0</text>
+    <g font-size="16" fill="#AEB6A1">
+      <text x="618" y="284">embeds PNG / JPEG / WebP</text>
+      <text x="618" y="310">AVIF falls back to .xmp</text>
+      <text x="618" y="336">four storage modes</text>
+      <text x="618" y="362">per-field privacy toggles</text>
+    </g>
+
+    <rect x="868" y="190" width="250" height="178" rx="16" fill="#12160F" stroke="#2D3526" stroke-width="1.2" />
+    <text x="886" y="218" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#7E8874">04 / OUTPUT</text>
+    <text x="886" y="252" font-size="24" font-weight="700" fill="#EDE5D3">Output</text>
+    <g font-size="16" fill="#AEB6A1">
+      <text x="886" y="284">file / clipboard / both</text>
+      <text x="886" y="310">subfolder per window</text>
+      <text x="886" y="336">overlay in any corner</text>
+      <text x="886" y="362">OBS replay clip</text>
+    </g>
+  </g>
+
+  <g stroke="#C9F56D" stroke-width="2" marker-end="url(#pipe-en-arrow)">
+    <line x1="316" y1="279" x2="328" y2="279" />
+    <line x1="584" y1="279" x2="596" y2="279" />
+    <line x1="852" y1="279" x2="864" y2="279" />
+  </g>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+    <text x="64" y="398" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="15" letter-spacing="1.6" fill="#7E8874">CONFIG / FOUR KEYS</text>
+    <text x="1136" y="398" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="15" letter-spacing="1" fill="#C9F56D" text-anchor="end">src/core/screenshot.ts</text>
+    <g font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="15" fill="#AEB6A1">
+      <rect x="64" y="408" width="250" height="40" rx="11" fill="#12160F" stroke="#2D3526" />
+      <text x="82" y="433">imageFormat</text>
+      <rect x="332" y="408" width="250" height="40" rx="11" fill="#12160F" stroke="#2D3526" />
+      <text x="350" y="433">imageQuality</text>
+      <rect x="600" y="408" width="250" height="40" rx="11" fill="#12160F" stroke="#2D3526" />
+      <text x="618" y="433">imageLossless</text>
+      <rect x="868" y="408" width="250" height="40" rx="11" fill="#12160F" stroke="#2D3526" />
+      <text x="886" y="433">metadataStorageMode</text>
+    </g>
+  </g>
+</svg>

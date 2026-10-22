@@ -51,7 +51,7 @@
     <g font-size="16" fill="#AEB6A1">
       <text x="722" y="292">File / clipboard</text>
       <text x="722" y="318">OBS scene / replay</text>
-      <text x="722" y="344">JPG · PNG</text>
+      <text x="722" y="344">encode 4 formats</text>
     </g>
 
     <rect x="920" y="196" width="194" height="150" rx="16" fill="#12160F" stroke="#2D3526" stroke-width="1.2" />

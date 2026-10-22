@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="470" viewBox="0 0 1200 470" role="img" aria-labelledby="hub-title hub-desc">
+  <title id="hub-title">Shiin 捕获中枢：场景配置、收件箱、规则与统计</title>
+  <desc id="hub-desc">四块能力：场景配置按匹配、隐私、元数据与管线四个维度定义捕获预设；收件箱维护 inbox、starred、archived、trashed 四种状态与批量操作；规则引擎把条件映射到打标签、收藏、归档、移动目录等动作，支持 dry-run 预览与 undo 回滚，会话按时间窗聚类；统计与体检覆盖截图、监听、按键事件、连续拍摄、dHash 相似分组与多卷存储健康。底部标出当前边界：核心引擎与单测已落地，界面入口在设置里的捕获中枢开关后面，收件箱仍使用演示样例，索引图库只有核心层。</desc>
+
+  <defs>
+    <marker id="hub-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#C9F56D" />
+    </marker>
+  </defs>
+
+  <rect width="1200" height="470" fill="#0C0E09" />
+  <rect x="20.5" y="20.5" width="1159" height="430" rx="2" fill="none" stroke="#242C1D" stroke-width="1" />
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans CJK SC', sans-serif">
+    <text x="64" y="66" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="16" letter-spacing="2.4" fill="#C9F56D">HUB / 从一张图到一个库</text>
+    <text x="64" y="118" font-size="42" font-weight="750" fill="#EDE5D3">捕获中枢：从截图到资产</text>
+    <text x="64" y="152" font-size="20" fill="#9AA28E">引擎与单测落在 core，界面入口在设置里的「捕获中枢」开关后面。</text>
+  </g>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans CJK SC', sans-serif">
+    <rect x="64" y="190" width="250" height="178" rx="16" fill="#12160F" stroke="#2D3526" stroke-width="1.2" />
+    <text x="82" y="218" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#7E8874">01 / PROFILE</text>
+    <text x="82" y="252" font-size="24" font-weight="700" fill="#EDE5D3">场景配置</text>
+    <g font-size="17" fill="#AEB6A1">
+      <text x="82" y="284">Gaming / Development</text>
+      <text x="82" y="310">Research / Design</text>
+      <text x="82" y="336">自定义场景</text>
+      <text x="82" y="362">四维正交配置</text>
+    </g>
+
+    <rect x="332" y="190" width="250" height="178" rx="16" fill="#1A2113" stroke="#C9F56D" stroke-width="1.6" />
+    <text x="350" y="218" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#C9F56D">02 / INBOX</text>
+    <text x="350" y="252" font-size="24" font-weight="700" fill="#EDE5D3">收件箱</text>
+    <g font-size="17" fill="#AEB6A1">
+      <text x="350" y="284">inbox 待处理</text>
+      <text x="350" y="310">starred 收藏</text>
+      <text x="350" y="336">archived 归档</text>
+      <text x="350" y="362">trashed 可回收</text>
+    </g>
+
+    <rect x="600" y="190" width="250" height="178" rx="16" fill="#12160F" stroke="#2D3526" stroke-width="1.2" />
+    <text x="618" y="218" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#7E8874">03 / AUTOMATE</text>
+    <text x="618" y="252" font-size="24" font-weight="700" fill="#EDE5D3">规则与会话</text>
+    <g font-size="17" fill="#AEB6A1">
+      <text x="618" y="284">条件：应用名 / 标题</text>
+      <text x="618" y="310">动作：标签 / 归档</text>
+      <text x="618" y="336">dry-run + undo</text>
+      <text x="618" y="362">会话按时间窗聚类</text>
+    </g>
+
+    <rect x="868" y="190" width="250" height="178" rx="16" fill="#12160F" stroke="#2D3526" stroke-width="1.2" />
+    <text x="886" y="218" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#7E8874">04 / INSIGHT</text>
+    <text x="886" y="252" font-size="24" font-weight="700" fill="#EDE5D3">统计与体检</text>
+    <g font-size="17" fill="#AEB6A1">
+      <text x="886" y="284">截图 / 监听 / 按键</text>
+      <text x="886" y="310">连续拍摄 streak</text>
+      <text x="886" y="336">dHash 相似分组</text>
+      <text x="886" y="362">多卷存储健康</text>
+    </g>
+  </g>
+
+  <g stroke="#C9F56D" stroke-width="2" marker-end="url(#hub-arrow)">
+    <line x1="316" y1="279" x2="328" y2="279" />
+    <line x1="584" y1="279" x2="596" y2="279" />
+    <line x1="852" y1="279" x2="864" y2="279" />
+  </g>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans CJK SC', sans-serif">
+    <text x="64" y="398" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="15" letter-spacing="1.6" fill="#A82F46">STATUS / 当前边界</text>
+    <text x="1136" y="398" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="15" letter-spacing="1" fill="#7E8874" text-anchor="end">docs/adr/0011 · 0012</text>
+    <g font-size="15" fill="#AEB6A1">
+      <rect x="64" y="408" width="250" height="40" rx="11" fill="#12160F" stroke="#A82F46" stroke-width="1.1" stroke-dasharray="5 4" />
+      <text x="82" y="433">引擎 + 单测 已落地</text>
+      <rect x="332" y="408" width="250" height="40" rx="11" fill="#12160F" stroke="#A82F46" stroke-width="1.1" stroke-dasharray="5 4" />
+      <text x="350" y="433">开关默认关闭</text>
+      <rect x="600" y="408" width="250" height="40" rx="11" fill="#12160F" stroke="#A82F46" stroke-width="1.1" stroke-dasharray="5 4" />
+      <text x="618" y="433">收件箱是演示样例</text>
+      <rect x="868" y="408" width="250" height="40" rx="11" fill="#12160F" stroke="#A82F46" stroke-width="1.1" stroke-dasharray="5 4" />
+      <text x="886" y="433">索引图库仅核心层</text>
+    </g>
+  </g>
+</svg>

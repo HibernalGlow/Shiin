@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="470" viewBox="0 0 1200 470" role="img" aria-labelledby="pipe-title pipe-desc">
+  <title id="pipe-title">Shiin 捕获管线：先无损捕获，再按口径编码</title>
+  <desc id="pipe-desc">四个阶段：捕获一律取无损 PNG；用 sharp 按 imageFormat、imageQuality、imageLossless 与 imageEffort 编码为 JPG、PNG、WebP 或 AVIF；按 SCMP v1.0 组装上下文，PNG、JPEG、WebP 内嵌 XMP，AVIF 或降级时输出 .xmp 伴生文件；最后落到文件、剪贴板、OBS 回放与四角覆层通知。</desc>
+
+  <defs>
+    <marker id="pipe-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#C9F56D" />
+    </marker>
+  </defs>
+
+  <rect width="1200" height="470" fill="#0C0E09" />
+  <rect x="20.5" y="20.5" width="1159" height="430" rx="2" fill="none" stroke="#242C1D" stroke-width="1" />
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans CJK SC', sans-serif">
+    <text x="64" y="66" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="16" letter-spacing="2.4" fill="#C9F56D">PIPELINE / 先无损，再编码</text>
+    <text x="64" y="118" font-size="42" font-weight="750" fill="#EDE5D3">一张截图的编码与元数据口径</text>
+    <text x="64" y="152" font-size="20" fill="#9AA28E">捕获阶段一律取无损 PNG，输出格式、质量与元数据都归到同一份配置上。</text>
+  </g>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans CJK SC', sans-serif">
+    <rect x="64" y="190" width="250" height="178" rx="16" fill="#12160F" stroke="#2D3526" stroke-width="1.2" />
+    <text x="82" y="218" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#7E8874">01 / CAPTURE</text>
+    <text x="82" y="252" font-size="24" font-weight="700" fill="#EDE5D3">捕获</text>
+    <g font-size="17" fill="#AEB6A1">
+      <text x="82" y="284">screencapture -t png</text>
+      <text x="82" y="310">node-screenshots</text>
+      <text x="82" y="336">OBS 场景 PNG</text>
+      <text x="82" y="362">窗口 / 指定显示器</text>
+    </g>
+
+    <rect x="332" y="190" width="250" height="178" rx="16" fill="#1A2113" stroke="#C9F56D" stroke-width="1.6" />
+    <text x="350" y="218" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#C9F56D">02 / ENCODE</text>
+    <text x="350" y="252" font-size="24" font-weight="700" fill="#EDE5D3">编码</text>
+    <g font-size="17" fill="#AEB6A1">
+      <text x="350" y="284">JPG · PNG · WebP · AVIF</text>
+      <text x="350" y="310">quality 1–100（默认 90）</text>
+      <text x="350" y="336">WebP / AVIF 可无损</text>
+      <text x="350" y="362">effort 0–9（默认 4）</text>
+    </g>
+
+    <rect x="600" y="190" width="250" height="178" rx="16" fill="#12160F" stroke="#2D3526" stroke-width="1.2" />
+    <text x="618" y="218" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#7E8874">03 / METADATA</text>
+    <text x="618" y="252" font-size="24" font-weight="700" fill="#EDE5D3">SCMP v1.0</text>
+    <g font-size="17" fill="#AEB6A1">
+      <text x="618" y="284">内嵌 PNG / JPEG / WebP</text>
+      <text x="618" y="310">AVIF 自动转 .xmp</text>
+      <text x="618" y="336">四种存储模式</text>
+      <text x="618" y="362">隐私项逐条开关</text>
+    </g>
+
+    <rect x="868" y="190" width="250" height="178" rx="16" fill="#12160F" stroke="#2D3526" stroke-width="1.2" />
+    <text x="886" y="218" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="14" letter-spacing="1.4" fill="#7E8874">04 / OUTPUT</text>
+    <text x="886" y="252" font-size="24" font-weight="700" fill="#EDE5D3">落点</text>
+    <g font-size="17" fill="#AEB6A1">
+      <text x="886" y="284">文件 / 剪贴板 / 两者</text>
+      <text x="886" y="310">按窗口标题建子目录</text>
+      <text x="886" y="336">四角覆层 + 缩略图</text>
+      <text x="886" y="362">OBS 回放片段</text>
+    </g>
+  </g>
+
+  <g stroke="#C9F56D" stroke-width="2" marker-end="url(#pipe-arrow)">
+    <line x1="316" y1="279" x2="328" y2="279" />
+    <line x1="584" y1="279" x2="596" y2="279" />
+    <line x1="852" y1="279" x2="864" y2="279" />
+  </g>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans CJK SC', sans-serif">
+    <text x="64" y="398" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="15" letter-spacing="1.6" fill="#7E8874">CONFIG / 四个键</text>
+    <text x="1136" y="398" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="15" letter-spacing="1" fill="#C9F56D" text-anchor="end">encodeImageBuffer()</text>
+    <g font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="15" fill="#AEB6A1">
+      <rect x="64" y="408" width="250" height="40" rx="11" fill="#12160F" stroke="#2D3526" />
+      <text x="82" y="433">imageFormat</text>
+      <rect x="332" y="408" width="250" height="40" rx="11" fill="#12160F" stroke="#2D3526" />
+      <text x="350" y="433">imageQuality</text>
+      <rect x="600" y="408" width="250" height="40" rx="11" fill="#12160F" stroke="#2D3526" />
+      <text x="618" y="433">imageLossless</text>
+      <rect x="868" y="408" width="250" height="40" rx="11" fill="#12160F" stroke="#2D3526" />
+      <text x="886" y="433">metadataStorageMode</text>
+    </g>
+  </g>
+</svg>
