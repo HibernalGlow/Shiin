@@ -100,6 +100,14 @@ function ShiinApp({
       void session.capture()
       return
     }
+    if (name === 'w') {
+      void session.captureFocused()
+      return
+    }
+    if (name === 'f') {
+      session.toggleSaveByActiveWinTitle()
+      return
+    }
     if (name === 'r') {
       void session.replay()
       return
@@ -182,6 +190,8 @@ function ShiinApp({
         <box flexDirection="row" gap={2}>
           <KeyHint keys="Space" label={t('listeningStatus')} />
           <KeyHint keys="C" label={t('actionCapture')} />
+          <KeyHint keys="W" label={t('actionCaptureFocused')} />
+          <KeyHint keys="F" label={t('subfolder')} />
           <KeyHint keys="R" label={t('actionReplay')} />
           <KeyHint keys="N" label={t('overlayTestKey')} />
           <KeyHint keys="S/D/?" label={t('settings')} />

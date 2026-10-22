@@ -4,6 +4,7 @@
   "description": "Cross-host Gamepad Screenshot tool & instant replay for Standalone Desktop and Xaihi Node ecosystem",
   "author": "AmagiSakuya",
   "license": "MIT",
+  "packageManager": "pnpm@10.5.2",
   "type": "module",
   "main": "lib/index.mjs",
   "types": "lib/index.d.mts",
@@ -256,7 +257,7 @@
     "serve": "node lib/cli.mjs serve",
     "tui": "node lib/cli.mjs tui",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run tests",
     "release": "node scripts/release.js"
   },
   "dependencies": {
@@ -279,7 +280,8 @@
     "screenshot-desktop": "^1.15.6",
     "string-width": "^8.3.0",
     "temp": "^0.9.4",
-    "uiohook-napi": "^1.5.5"
+    "uiohook-napi": "^1.5.5",
+    "motion": "^12.23.24"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.4",

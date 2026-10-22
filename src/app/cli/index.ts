@@ -97,6 +97,7 @@ function printHelp(host: CliHost, language: Language): void {
         '  --format jpg|png          --path <dir>        --json',
         '  --screen <id>             --window <id|focused>  （focused = 当前聚焦窗口，见 devices）',
         '  --window-mode specified|focused                  （窗口来源口径）',
+        '  --subfolder / --no-subfolder                     保存到活动窗口名子文件夹',
         '  --no-notify                                      本次不弹覆层通知',
         '  combo: --set "Button0,Button7"   --clear      --json',
         '',
@@ -142,6 +143,7 @@ function printHelp(host: CliHost, language: Language): void {
         '  --format jpg|png          --path <dir>        --json',
         '  --screen <id>             --window <id|focused>  (focused = current foreground window)',
         '  --window-mode specified|focused                  (how a window target is chosen)',
+        '  --subfolder / --no-subfolder                     save into subdirectories named after window title',
         '  --no-notify                                      skip the overlay for this run',
         '  combo: --set "Button0,Button7"   --clear      --json',
         '',
@@ -174,6 +176,7 @@ function planFromFlags(config: Parameters<typeof planFromConfig>[0], flags: Reco
   const save = stringFlag(flags, 'save')
   const format = stringFlag(flags, 'format')
   const windowMode = stringFlag(flags, 'window-mode')
+  const subfolder = booleanFlag(flags, 'subfolder') ?? booleanFlag(flags, 'save-by-title')
   return {
     target: target === 'window' ? 'window' : target === 'screen' ? 'screen' : base.target,
     windowMode: windowMode === 'focused' || windowMode === 'specified' ? windowMode : base.windowMode,
@@ -188,6 +191,7 @@ function planFromFlags(config: Parameters<typeof planFromConfig>[0], flags: Reco
             : base.saveWay,
     format: format === 'png' ? 'png' : format === 'jpg' ? 'jpg' : base.format,
     path: stringFlag(flags, 'path') ?? base.path,
+    saveByActiveWinTitle: subfolder ?? base.saveByActiveWinTitle,
   }
 }
 
@@ -491,7 +495,7 @@ async function runServe(host: CliHost, rest: string[], language: Language): Prom
   }
 
   const portRaw = stringFlag(parsed.flags, 'port') ?? process.env.SHIIN_WEB_PORT?.trim()
-  const port = portRaw ? Number(portRaw) : 3800
+  const port = portRaw !== undefined ? Number(portRaw) : 3800
   if (!Number.isInteger(port) || port < 0 || port > 65535) {
     writeError(host, '--port must be an integer between 0 and 65535.')
     return 2
@@ -535,6 +539,18 @@ async function runServe(host: CliHost, rest: string[], language: Language): Prom
     return 1
   }
 
+  // 机器可读结构化握手消息（支持 Electron utilityProcess 与进程管道通信）
+  const readyPayload = {
+    type: 'ready',
+    port: handle.port,
+    url: handle.url,
+    pid: process.pid,
+  }
+  if (typeof (process as any).parentPort?.postMessage === 'function') {
+    (process as any).parentPort.postMessage(readyPayload)
+  }
+  writeLine(host, `__SHIIN_READY__ ${JSON.stringify(readyPayload)}`)
+
   const paths = resolveCliPaths()
   writeLine(host, rich(host, `SHIIN WEB · ${handle.url}`, 'cyan', 'bold'))
   writeLine(host, rich(host, `${language === 'zh' ? '配置目录' : 'Config'}: ${paths.configDir}`, 'grey'))
@@ -576,6 +592,13 @@ async function runServe(host: CliHost, rest: string[], language: Language): Prom
     }
     process.once('SIGINT', stop)
     process.once('SIGTERM', stop)
+    if ((process as any).parentPort?.on) {
+      (process as any).parentPort.on('message', (msg: any) => {
+        if (msg && (msg.type === 'dispose' || msg.type === 'exit')) {
+          stop()
+        }
+      })
+    }
   })
 }
 

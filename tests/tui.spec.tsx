@@ -177,8 +177,20 @@ describe.skipIf(!ffiAvailable)('Shiin TUI', () => {
       expect(initial).toContain('DualSense Wireless Controller')
       expect(initial).toContain('B0')
       expect(initial).toContain('Space')
+      expect(initial).toContain('截聚焦窗口')
+      expect(initial).toContain('窗口子目录')
       expect(initial).toContain('日志')
       expect(initial).toContain('等待执行')
+
+      await act(async () => {
+        setup.mockInput.pressKey('w')
+        await new Promise((resolve) => setTimeout(resolve, 200))
+      })
+      await setup.flush()
+
+      const afterFocusedCapture = setup.captureCharFrame()
+      expect(afterFocusedCapture).toContain('截图已保存')
+      expect(afterFocusedCapture).toContain('/tmp/shots/a.png')
 
       await act(async () => {
         setup.mockInput.pressKey('c')
@@ -201,6 +213,7 @@ describe.skipIf(!ffiAvailable)('Shiin TUI', () => {
       if (process.env.DEBUG_TUI) console.log(settings)
       expect(settings).toContain('保存配置')
       expect(settings).toContain('保存目录')
+      expect(settings).toContain('保存到窗口名文件夹')
       expect(settings).toContain('录制组合键')
       expect(settings).toContain('Button0 + Button7')
       expect(settings).toContain('清空')
@@ -231,6 +244,14 @@ describe.skipIf(!ffiAvailable)('Shiin TUI', () => {
       const dashboard = setup.captureCharFrame()
       expect(dashboard).toContain('实时输入')
       expect(dashboard).toContain('组合键已保存')
+
+      await act(async () => {
+        setup.mockInput.pressKey('f')
+        await new Promise((resolve) => setTimeout(resolve, 150))
+      })
+      await setup.flush()
+      const afterToggleFolder = setup.captureCharFrame()
+      expect(afterToggleFolder).toContain('保存到窗口名文件夹: 开启')
     } finally {
       await setup.dispose()
     }

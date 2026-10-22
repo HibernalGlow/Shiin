@@ -12,9 +12,12 @@ import {
 } from '../../core/types.js'
 import type { MacOSPermissionsStatus } from '../adapter/types.js'
 import { useMd3eShapes } from '../md3e-shape-context.js'
-import { getPressedShape } from '../md3e-shapes.js'
+import { EquipmentDeck } from './EquipmentDeck.js'
+import type { ScreenshotResult } from '../../core/types.js'
 
 export interface WorkspaceViewProps {
+  capturePending?: boolean
+  captureResult?: ScreenshotResult | null
   config: ScreenshotConfig
   onChange: (patch: Partial<ScreenshotConfig>) => void
   listening: boolean
@@ -49,6 +52,8 @@ export interface WorkspaceViewProps {
 }
 
 export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
+  capturePending = false,
+  captureResult = null,
   config,
   onChange,
   listening,
@@ -83,7 +88,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 }) => {
   const { session } = useMd3eShapes()
   const [presetMenuOpen, setPresetMenuOpen] = React.useState(false)
-  const [capturePressed, setCapturePressed] = React.useState(false)
   const isZh = locale.startsWith('zh')
   const isWindowMode = config.captureTargetType === CaptureTargetTypeEnum.Window
   const isFocusedWindow = isWindowMode && config.windowCaptureMode === 'focused'
@@ -94,184 +98,20 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   }
 
   return (
-    <div className="shiin-bento">
+    <div className="shiin-bento oil-workspace">
       <div className="sb-page">
         <div className="sb-grid">
-          <section className="sb-tile sb-capture-hero" aria-label={isZh ? '捕获' : 'Capture'}>
-            <div className="sb-capture-copy">
-              <p className="sb-eyebrow">WORKSPACE / {isZh ? '工作台' : 'WORKSPACE'}</p>
-              <h2>{isZh ? '捕捉这一帧' : 'Capture this frame'}</h2>
-              <p className="sb-lede">
-                {isZh
-                  ? '手柄与捕获管线已就绪。按下立即截图，或让监听在后台等待组合键。'
-                  : 'Gamepad and capture pipeline are ready. Capture now, or let the listener wait for your combo.'}
-              </p>
-              <div className="sb-capture-status">
-                <span className={`sb-status-chip ${listening ? 'on' : ''}`}>
-                  <i />
-                  {listening ? (isZh ? '监听中' : 'Listening') : isZh ? '未监听' : 'Idle'}
-                </span>
-                <span className="sb-status-chip">
-                  <i />
-                  {activeDevice?.name || (isZh ? '未检测到手柄' : 'No gamepad')}
-                </span>
-                {permissionMissing && (
-                  <span className="sb-status-chip warn">
-                    <i />
-                    {isZh ? '权限待处理' : 'Permissions'}
-                  </span>
-                )}
-              </div>
-              <div className="sb-capture-actions">
-                <button type="button" className="sb-capture-primary" onClick={onCapture}>
-                  <span className="sb-cta-icon" aria-hidden="true">
-                    <Md3eMorphShape path={session.shapes.control.svgPath} className="sb-cta-icon-shape" />
-                    <AppIcon name="camera" size={16} />
-                  </span>
-                  {isZh ? '立即截图' : 'Capture'}
-                </button>
-                <button type="button" className="sb-action-secondary" onClick={onToggleListen}>
-                  <AppIcon name={listening ? 'stop' : 'play'} size={15} />
-                  {listening ? (isZh ? '暂停监听' : 'Pause') : isZh ? '开启监听' : 'Listen'}
-                </button>
-                <button type="button" className="sb-action-secondary" onClick={onSaveOBS}>
-                  <AppIcon name="wave" size={15} />
-                  {isZh ? '保存回放' : 'Save replay'}
-                </button>
-              </div>
-            </div>
-            <div className="sb-capture-art">
-              <button
-                type="button"
-                className="sb-capture-orb"
-                onClick={onCapture}
-                onPointerDown={() => setCapturePressed(true)}
-                onPointerUp={() => setCapturePressed(false)}
-                onPointerLeave={() => setCapturePressed(false)}
-                onPointerCancel={() => setCapturePressed(false)}
-                aria-label={isZh ? '立即截图' : 'Capture now'}
-                title={isZh ? '立即截图' : 'Capture now'}
-              >
-                <Md3eMorphShape
-                  path={session.shapes.hero.svgPath}
-                  pressed={capturePressed}
-                  pressedPath={getPressedShape(session.shapes.hero.id).svgPath}
-                  className="sb-capture-shape"
-                />
-                <AppIcon name="camera" size={30} />
-              </button>
-              <span className="sb-capture-shape-label">
-                {session.shapes.hero.nameEn.toUpperCase()} · {isZh ? session.shapes.hero.name : session.shapes.hero.nameEn}
-              </span>
-              <span className="sb-capture-hint">{isZh ? '按下图形即可截图' : 'Tap the shape to capture'}</span>
-            </div>
-          </section>
-
-          <aside className="sb-tile sb-hero-session" aria-label={isZh ? '本次会话' : 'This session'}>
-            <Md3eMorphShape path={session.shapes.device.svgPath} className="sb-session-ghost" />
-            <div className="sb-tile-head">
-              <h3>{isZh ? '本次会话' : 'This session'}</h3>
-              <span className={`sb-chip ${listening ? 'tertiary' : ''}`}>
-                {listening ? (isZh ? '监听中' : 'Listening') : isZh ? '未监听' : 'Idle'}
-              </span>
-            </div>
-            <div className="sb-session-focus">
-              <span className={`sb-session-orb ${activeDevice ? '' : 'is-searching'}`} aria-hidden="true">
-                <Md3eMorphShape path={session.shapes.device.svgPath} />
-                <AppIcon name="gamepad" size={24} />
-              </span>
-              <div className="sb-session-copy">
-                <span className="sb-eyebrow">{isZh ? '设备状态' : 'DEVICE STATUS'}</span>
-                <strong>{activeDevice?.name || (isZh ? '正在寻找手柄' : 'Looking for gamepad')}</strong>
-                <small>
-                  {activeDevice
-                    ? isZh ? '已连接，按组合键可触发' : 'Connected'
-                    : isZh ? '按任意键唤醒' : 'Press any button'}
-                </small>
-              </div>
-            </div>
-            <div className="sb-session-tags">
-              <span className="sb-chip">
-                {isFocusedWindow
-                  ? isZh ? '聚焦窗口' : 'Focused window'
-                  : isWindowMode
-                    ? isZh ? '指定窗口' : 'Pinned window'
-                    : isZh ? '全屏 DXGI' : 'Full DXGI'}
-              </span>
-              <span className="sb-chip">
-                {config.imageFormat.toUpperCase()} ·{' '}
-                {config.screenShotSaveWay === ScreenShotSaveWayEnum.CilpboardOnly
-                  ? isZh ? '剪贴板' : 'Clipboard'
-                  : isZh ? '文件' : 'File'}
-              </span>
-            </div>
-            <div className={`sb-connected sb-session-actions ${permissionMissing ? 'has-alert' : ''}`} role="group" aria-label={isZh ? '会话操作' : 'Session actions'}>
-              <button type="button" onClick={onOpenPermissions}>
-                <AppIcon name="shield" size={14} />
-                {isZh ? '权限' : 'Permissions'}
-              </button>
-              <button type="button" onClick={onOpenFolder}>
-                <AppIcon name="folder" size={14} />
-                {isZh ? '目录' : 'Folder'}
-              </button>
-              {onRefreshGamepads && (
-                <button type="button" onClick={onRefreshGamepads}>
-                  <AppIcon name="refresh" size={14} />
-                  {isZh ? '扫描' : 'Scan'}
-                </button>
-              )}
-            </div>
-            {lastNotice && (
-              <p className="sb-note" role="status" aria-live="polite">
-                {lastNotice}
-              </p>
-            )}
-          </aside>
-
-          <div className="sb-metric-carousel" role="list" aria-label={isZh ? '会话指标' : 'Session metrics'}>
-            {[
-              {
-                key: 'device',
-                value: activeDevice ? activeDevice.name.split(' ')[0] : 'None',
-                label: isZh ? '当前活动手柄' : 'Active gamepad',
-                tone: 'primary',
-              },
-              {
-                key: 'listener',
-                value: listening ? (isZh ? '监听中' : 'Listening') : isZh ? '已暂停' : 'Idle',
-                label: isZh ? '全局热键监听' : 'Global listener',
-                tone: 'tertiary',
-              },
-              {
-                key: 'pipeline',
-                value: isFocusedWindow
-                  ? isZh ? '聚焦窗口' : 'Focused'
-                  : isWindowMode
-                    ? isZh ? '指定窗口' : 'Pinned'
-                    : isZh ? '全屏 DXGI' : 'Full DXGI',
-                label: isZh ? '画面捕获内核' : 'Capture pipeline',
-                tone: 'secondary',
-              },
-              {
-                key: 'output',
-                value: `${config.imageFormat.toUpperCase()} · ${
-                  config.screenShotSaveWay === ScreenShotSaveWayEnum.CilpboardOnly
-                    ? isZh ? '剪贴板' : 'Clipboard'
-                    : isZh ? '文件' : 'File'
-                }`,
-                label: isZh ? '输出策略' : 'Output strategy',
-                tone: 'primary',
-              },
-            ].map((metric) => (
-              <article key={metric.key} className="sb-metric" data-tone={metric.tone} role="listitem">
-                <span className="sb-metric-shape" aria-hidden="true">
-                  <Md3eMorphShape path={session.shapes.metric.svgPath} />
-                </span>
-                <span className="sb-metric-value">{metric.value}</span>
-                <span className="sb-metric-label">{metric.label}</span>
-              </article>
-            ))}
-          </div>
+          <EquipmentDeck locale={locale} listening={listening} pending={capturePending} result={captureResult}
+            device={activeDevice?.name}
+            target={isFocusedWindow ? (isZh ? '当前聚焦窗口' : 'Focused window') : isWindowMode
+              ? (windows.find(window => String(window.id) === String(config.windowSourceId))?.title || (isZh ? '指定窗口' : 'Pinned window'))
+              : (screens.find(screen => String(screen.id) === String(config.screenSourceId))?.name || (isZh ? '全屏捕获' : 'Full desktop'))}
+            output={`${config.imageFormat.toUpperCase()} · ${config.screenShotSaveWay === ScreenShotSaveWayEnum.CilpboardOnly
+              ? (isZh ? '剪贴板' : 'Clipboard') : config.screenShotSaveWay === ScreenShotSaveWayEnum.FileAndCilpboard
+                ? (isZh ? '文件 + 剪贴板' : 'File + clipboard') : (isZh ? '文件' : 'File')}`}
+            folder={config.path || ''} permissionMissing={permissionMissing}
+            onCapture={onCapture} onToggleListen={onToggleListen} onSaveOBS={onSaveOBS}
+            onOpenFolder={onOpenFolder} onOpenPermissions={onOpenPermissions} notice={lastNotice} />
 
           <section className="sb-tile sb-capture-tile" aria-label={isZh ? '画面捕获与输出' : 'Capture and output'}>
             <div className="sb-tile-head">
@@ -283,7 +123,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     : 'Full desktop, one pinned window, or follow whichever window is focused when the trigger fires.'}
                 </p>
               </div>
-              <span className="sb-chip tertiary">DXGI DDA</span>
+              <span className="sb-chip">{macPermissions?.isMac ? 'macOS' : (isZh ? '画面来源' : 'Capture source')}</span>
             </div>
             <div className="sb-field" style={{ marginTop: 12 }}>
               <span className="sb-field-label">{isZh ? '捕获目标' : 'CAPTURE TARGET'}</span>

@@ -34,6 +34,8 @@ export interface ShiinPlan {
   saveWay: ScreenShotSaveWayEnum
   format: ImageFormat
   path: string
+  /** 是否按当前活动窗口标题在保存目录下自动创建并归档到子文件夹。 */
+  saveByActiveWinTitle: boolean
 }
 
 export interface ShiinContext {
@@ -65,6 +67,7 @@ export function planToPatch(plan: ShiinPlan): Partial<ScreenshotConfig> {
     screenShotSaveWay: plan.saveWay,
     imageFormat: plan.format,
     path: plan.path,
+    saveByActiveWinTitle: plan.saveByActiveWinTitle,
   }
 }
 
@@ -76,6 +79,7 @@ export function planFromConfig(config: ScreenshotConfig, overridePath?: string):
     saveWay: config.screenShotSaveWay ?? ScreenShotSaveWayEnum.FileOnly,
     format: config.imageFormat === 'png' ? 'png' : 'jpg',
     path: overridePath ?? config.path ?? '',
+    saveByActiveWinTitle: Boolean(config.saveByActiveWinTitle),
   }
 }
 
@@ -156,6 +160,13 @@ export function createCaptureSchema(context: ShiinContext, t: Translator): Termi
         return isDirectoryWritable(declared) ? null : `${t('invalidValue')}: ${declared}`
       },
     },
+    {
+      id: 'saveByActiveWinTitle',
+      label: t('saveByActiveWinTitle'),
+      kind: 'confirm',
+      description: t('saveByActiveWinTitleHint'),
+      visibleWhen: writesFile,
+    },
   ]
 
   return {
@@ -169,12 +180,13 @@ export function createCaptureSchema(context: ShiinContext, t: Translator): Termi
       saveWay: plan.saveWay,
       format: plan.format,
       path: plan.path,
+      saveByActiveWinTitle: plan.saveByActiveWinTitle,
     },
     fields,
     view: {
       sections: [
         { id: 'target', title: t('target'), fieldIds: ['target', 'windowMode', 'windowId'] },
-        { id: 'output', title: t('saveWay'), fieldIds: ['saveWay', 'format', 'path'] },
+        { id: 'output', title: t('saveWay'), fieldIds: ['saveWay', 'format', 'path', 'saveByActiveWinTitle'] },
       ],
       dashboard: {
         title: t('status'),

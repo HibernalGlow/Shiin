@@ -35,6 +35,7 @@ const zh = {
   exit: '退出',
 
   actionCapture: '立即截图',
+  actionCaptureFocused: '截聚焦窗口',
   actionReplay: '保存 OBS 回放',
   actionListen: '开始监听手柄',
   actionDevices: '查看设备',
@@ -53,6 +54,11 @@ const zh = {
   saveFile: '仅文件',
   saveClipboard: '仅剪贴板',
   saveBoth: '文件 + 剪贴板',
+  saveByActiveWinTitle: '保存到窗口名文件夹',
+  saveByActiveWinTitleHint: '按活动窗口标题自动归档到子目录',
+  subfolder: '窗口子目录',
+  subfolderOn: '开启',
+  subfolderOff: '关闭',
 
   captureTitle: 'Shiin · 截图向导',
   captureIntro: '按回车确认每一步，Esc 取消。',
@@ -169,6 +175,7 @@ const en: Messages = {
   exit: 'Exit',
 
   actionCapture: 'Capture now',
+  actionCaptureFocused: 'Capture focused',
   actionReplay: 'Save OBS replay',
   actionListen: 'Start listening',
   actionDevices: 'Inspect devices',
@@ -187,6 +194,11 @@ const en: Messages = {
   saveFile: 'File only',
   saveClipboard: 'Clipboard only',
   saveBoth: 'File + clipboard',
+  saveByActiveWinTitle: 'Subfolder by Window Title',
+  saveByActiveWinTitleHint: 'Archive shots into subdirectories named after the active window',
+  subfolder: 'Subfolder',
+  subfolderOn: 'On',
+  subfolderOff: 'Off',
 
   captureTitle: 'Shiin · Capture wizard',
   captureIntro: 'Press enter to confirm each step, Esc to cancel.',

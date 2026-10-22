@@ -530,17 +530,9 @@ async function captureWindowBuffer(
     if (isLikelyBlackGameFrame(raw, width, height)) {
       console.warn('[ScreenshotCore] Window.captureImage produced a black frame. Triggering Monitor fallback...')
     } else {
-      let finalImg = image
-      if ((width > tw + 5 || height > th + 5) && typeof (imgAny as any).cropSync === 'function') {
-        const cropX = Math.max(0, tx)
-        const cropY = Math.max(0, ty)
-        const cropW = Math.min(width - cropX, tw)
-        const cropH = Math.min(height - cropY, th)
-        if (cropW > 10 && cropH > 10) {
-          finalImg = (imgAny as any).cropSync(cropX, cropY, cropW, cropH)
-        }
-      }
-      const buffer = format === 'png' ? await finalImg.toPng(true) : await finalImg.toJpeg(true)
+      // target.captureImage() 截取的正是该窗口自身完整的渲染画面（坐标系从 0,0 开始）。
+      // 绝不能拿桌面屏幕绝对坐标 (tx, ty) 去裁切它，否则在高分屏 DPI 缩放或偏右窗口时会导致窗口大部分被切掉。
+      const buffer = format === 'png' ? await image.toPng(true) : await image.toJpeg(true)
       if (buffer && buffer.length > 0) {
         directBuffer = buffer
       }
@@ -554,7 +546,7 @@ async function captureWindowBuffer(
     return directBuffer
   }
 
-  // 2. 回退方案：基于物理显示器帧缓冲并裁切
+  // 2. 回退方案：基于物理显示器帧缓冲并裁切（考虑高分屏 DPI 缩放比）
   try {
     const monitors = ScreenshotMonitor.all()
     if (!monitors || monitors.length === 0) {
@@ -571,12 +563,21 @@ async function captureWindowBuffer(
     }
 
     const screenImg = matchedMonitor.captureImageSync()
-    const localX = tx - matchedMonitor.x
-    const localY = ty - matchedMonitor.y
-    const cropX = Math.max(0, localX)
-    const cropY = Math.max(0, localY)
-    const cropW = Math.min(screenImg.width - cropX, tw - (cropX - localX))
-    const cropH = Math.min(screenImg.height - cropY, th - (cropY - localY))
+    const monW = typeof matchedMonitor.width === 'function' ? matchedMonitor.width() : matchedMonitor.width
+    const monH = typeof matchedMonitor.height === 'function' ? matchedMonitor.height() : matchedMonitor.height
+    const monX = typeof matchedMonitor.x === 'function' ? matchedMonitor.x() : matchedMonitor.x
+    const monY = typeof matchedMonitor.y === 'function' ? matchedMonitor.y() : matchedMonitor.y
+
+    // 计算实际像素与逻辑坐标之间的缩放比（支持 125%/150%/200% 等 Windows 高分屏缩放）
+    const scaleX = monW && monW > 0 ? screenImg.width / monW : 1
+    const scaleY = monH && monH > 0 ? screenImg.height / monH : 1
+
+    const localX = (tx - monX) * scaleX
+    const localY = (ty - monY) * scaleY
+    const cropX = Math.max(0, Math.round(localX))
+    const cropY = Math.max(0, Math.round(localY))
+    const cropW = Math.max(0, Math.min(screenImg.width - cropX, Math.round(tw * scaleX - (cropX - localX))))
+    const cropH = Math.max(0, Math.min(screenImg.height - cropY, Math.round(th * scaleY - (cropY - localY))))
 
     if (cropW > 10 && cropH > 10) {
       const croppedImg = screenImg.cropSync(cropX, cropY, cropW, cropH)

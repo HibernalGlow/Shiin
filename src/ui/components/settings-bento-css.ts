@@ -1,15 +1,4 @@
 export const SETTINGS_BENTO_CSS = String.raw`
-.xaihi-md3e-node-frame[data-surface="bento"] {
-  padding: 0;
-  overflow: hidden;
-  background: #fdf8f4;
-  color: #241713;
-}
-.xaihi-md3e-node-frame[data-surface="bento"] > .shiin-bento {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
 /* Workspace (工作台) Bento layout */
 .shiin-bento .sb-capture-hero {
   grid-column: span 8;
@@ -1185,33 +1174,31 @@ export const SETTINGS_BENTO_CSS = String.raw`
 }
 
 .shiin-bento {
-  /* Tonal roles are derived from the lime seed: green-tinted neutrals,
-     a low-chroma green secondary and a hue-shifted teal tertiary. */
-  --sb-bg: #0c0e09;
-  --sb-surface: #191c14;
-  --sb-surface-low: #141710;
-  --sb-surface-high: #24281d;
-  --sb-surface-highest: #303526;
-  --sb-text: #eef1e5;
-  --sb-muted: #aeb6a1;
-  --sb-muted-strong: #d1d9c4;
-  --sb-outline: #55604a;
-  --sb-outline-soft: rgba(238, 241, 229, 0.1);
-  --sb-primary: var(--xaihi-md3e-primary, #c9f56d);
-  --sb-on-primary: var(--xaihi-md3e-on-primary, #1c2a05);
-  --sb-primary-container: var(--xaihi-md3e-primary-container, #34491c);
-  --sb-on-primary-container: var(--xaihi-md3e-on-primary-container, #e5ffb2);
-  --sb-secondary: var(--xaihi-md3e-secondary, #c2d3a0);
-  --sb-on-secondary: var(--xaihi-md3e-on-secondary, #28341a);
-  --sb-secondary-container: var(--xaihi-md3e-secondary-container, #3d4b28);
-  --sb-on-secondary-container: var(--xaihi-md3e-on-secondary-container, #dcebbe);
-  --sb-tertiary: var(--xaihi-md3e-tertiary, #7df2d2);
-  --sb-on-tertiary: var(--xaihi-md3e-on-tertiary, #00382d);
-  --sb-tertiary-container: var(--xaihi-md3e-tertiary-container, #164a3e);
-  --sb-on-tertiary-container: var(--xaihi-md3e-on-tertiary-container, #c9ffee);
-  --sb-error: #ffb4ab;
-  --sb-error-container: #4a1f1c;
-  --sb-on-error-container: #ffdad6;
+  --sb-bg: var(--oil-ground, #f2f0e8);
+  --sb-surface: var(--oil-surface, #fbfaf4);
+  --sb-surface-low: var(--oil-surface-low, #e8e5d9);
+  --sb-surface-high: var(--oil-surface-high, #ded9c8);
+  --sb-surface-highest: #d4cfbe;
+  --sb-text: var(--oil-ink, #343831);
+  --sb-muted: var(--oil-muted, #64685d);
+  --sb-muted-strong: var(--oil-muted-strong, #4c5148);
+  --sb-outline: var(--oil-line, #b9b9aa);
+  --sb-outline-soft: var(--oil-line-soft, #b9b9aa80);
+  --sb-primary: var(--oil-accent, #c8f000);
+  --sb-on-primary: var(--oil-on-accent, #273000);
+  --sb-primary-container: var(--oil-accent-soft, #e7f6a8);
+  --sb-on-primary-container: var(--oil-ink, #343831);
+  --sb-secondary: var(--oil-olive, #85864a);
+  --sb-on-secondary: var(--oil-on-olive, #fbf8df);
+  --sb-secondary-container: var(--oil-sand, #d0c6ad);
+  --sb-on-secondary-container: var(--oil-ink, #343831);
+  --sb-tertiary: var(--oil-red, #a72d3b);
+  --sb-on-tertiary: var(--oil-on-red, #fff5f2);
+  --sb-tertiary-container: #f0c4bd;
+  --sb-on-tertiary-container: #62151f;
+  --sb-error: var(--oil-red, #a72d3b);
+  --sb-error-container: #f0c4bd;
+  --sb-on-error-container: #62151f;
   --sb-spring-fast: cubic-bezier(.42, 1.67, .21, .9);
   --sb-spring-default: cubic-bezier(.38, 1.21, .22, 1);
   --sb-effects: cubic-bezier(.34, .8, .34, 1);

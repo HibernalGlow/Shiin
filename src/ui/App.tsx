@@ -8,18 +8,7 @@
  * 权限诊断不再占用顶级页签，由设置页进入独立诊断面。
  */
 import * as React from 'react'
-import {
-  registerKitStyles,
-  ALIAS,
-  MD3E_ALIAS,
-  XMd3eNodeFrame,
-  XMd3eShapeBadge,
-  XButton,
-  XMd3eNavigationDock,
-  XMd3eNavigationRail,
-  XMd3eSidebar,
-  XMd3eSidebarItem,
-} from './md3e.js'
+import { AnimatePresence, LayoutGroup, MotionConfig, motion, useReducedMotion } from 'motion/react'
 import { Md3eShapeProvider } from './md3e-shape-context.js'
 import {
   DEFAULT_SHAPE_PREFERENCES,
@@ -34,6 +23,7 @@ import { ElectronHostBridge } from './adapter/electron.js'
 import { formatGamepadKey } from './gamepad-utils.js'
 import {
   type ScreenshotConfig,
+  type ScreenshotResult,
   type GamepadDeviceInfo,
   type CaptureDisplayInfo,
   type CaptureWindowInfo,
@@ -46,21 +36,16 @@ import { SettingsView } from './components/SettingsView.js'
 import { WorkspaceView } from './components/WorkspaceView.js'
 import { SETTINGS_BENTO_CSS } from './components/settings-bento-css.js'
 import type { MacOSPermissionsStatus } from './adapter/types.js'
+import { registerOilStyles } from './oil-ui.js'
 
 type Lens = 'workspace' | 'permissions' | 'settings'
 
-function NavShapeIcon({ path, name }: { path: string; name: string }) {
-  return (
-    <span className="xaihi-nav-shape-icon" aria-hidden="true">
-      <svg className="xaihi-nav-shape-mask" viewBox="0 0 100 100" focusable="false">
-        <path d={path} />
-      </svg>
-      <AppIcon name={name} size={13} />
-    </span>
-  )
-}
-
 export const App: React.FC = () => {
+  const reduceMotion = useReducedMotion()
+  const navigationId = React.useId()
+  const [capturePending, setCapturePending] = React.useState(false)
+  const captureBusyRef = React.useRef(false)
+  const [captureResult, setCaptureResult] = React.useState<ScreenshotResult | null>(null)
   const bridge = React.useMemo(() => new ElectronHostBridge(), [])
 
   const [lens, setLens] = React.useState<Lens>('workspace')
@@ -107,7 +92,7 @@ export const App: React.FC = () => {
   }, [])
 
   React.useEffect(() => {
-    const unregisterStyles = registerKitStyles()
+    const unregisterStyles = registerOilStyles()
 
     if (typeof document !== 'undefined' && !document.getElementById('shiin-settings-bento-styles')) {
       const style = document.createElement('style')
@@ -182,6 +167,7 @@ export const App: React.FC = () => {
       if (Array.isArray(devs)) setGamepads(devs)
     })
     const unbindScreenshot = bridge.onScreenshotCompleted?.((res) => {
+      setCaptureResult(res)
       if (res?.ok) {
         const current = configRef.current
         if (current.sound && current.sound !== 'None') {
@@ -346,9 +332,11 @@ export const App: React.FC = () => {
 
   const handleCapture = async () => {
     const now = Date.now()
-    if (now - lastCaptureTimeRef.current < 350) return
+    if (captureBusyRef.current || now - lastCaptureTimeRef.current < 350) return
     lastCaptureTimeRef.current = now
-
+    captureBusyRef.current = true
+    setCapturePending(true)
+    try {
     if (bridge.isMac) {
       let currentPermissions = macPermissions
       if (!currentPermissions && bridge.getMacOSPermissions) {
@@ -372,6 +360,7 @@ export const App: React.FC = () => {
     }
 
     const result = await bridge.capture(config)
+    setCaptureResult(result ?? { ok: false, error: locale.startsWith('zh') ? '捕获服务未返回结果' : 'Capture service returned no result', timestamp: Date.now(), format: config.imageFormat })
     if (result?.ok) {
       if (config.sound && config.sound !== 'None') {
         void playCaptureSound(config.sound, config.soundPower)
@@ -400,6 +389,14 @@ export const App: React.FC = () => {
         locale.startsWith('zh') ? '截图失败' : 'Capture Failed',
         result?.error || (locale.startsWith('zh') ? '请检查权限与保存路径' : 'Check permissions and save path')
       )
+    }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setCaptureResult({ ok: false, error: message, timestamp: Date.now(), format: config.imageFormat })
+      setLastNotice(locale.startsWith('zh') ? `截图失败: ${message}` : `Capture failed: ${message}`)
+    } finally {
+      captureBusyRef.current = false
+      setCapturePending(false)
     }
   }
 
@@ -526,14 +523,14 @@ export const App: React.FC = () => {
         label: isZh ? '工作台' : 'Workspace',
         shortLabel: isZh ? '工作台' : 'Work',
         title: isZh ? '工作台' : 'Workspace',
-        icon: <NavShapeIcon path={shapeSession.shapes.icon.svgPath} name="monitor" />,
+        icon: <AppIcon name="monitor" size={19} />,
       },
       {
         id: 'permissions',
         label: isZh ? '权限' : 'Permissions',
         shortLabel: isZh ? '权限' : 'Permissions',
         title: isZh ? '权限中心' : 'Permissions',
-        icon: <NavShapeIcon path={shapeSession.shapes.icon.svgPath} name="shield" />,
+        icon: <AppIcon name="shield" size={19} />,
         badge: macMissing ? '!' : undefined,
       },
       {
@@ -541,33 +538,23 @@ export const App: React.FC = () => {
         label: isZh ? '设置' : 'Settings',
         shortLabel: isZh ? '设置' : 'Settings',
         title: isZh ? '设置' : 'Settings',
-        icon: <NavShapeIcon path={shapeSession.shapes.icon.svgPath} name="settings" />,
+        icon: <AppIcon name="settings" size={19} />,
       },
     ],
-    [isZh, macMissing, shapeSession.shapes.icon.svgPath]
+    [isZh, macMissing]
   )
 
   const selectLens = (next: Lens) => setLens(next)
 
   return (
+    <MotionConfig reducedMotion="user">
+    <LayoutGroup id={navigationId}>
     <Md3eShapeProvider
       preferences={shapePreferences}
       session={shapeSession}
       onPreferencesChange={handleShapePreferencesChange}
     >
-      <div
-        className="shiin-app-shell shiin-expressive-surface"
-        style={
-          {
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100vh',
-            background: MD3E_ALIAS.surfaceLowest,
-            color: ALIAS.onSurface,
-            overflow: 'hidden',
-          } as React.CSSProperties
-        }
-      >
+      <div className="oil-shell">
         <TitleBar
           listening={listening}
           uiScale={uiScale}
@@ -594,257 +581,217 @@ export const App: React.FC = () => {
           onOpenPermissions={openPermissions}
         />
 
-        <div className="xaihi-md3e-app-layout">
-          <XMd3eSidebar aria-label={isZh ? '主导航' : 'Main navigation'}>
-            <div className="xaihi-md3e-sidebar-brand">
-              <XMd3eShapeBadge size="sm" active>
-                <AppIcon name="gamepad" size={15} />
-              </XMd3eShapeBadge>
-              <div style={{ display: 'grid', gap: 1, minWidth: 0, flex: 1 }}>
-                <span style={{ fontWeight: 800, fontSize: 13, color: ALIAS.onSurface, whiteSpace: 'nowrap' }}>
-                  Shiin Studio
-                </span>
-                <span
-                  style={{
-                    fontSize: 10,
-                    color: listening ? '#7df2d2' : ALIAS.onSurfaceVariant,
-                    fontWeight: 700,
-                  }}
-                >
-                  {listening ? (isZh ? '● 正在监听' : '● Listening') : isZh ? '○ 空闲中' : '○ Idle'}
-                </span>
+        <div className="oil-app-layout">
+          <aside className="oil-sidebar" aria-label={isZh ? '主导航' : 'Main navigation'}>
+            <div className="oil-brand">
+              <span className="oil-brand__mark" aria-hidden="true"><AppIcon name="gamepad" size={18} /></span>
+              <div className="oil-brand__copy">
+                <strong>Shiin Studio</strong>
+                <small>{isZh ? '截图与即时回放' : 'Capture & instant replay'}</small>
               </div>
             </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, overflowY: 'auto' }}>
+            <div className="oil-listening-note" data-listening={listening ? 'true' : 'false'}>
+              <i />
+              {listening ? (isZh ? '正在监听' : 'Listening') : isZh ? '等待输入' : 'Waiting for input'}
+            </div>
+            <nav className="oil-sidebar__nav">
               {navigationItems.map((item) => (
-                <XMd3eSidebarItem
+                <button
                   key={item.id}
-                  active={lens === item.id}
-                  icon={item.icon}
-                  label={item.label}
-                  badge={item.badge}
+                  type="button"
+                  className="oil-nav-item"
+                  data-active={lens === item.id ? 'true' : 'false'}
                   onClick={() => selectLens(item.id as Lens)}
-                />
+                  aria-current={lens === item.id ? 'page' : undefined}
+                >
+                  {lens === item.id && <motion.span className="oil-nav-selection" layoutId="sidebar-selection" transition={{ type: 'spring', stiffness: 380, damping: 29 }} />}
+                  <span className="oil-nav-item__icon" aria-hidden="true">{item.icon}</span>
+                  <span>{item.label}</span>
+                  {item.badge && <span className="oil-nav-item__badge">{item.badge}</span>}
+                </button>
+              ))}
+            </nav>
+            <div className="oil-sidebar__footer">
+              <button type="button" className="oil-action oil-action--primary" disabled={capturePending} onClick={() => void handleCapture()}>
+                <AppIcon name="camera" size={14} />
+                <span>{isZh ? '立即截图' : 'Capture now'}</span>
+              </button>
+              <button type="button" className="oil-action oil-action--olive" onClick={() => void handleToggleListen()}>
+                <AppIcon name={listening ? 'stop' : 'play'} size={14} />
+                <span>{listening ? (isZh ? '暂停监听' : 'Pause') : isZh ? '开启监听' : 'Listen'}</span>
+              </button>
+              <button type="button" className="oil-action oil-action--red" onClick={() => void handleSaveOBS()}>
+                <AppIcon name="wave" size={14} />
+                <span>{isZh ? '保存回放' : 'Save replay'}</span>
+              </button>
+            </div>
+          </aside>
+
+          <aside className="oil-rail" aria-label={isZh ? '紧凑导航' : 'Compact navigation'}>
+            <span className="oil-rail__brand" aria-hidden="true"><AppIcon name="gamepad" size={17} /></span>
+            <div className="oil-rail__items">
+              {navigationItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="oil-rail__item"
+                  data-active={lens === item.id ? 'true' : 'false'}
+                  onClick={() => selectLens(item.id as Lens)}
+                  title={item.title}
+                  aria-label={item.title}
+                >
+                  {item.icon}
+                </button>
               ))}
             </div>
+          </aside>
 
-            <div className="xaihi-md3e-sidebar-footer">
-              <XButton
-                variant="filled"
-                size="sm"
-                onClick={() => void handleCapture()}
-                style={{ width: '100%', justifyContent: 'flex-start' }}
-              >
-                <AppIcon name="camera" size={13} />
-                <span>{isZh ? '快门截图' : 'Capture'}</span>
-              </XButton>
-              <XButton
-                variant="tonal"
-                size="sm"
-                onClick={() => void handleToggleListen()}
-                style={{ width: '100%', justifyContent: 'flex-start' }}
-              >
-                <AppIcon name={listening ? 'stop' : 'play'} size={13} />
-                <span>{listening ? (isZh ? '暂停监听' : 'Pause') : isZh ? '开启监听' : 'Listen'}</span>
-              </XButton>
-              <XButton
-                variant="ghost"
-                size="sm"
-                onClick={() => void handleSaveOBS()}
-                style={{ width: '100%', justifyContent: 'flex-start' }}
-              >
-                <AppIcon name="wave" size={13} />
-                <span>{isZh ? 'OBS 回放' : 'Replay'}</span>
-              </XButton>
-            </div>
-          </XMd3eSidebar>
-
-          <XMd3eNavigationRail
-            aria-label={isZh ? '紧凑导航' : 'Compact navigation'}
-            items={navigationItems}
-            value={lens}
-            onValueChange={(value) => selectLens(value as Lens)}
-            header={
-              <XMd3eShapeBadge size="sm" active>
-                <AppIcon name="gamepad" size={14} />
-              </XMd3eShapeBadge>
-            }
-            footer={
-              <>
-                <button
-                  type="button"
-                  className="xaihi-md3e-rail-item"
-                  onClick={() => void handleCapture()}
-                  title={isZh ? '立即截图' : 'Capture'}
-                >
-                  <span className="xaihi-md3e-rail-indicator">
-                    <AppIcon name="camera" size={15} />
-                  </span>
-                  <span className="xaihi-md3e-rail-label">{isZh ? '快门' : 'Shot'}</span>
-                </button>
-                <button
-                  type="button"
-                  className="xaihi-md3e-rail-item"
-                  onClick={() => void handleToggleListen()}
-                  title={listening ? (isZh ? '暂停监听' : 'Pause') : isZh ? '开启监听' : 'Listen'}
-                >
-                  <span className="xaihi-md3e-rail-indicator">
-                    <AppIcon name={listening ? 'stop' : 'play'} size={15} />
-                  </span>
-                  <span className="xaihi-md3e-rail-label">
-                    {listening ? (isZh ? '暂停' : 'Pause') : isZh ? '监听' : 'Listen'}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="xaihi-md3e-rail-item"
-                  onClick={() => void handleSaveOBS()}
-                  title={isZh ? '保存 OBS 回放' : 'OBS Replay'}
-                >
-                  <span className="xaihi-md3e-rail-indicator">
-                    <AppIcon name="wave" size={15} />
-                  </span>
-                  <span className="xaihi-md3e-rail-label">{isZh ? '回放' : 'Replay'}</span>
-                </button>
-              </>
-            }
-          />
-
-          <XMd3eNodeFrame
-            data-testid="shiin-md3e"
-            data-ui-variant="md3e"
-            data-surface="bento"
-          >
-            {lens === 'permissions' ? (
-              <PermissionsView
-                config={config}
-                locale={locale}
-                isMac={bridge.isMac}
-                permissions={macPermissions}
-                gamepads={gamepads}
-                onRefreshPermissions={async (activeProbe) => {
-                  if (bridge.getMacOSPermissions) {
-                    const next = await bridge.getMacOSPermissions({ activeProbe })
-                    setMacPermissions(next)
-                    return next
+          <main className="oil-node" data-testid="shiin-oil" data-ui-variant="oil-expressive" data-surface="bento" data-lens={lens}>
+            <AnimatePresence mode="wait" initial={false}>
+            <motion.div className="oil-view-transition" key={lens}
+              initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }} animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: reduceMotion ? 0 : -8 }} transition={{ duration: reduceMotion ? 0 : 0.18 }}>
+              {lens === 'permissions' ? (
+                <PermissionsView
+                  config={config}
+                  locale={locale}
+                  isMac={bridge.isMac}
+                  permissions={macPermissions}
+                  gamepads={gamepads}
+                  onRefreshPermissions={async (activeProbe) => {
+                    if (bridge.getMacOSPermissions) {
+                      const next = await bridge.getMacOSPermissions({ activeProbe })
+                      setMacPermissions(next)
+                      return next
+                    }
+                    return null
+                  }}
+                  onRequestPermission={async (target, options) => {
+                    if (bridge.requestMacOSPermission) {
+                      const next = await bridge.requestMacOSPermission(target, options)
+                      setMacPermissions(next)
+                      return next
+                    }
+                    return null
+                  }}
+                  onTestScreenshot={async () => {
+                    if (bridge.testScreenshotPermission) {
+                      const result = await bridge.testScreenshotPermission(config)
+                      if (result?.permissions) setMacPermissions(result.permissions)
+                      return result
+                    }
+                    return null
+                  }}
+                  onOpenPreference={async (pane) => {
+                    if (bridge.openMacOSPreference) await bridge.openMacOSPreference(pane)
+                  }}
+                  onOpenFolder={async (customPath) => {
+                    const result = await bridge.openFolder(customPath || config.path || '')
+                    return result && typeof result === 'object'
+                      ? result
+                      : { ok: true, path: customPath || config.path }
+                  }}
+                  onSelectFolder={handleSelectFolder}
+                  onShowItemInFolder={async (path) => {
+                    if (bridge.showItemInFolder) await bridge.showItemInFolder(path)
+                  }}
+                  onRefreshGamepads={async () => {
+                    setGamepads(await bridge.getConnectedGamepads())
+                  }}
+                  onNavigateWorkspace={() => setLens('workspace')}
+                />
+              ) : lens === 'workspace' ? (
+                <WorkspaceView
+                  capturePending={capturePending}
+                  captureResult={captureResult}
+                  config={config}
+                  onChange={patchConfig}
+                  listening={listening}
+                  onToggleListen={() => void handleToggleListen()}
+                  onCapture={() => void handleCapture()}
+                  onSaveOBS={() => void handleSaveOBS()}
+                  onOpenFolder={handleOpenFolder}
+                  onSelectFolder={() => void handleSelectFolder()}
+                  gamepads={gamepads}
+                  selectedGamepadIndex={selectedGamepadIndex}
+                  onSelectGamepad={handleSelectGamepad}
+                  screens={screens}
+                  windows={windows}
+                  onRefreshWindows={() => void handleRefreshWindows()}
+                  buttons={buttons}
+                  axes={axes}
+                  recordingCombo={recordingCombo}
+                  liveRecordingKeys={liveRecordingKeys}
+                  onStartComboRecording={startComboRecording}
+                  onCancelComboRecording={cancelComboRecording}
+                  onAddKey={handleAddKey}
+                  onClearKeys={() => patchConfig({ comboKeys: [] })}
+                  onRemoveKey={handleRemoveKey}
+                  detectingKeyboard={detectingKeyboard}
+                  onDetectKeyboard={() => setDetectingKeyboard(true)}
+                  macPermissions={macPermissions}
+                  onOpenPermissions={openPermissions}
+                  onRefreshGamepads={() => {
+                    void bridge.getConnectedGamepads().then((devices) => setGamepads(devices))
+                  }}
+                  lastNotice={lastNotice}
+                  locale={locale}
+                  activeDevice={activeDevice}
+                />
+              ) : (
+                <SettingsView
+                  config={config}
+                  onChange={patchConfig}
+                  locale={locale}
+                  onSelectLocale={handleSelectLocale}
+                  isMac={bridge.isMac}
+                  macPermissions={macPermissions}
+                  onOpenFolder={handleOpenFolder}
+                  onSelectFolder={handleSelectFolder}
+                  onOpenMacPreference={(pane) => bridge.openMacOSPreference?.(pane)}
+                  onOpenPermissionsView={openPermissions}
+                  onToggleAutoStart={(enable) => {
+                    patchConfig({ autoStart: enable })
+                    if (bridge.setAutoStart) void bridge.setAutoStart(enable)
+                  }}
+                  onEnterLightweightMode={
+                    bridge.enterLightweightMode
+                      ? () => {
+                          void bridge.enterLightweightMode?.()
+                        }
+                      : undefined
                   }
-                  return null
-                }}
-                onRequestPermission={async (target, options) => {
-                  if (bridge.requestMacOSPermission) {
-                    const next = await bridge.requestMacOSPermission(target, options)
-                    setMacPermissions(next)
-                    return next
-                  }
-                  return null
-                }}
-                onTestScreenshot={async () => {
-                  if (bridge.testScreenshotPermission) {
-                    const result = await bridge.testScreenshotPermission(config)
-                    if (result?.permissions) setMacPermissions(result.permissions)
-                    return result
-                  }
-                  return null
-                }}
-                onOpenPreference={async (pane) => {
-                  if (bridge.openMacOSPreference) await bridge.openMacOSPreference(pane)
-                }}
-                onOpenFolder={async (customPath) => {
-                  const result = await bridge.openFolder(customPath || config.path || '')
-                  return result && typeof result === 'object'
-                    ? result
-                    : { ok: true, path: customPath || config.path }
-                }}
-                onSelectFolder={handleSelectFolder}
-                onShowItemInFolder={async (path) => {
-                  if (bridge.showItemInFolder) await bridge.showItemInFolder(path)
-                }}
-                onRefreshGamepads={async () => {
-                  setGamepads(await bridge.getConnectedGamepads())
-                }}
-                onNavigateWorkspace={() => setLens('workspace')}
-              />
-            ) : lens === 'workspace' ? (
-              <WorkspaceView
-                config={config}
-                onChange={patchConfig}
-                listening={listening}
-                onToggleListen={() => void handleToggleListen()}
-                onCapture={() => void handleCapture()}
-                onSaveOBS={() => void handleSaveOBS()}
-                onOpenFolder={handleOpenFolder}
-                onSelectFolder={() => void handleSelectFolder()}
-                gamepads={gamepads}
-                selectedGamepadIndex={selectedGamepadIndex}
-                onSelectGamepad={handleSelectGamepad}
-                screens={screens}
-                windows={windows}
-                onRefreshWindows={() => void handleRefreshWindows()}
-                buttons={buttons}
-                axes={axes}
-                recordingCombo={recordingCombo}
-                liveRecordingKeys={liveRecordingKeys}
-                onStartComboRecording={startComboRecording}
-                onCancelComboRecording={cancelComboRecording}
-                onAddKey={handleAddKey}
-                onClearKeys={() => patchConfig({ comboKeys: [] })}
-                onRemoveKey={handleRemoveKey}
-                detectingKeyboard={detectingKeyboard}
-                onDetectKeyboard={() => setDetectingKeyboard(true)}
-                macPermissions={macPermissions}
-                onOpenPermissions={openPermissions}
-                onRefreshGamepads={() => {
-                  void bridge.getConnectedGamepads().then((devices) => setGamepads(devices))
-                }}
-                lastNotice={lastNotice}
-                locale={locale}
-                activeDevice={activeDevice}
-              />
-            ) : (
-              <SettingsView
-                config={config}
-                onChange={patchConfig}
-                locale={locale}
-                onSelectLocale={handleSelectLocale}
-                isMac={bridge.isMac}
-                macPermissions={macPermissions}
-                onOpenFolder={handleOpenFolder}
-                onSelectFolder={handleSelectFolder}
-                onOpenMacPreference={(pane) => bridge.openMacOSPreference?.(pane)}
-                onOpenPermissionsView={openPermissions}
-                onToggleAutoStart={(enable) => {
-                  patchConfig({ autoStart: enable })
-                  if (bridge.setAutoStart) void bridge.setAutoStart(enable)
-                }}
-                onEnterLightweightMode={
-                  bridge.enterLightweightMode
-                    ? () => {
-                        void bridge.enterLightweightMode?.()
-                      }
-                    : undefined
-                }
-                onCheckUpdate={() => setUpdateDialogOpen(true)}
-                onOpenGithub={() => bridge.openExternal?.('https://github.com/AmagiSakuya/GamePad-ScreenShot-Windows')}
-                shapePreferences={shapePreferences}
-                shapeSession={shapeSession}
-                onShapePreferencesChange={handleShapePreferencesChange}
-                onRerollShapeSession={handleRerollShapeSession}
-              />
-            )}
-          </XMd3eNodeFrame>
+                  onCheckUpdate={() => setUpdateDialogOpen(true)}
+                  onOpenGithub={() => bridge.openExternal?.('https://github.com/AmagiSakuya/GamePad-ScreenShot-Windows')}
+                  shapePreferences={shapePreferences}
+                  shapeSession={shapeSession}
+                  onShapePreferencesChange={handleShapePreferencesChange}
+                  onRerollShapeSession={handleRerollShapeSession}
+                />
+              )}
+            </motion.div>
+            </AnimatePresence>
+          </main>
 
-          <div className="xaihi-md3e-dock-wrapper" aria-label={isZh ? '底部导航' : 'Bottom navigation'}>
-            <XMd3eNavigationDock
-              items={navigationItems}
-              value={lens}
-              onValueChange={(value) => selectLens(value as Lens)}
-            />
-          </div>
+          <nav className="oil-dock" aria-label={isZh ? '底部导航' : 'Bottom navigation'}>
+            {navigationItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                data-active={lens === item.id ? 'true' : 'false'}
+                onClick={() => selectLens(item.id as Lens)}
+              >
+                {item.icon}
+                <span>{item.shortLabel}</span>
+              </button>
+            ))}
+          </nav>
         </div>
 
         <UpdateDialog open={updateDialogOpen} onClose={() => setUpdateDialogOpen(false)} />
       </div>
     </Md3eShapeProvider>
+    </LayoutGroup>
+    </MotionConfig>
   )
 }

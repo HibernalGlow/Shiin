@@ -1,0 +1,1723 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Shiin · 静帧台面 · 设计样张</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================
+   Shiin · 静帧台面 (Still Plate)
+   青柠暗色 MD3 → 浅紫 Material 3 Expressive
+   ============================================================ */
+
+:root{
+  /* ---- 台面 ---- */
+  --sh-ground:#f7f3fc;
+  --sh-surface:#fbf9ff;
+  --sh-surface-low:#f3f0fa;
+  --sh-surface-container:#ede9f4;
+  --sh-surface-high:#e7e1f0;
+
+  /* ---- 墨 ---- */
+  --sh-ink:#292236;
+  --sh-muted:#696073;
+
+  /* ---- 强调 (Inkloom primary) ---- */
+  --sh-accent:#6244b6;
+  --sh-on-accent:#ffffff;
+  --sh-accent-container:#e9ddff;
+  --sh-on-accent-container:#29134e;
+
+  /* ---- 语义容器色 ---- */
+  --sh-green:#d9edc0;    --sh-on-green:#283e18;
+  --sh-peach:#ffdccb;    --sh-on-peach:#572a19;
+  --sh-sky:#dbe5ff;      --sh-on-sky:#23365b;
+  --sh-error:#ba1a1a;    --sh-error-container:#ffdad6; --sh-on-error:#410002;
+
+  /* ---- 描边 ---- */
+  --sh-outline:#ccc3d7;
+  --sh-outline-soft:color-mix(in srgb, var(--sh-outline) 52%, transparent);
+  --sh-outline-strong:#7d738a;
+
+  /* ---- 抬升：紫调而非灰调 ---- */
+  --sh-elev-1:0 1px 2px rgba(41,34,54,.05), 0 10px 26px -18px rgba(41,34,54,.30);
+  --sh-elev-2:0 2px 5px rgba(41,34,54,.05), 0 26px 52px -30px rgba(41,34,54,.34);
+  --sh-elev-3:0 4px 10px rgba(41,34,54,.06), 0 40px 80px -40px rgba(41,34,54,.40);
+
+  /* ---- 圆角语法 ---- */
+  --sh-r-scene:56px;
+  --sh-r-card:28px;
+  --sh-r-outer:30px;
+  --sh-r-inner:6px;
+  --sh-r-pill:999px;
+
+  /* ---- 动效 ---- */
+  --sh-spatial:350ms linear(0,.234 7%,.773 22%,1.06 40%,1.039 58%,.994 78%,1);
+  --sh-effects:180ms cubic-bezier(.2,0,0,1);
+  --sh-stagger:cubic-bezier(.22,1.28,.36,1);
+
+  --sh-font:"Noto Sans SC",-apple-system,"SF Pro Text","PingFang SC","Helvetica Neue",Arial,sans-serif;
+  --sh-mono:ui-monospace,"SF Mono",Menlo,monospace;
+
+  --sh-gutter:60px;
+  --sh-page-max:1432px;
+}
+
+[data-theme="dark"]{
+  --sh-ground:#100d16;
+  --sh-surface:#17141e;
+  --sh-surface-low:#201c28;
+  --sh-surface-container:#282231;
+  --sh-surface-high:#332c3e;
+
+  --sh-ink:#eee7f5;
+  --sh-muted:#c5bbd0;
+
+  --sh-accent:#d1bcff;
+  --sh-on-accent:#341a62;
+  --sh-accent-container:#49336a;
+  --sh-on-accent-container:#edddff;
+
+  --sh-green:#364927;   --sh-on-green:#d7efbc;
+  --sh-peach:#633e2f;   --sh-on-peach:#ffdfce;
+  --sh-sky:#344260;     --sh-on-sky:#dbe5ff;
+  --sh-error:#ffb4ab;   --sh-error-container:#93000a; --sh-on-error:#690005;
+
+  --sh-outline:#4e455a;
+  --sh-outline-strong:#a398af;
+
+  --sh-elev-1:0 1px 2px rgba(0,0,0,.36), 0 10px 26px -18px rgba(0,0,0,.6);
+  --sh-elev-2:0 2px 5px rgba(0,0,0,.4), 0 26px 52px -30px rgba(0,0,0,.66);
+  --sh-elev-3:0 4px 10px rgba(0,0,0,.44), 0 40px 80px -40px rgba(0,0,0,.7);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:var(--sh-font);
+  font-size:15px;
+  line-height:1.75;
+  color:var(--sh-ink);
+  background:var(--sh-ground);
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+h1,h2,h3,h4,p{margin:0}
+ul{margin:0;padding:0;list-style:none}
+img,svg{display:block}
+:focus-visible{outline:2px solid var(--sh-accent);outline-offset:2px;border-radius:8px}
+::selection{background:var(--sh-accent-container);color:var(--sh-on-accent-container)}
+
+/* ============================================================
+   外壳
+   ============================================================ */
+.sh-shell{
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  background:var(--sh-ground);
+  container-type:inline-size;
+  container-name:shell;
+}
+
+/* ---------- 标题栏 ---------- */
+.sh-titlebar{
+  flex:0 0 auto;
+  height:48px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding-left:78px;
+  padding-right:10px;
+  -webkit-app-region:drag;
+  border-bottom:1px solid var(--sh-outline-soft);
+  background:color-mix(in srgb, var(--sh-surface) 72%, transparent);
+  backdrop-filter:blur(18px) saturate(1.4);
+  position:relative;
+  z-index:40;
+}
+.sh-titlebar__brand{
+  display:flex;align-items:center;gap:9px;
+  font-weight:800;letter-spacing:-.02em;font-size:14.5px;
+}
+.sh-titlebar__brand span{
+  font-size:11px;font-weight:600;letter-spacing:0;
+  color:var(--sh-muted);
+  padding:1px 7px;border-radius:var(--sh-r-pill);
+  background:var(--sh-surface-container);
+}
+.sh-titlebar__center{
+  position:absolute;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:8px;
+  height:30px;padding:0 14px 0 12px;
+  border-radius:var(--sh-r-pill);
+  background:var(--sh-surface-container);
+  font-size:12.5px;font-weight:600;
+}
+.sh-titlebar__right{
+  margin-left:auto;display:flex;align-items:center;gap:4px;
+  -webkit-app-region:no-drag;
+}
+.sh-tb-btn{
+  height:30px;min-width:30px;padding:0 10px;
+  display:inline-flex;align-items:center;gap:6px;
+  border-radius:var(--sh-r-pill);
+  font-size:12.5px;font-weight:600;color:var(--sh-muted);
+  transition:background var(--sh-effects), border-radius var(--sh-effects), color var(--sh-effects);
+}
+.sh-tb-btn:hover{background:var(--sh-surface-high);color:var(--sh-ink);border-radius:14px}
+.sh-win{width:30px;height:30px;display:grid;place-items:center;border-radius:10px;color:var(--sh-muted);transition:background var(--sh-effects),border-radius var(--sh-effects)}
+.sh-win:hover{background:var(--sh-surface-high);border-radius:var(--sh-r-pill)}
+.sh-win--close:hover{background:var(--sh-error-container);color:var(--sh-on-error)}
+
+/* ---------- 布局：rail/sidebar + 内容 ---------- */
+.sh-app-layout{
+  flex:1 1 auto;
+  min-height:0;
+  display:flex;
+  gap:0;
+}
+.sh-sidebar{
+  flex:0 0 226px;
+  display:flex;flex-direction:column;gap:8px;
+  padding:18px 12px 14px;
+  transition:flex-basis var(--sh-spatial), opacity 220ms;
+}
+.sh-brand{
+  display:flex;align-items:center;gap:11px;
+  padding:10px 12px 16px;
+}
+.sh-brand__mark{
+  width:38px;height:38px;flex:0 0 38px;
+  display:grid;place-items:center;
+  color:var(--sh-on-accent);
+  background:var(--sh-accent);
+  border-radius:14px 14px 14px 5px;
+  transform:rotate(-4deg);
+  box-shadow:var(--sh-elev-1);
+}
+.sh-brand__copy strong{display:block;font-size:15px;font-weight:800;letter-spacing:-.02em;line-height:1.3}
+.sh-brand__copy small{display:block;font-size:11.5px;color:var(--sh-muted);line-height:1.4}
+
+.sh-sidebar__nav{display:flex;flex-direction:column;gap:3px}
+.sh-nav-item{
+  display:flex;align-items:center;gap:11px;
+  min-height:44px;padding:0 13px;
+  border-radius:16px;
+  font-size:14px;font-weight:600;color:var(--sh-muted);
+  text-align:left;width:100%;
+  transition:background var(--sh-effects), border-radius var(--sh-spatial), color var(--sh-effects), transform var(--sh-effects);
+}
+.sh-nav-item:hover{background:var(--sh-surface-container);color:var(--sh-ink);border-radius:24px}
+.sh-nav-item[aria-current="page"]{
+  background:var(--sh-accent-container);
+  color:var(--sh-on-accent-container);
+  border-radius:var(--sh-r-pill);
+  font-weight:700;
+}
+.sh-nav-item__badge{
+  margin-left:auto;
+  font-size:11px;font-weight:700;
+  padding:1px 7px;border-radius:var(--sh-r-pill);
+  background:var(--sh-peach);color:var(--sh-on-peach);
+}
+.sh-sidebar__foot{
+  margin-top:auto;
+  border-top:1px solid var(--sh-outline-soft);
+  padding-top:12px;
+  display:flex;flex-direction:column;gap:8px;
+}
+.sh-note{
+  display:flex;align-items:center;gap:7px;
+  font-size:11.5px;color:var(--sh-muted);padding:0 13px;
+}
+.sh-note i{width:7px;height:7px;border-radius:var(--sh-r-pill);background:var(--sh-green);flex:0 0 7px;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--sh-green) 42%,transparent)}
+
+/* ---------- 内容框 ---------- */
+.sh-node{
+  flex:1 1 auto;min-width:0;min-height:0;
+  overflow-y:auto;overflow-x:hidden;
+  padding:26px 0 0;
+}
+.sh-node::-webkit-scrollbar{width:11px}
+.sh-node::-webkit-scrollbar-thumb{background:var(--sh-outline-soft);border-radius:99px;border:3px solid var(--sh-ground)}
+
+.sh-page{
+  max-width:var(--sh-page-max);
+  margin:0 auto;
+  padding:12px var(--sh-gutter) 56px;
+}
+.sh-view{display:none}
+.sh-view.is-active{display:block}
+
+/* ---------- 页眉 ---------- */
+.sh-head{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:28px;
+  flex-wrap:wrap;
+  padding:14px 0 30px;
+}
+.sh-head__label{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:12.5px;font-weight:700;color:var(--sh-accent);
+  margin-bottom:10px;
+}
+.sh-head__label b{
+  font-weight:700;
+  background:var(--sh-accent-container);color:var(--sh-on-accent-container);
+  padding:2px 9px;border-radius:var(--sh-r-pill);
+}
+.sh-head h1{
+  font-size:clamp(38px,4.1vw,62px);
+  font-weight:900;
+  letter-spacing:-.055em;
+  line-height:1.04;
+}
+.sh-lede{
+  max-width:60ch;
+  margin-top:14px;
+  font-size:15px;line-height:1.8;color:var(--sh-muted);
+}
+.sh-head__side{display:flex;align-items:center;gap:10px;padding-bottom:6px}
+
+/* ============================================================
+   基础件
+   ============================================================ */
+.sh-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  height:27px;padding:0 11px;
+  border-radius:var(--sh-r-pill);
+  background:var(--sh-surface-container);
+  color:var(--sh-muted);
+  font-size:12px;font-weight:650;white-space:nowrap;
+  transition:border-radius var(--sh-effects), background var(--sh-effects), color var(--sh-effects);
+}
+.sh-chip:hover{border-radius:12px}
+.sh-chip i{width:7px;height:7px;border-radius:99px;background:currentColor;flex:0 0 7px;opacity:.85}
+.sh-chip--accent{background:var(--sh-accent-container);color:var(--sh-on-accent-container)}
+.sh-chip--green{background:var(--sh-green);color:var(--sh-on-green)}
+.sh-chip--peach{background:var(--sh-peach);color:var(--sh-on-peach)}
+.sh-chip--sky{background:var(--sh-sky);color:var(--sh-on-sky)}
+.sh-chip--live i{animation:pulse 1.8s ease-in-out infinite}
+.sh-chip--quiet{background:transparent;box-shadow:inset 0 0 0 1px var(--sh-outline-soft)}
+
+/* ---------- 按钮 ---------- */
+.sh-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  height:44px;padding:0 22px;
+  border-radius:var(--sh-r-pill);
+  font-size:14px;font-weight:700;
+  background:var(--sh-surface-container);color:var(--sh-ink);
+  transition:border-radius var(--sh-spatial), background var(--sh-effects), color var(--sh-effects), transform var(--sh-effects), box-shadow var(--sh-effects);
+}
+.sh-btn:hover{border-radius:18px;transform:translateY(-2px);box-shadow:var(--sh-elev-1)}
+.sh-btn:active{transform:scale(.965);border-radius:13px}
+.sh-btn--filled{background:var(--sh-accent);color:var(--sh-on-accent)}
+.sh-btn--tonal{background:var(--sh-accent-container);color:var(--sh-on-accent-container)}
+.sh-btn--ghost{background:transparent;box-shadow:inset 0 0 0 1px var(--sh-outline-soft);color:var(--sh-muted)}
+.sh-btn--ghost:hover{background:var(--sh-surface-container);color:var(--sh-ink)}
+.sh-btn--sm{height:36px;padding:0 15px;font-size:13px}
+.sh-btn--lg{height:52px;padding:0 30px;font-size:15.5px}
+.sh-btn--icon{width:44px;padding:0}
+.sh-btn[aria-pressed="true"]{border-radius:14px;background:var(--sh-surface-high)}
+.sh-btn:disabled{opacity:.42;cursor:not-allowed;transform:none!important;box-shadow:none}
+
+/* 连接式按钮组：外角 30 / 内角 6；选中变全胶囊 */
+.sh-connected{
+  display:inline-flex;
+  background:var(--sh-surface-container);
+  border-radius:var(--sh-r-outer);
+  padding:3px;
+  gap:2px;
+  box-shadow:var(--sh-elev-1);
+}
+.sh-connected > button{
+  display:inline-flex;align-items:center;gap:7px;
+  height:38px;padding:0 15px;
+  border-radius:var(--sh-r-inner);
+  font-size:13px;font-weight:650;color:var(--sh-muted);
+  transition:border-radius var(--sh-spatial), background var(--sh-effects), color var(--sh-effects);
+}
+.sh-connected > button:first-child{border-radius:26px 6px 6px 26px}
+.sh-connected > button:last-child{border-radius:6px 26px 26px 6px}
+.sh-connected > button:hover{background:var(--sh-surface-high);color:var(--sh-ink);border-radius:12px}
+.sh-connected > button:first-child:hover{border-radius:26px 12px 12px 26px}
+.sh-connected > button:last-child:hover{border-radius:12px 26px 26px 12px}
+.sh-connected > button[aria-current="true"]{
+  background:var(--sh-accent);color:var(--sh-on-accent);
+  border-radius:var(--sh-r-pill);
+}
+.sh-connected--ghost{background:transparent;box-shadow:inset 0 0 0 1px var(--sh-outline-soft);padding:2px}
+
+/* ---------- 台面卡片 ---------- */
+.sh-bench{
+  position:relative;
+  border-radius:var(--sh-r-scene) var(--sh-r-scene) var(--sh-r-scene) 18px;
+  background:
+    radial-gradient(120% 130% at 12% -10%, color-mix(in srgb,var(--sh-accent-container) 78%,transparent), transparent 62%),
+    var(--sh-surface);
+  border:1px solid var(--sh-outline-soft);
+  box-shadow:var(--sh-elev-2);
+  padding:26px 30px 30px;
+  overflow:hidden;
+}
+.sh-bench::after{
+  content:"";position:absolute;inset:auto -70px -120px auto;
+  width:320px;height:320px;border-radius:50%;
+  background:color-mix(in srgb,var(--sh-sky) 62%,transparent);
+  filter:blur(14px);opacity:.5;pointer-events:none;
+}
+.sh-bench__top{
+  position:relative;z-index:2;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding-bottom:24px;
+  border-bottom:1px dashed var(--sh-outline-soft);
+}
+.sh-bench__top h2{font-size:17px;font-weight:800;letter-spacing:-.02em}
+.sh-bench__top .sh-note{color:var(--sh-muted);padding:0;font-size:12.5px}
+.sh-bench__top-spacer{margin-left:auto}
+
+/* 舞台 */
+.sh-scene{
+  position:relative;z-index:2;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1.24fr) minmax(0,1fr);
+  align-items:center;
+  gap:0;
+  padding:40px 0 26px;
+}
+.sh-scene__stage{display:flex;flex-direction:column;align-items:center;gap:16px}
+.sh-scene__core{
+  position:relative;
+  width:100%;display:grid;place-items:center;padding:6px 0 0;
+}
+.sh-core-btn{
+  position:relative;
+  width:216px;height:216px;
+  display:grid;place-items:center;
+  color:var(--sh-on-accent);
+  background:linear-gradient(146deg,color-mix(in srgb,var(--sh-accent) 88%,#fff),var(--sh-accent));
+  border-radius:46% 54% 51% 49% / 53% 45% 55% 47%;
+  transform:rotate(-3.4deg);
+  box-shadow:0 20px 44px -20px color-mix(in srgb,var(--sh-accent) 62%,transparent), var(--sh-elev-2);
+  transition:border-radius 300ms var(--sh-stagger), transform 260ms var(--sh-stagger), box-shadow var(--sh-effects);
+}
+.sh-core-btn:hover{border-radius:42% 58% 48% 52% / 56% 44% 56% 44%;transform:rotate(0deg) scale(1.035)}
+.sh-core-btn:active{border-radius:50%;transform:rotate(0deg) scale(.93)}
+.sh-core-btn__flash{
+  position:absolute;inset:0;border-radius:inherit;
+  background:#fff;opacity:0;pointer-events:none;
+}
+.sh-core-btn.is-fired .sh-core-btn__flash{animation:flash 460ms ease-out}
+.sh-core-btn.is-fired{animation:kick 420ms var(--sh-stagger)}
+.sh-core-ring{
+  position:absolute;inset:14px;
+  border:1.5px dashed color-mix(in srgb,var(--sh-outline-strong) 62%,transparent);
+  border-radius:50%;
+  animation:spin 30s linear infinite;
+}
+.sh-core-ring--inner{inset:44px;animation-duration:19s;animation-direction:reverse;
+  border-style:dotted;border-color:color-mix(in srgb,var(--sh-outline-strong) 40%,transparent)}
+.sh-core-btn__count{
+  position:absolute;bottom:-6px;right:-6px;
+  min-width:38px;height:38px;padding:0 11px;
+  display:grid;place-items:center;
+  border-radius:var(--sh-r-pill);
+  background:var(--sh-surface);color:var(--sh-ink);
+  font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;
+  box-shadow:var(--sh-elev-1);
+  border:2px solid var(--sh-ground);
+}
+.sh-scene__caption{text-align:center;max-width:34ch}
+.sh-scene__caption strong{display:block;font-size:15px;font-weight:800;letter-spacing:-.02em}
+.sh-scene__caption small{display:block;font-size:12.5px;color:var(--sh-muted)}
+
+/* 侧节点 */
+.sh-node-card{
+  position:relative;
+  padding:16px 18px;
+  background:var(--sh-surface-low);
+  border:1px solid var(--sh-outline-soft);
+  box-shadow:var(--sh-elev-1);
+  transition:background var(--sh-effects), border-radius var(--sh-spatial), transform var(--sh-spatial);
+}
+.sh-node-card h3{font-size:12.5px;font-weight:700;color:var(--sh-muted);margin-bottom:10px}
+.sh-node-card__big{font-size:16.5px;font-weight:800;letter-spacing:-.025em;line-height:1.35}
+.sh-node-card__sub{font-size:12.5px;color:var(--sh-muted);margin-top:2px}
+.sh-node-card--a{
+  border-radius:var(--sh-r-card) var(--sh-r-card) 8px var(--sh-r-card);
+  transform:rotate(-2.2deg);
+}
+.sh-node-card--a:hover{transform:rotate(-2.2deg) translateY(-4px);background:var(--sh-surface)}
+.sh-node-card--c{
+  border-radius:8px var(--sh-r-card) var(--sh-r-card) var(--sh-r-card);
+  transform:rotate(2.2deg);
+}
+.sh-node-card--c:hover{transform:rotate(2.2deg) translateY(-4px);background:var(--sh-surface)}
+.sh-node-card__rows{display:flex;flex-direction:column;gap:7px;margin-top:12px}
+.sh-node-card__row{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  font-size:12.5px;padding-top:7px;
+  border-top:1px dashed var(--sh-outline-soft);
+}
+.sh-node-card__row span{color:var(--sh-muted)}
+.sh-node-card__row b{font-weight:700;font-variant-numeric:tabular-nums}
+
+/* 虚线 stem */
+.sh-stem{
+  position:relative;
+  height:2px;
+  display:flex;align-items:center;justify-content:center;
+  align-self:center;
+}
+.sh-stem::before{
+  content:"";position:absolute;left:6px;right:6px;top:50%;
+  border-top:1.5px dashed var(--sh-outline);
+}
+.sh-stem__tag{
+  position:relative;
+  font-size:11px;font-weight:700;color:var(--sh-muted);
+  background:var(--sh-surface);
+  padding:2px 9px;border-radius:var(--sh-r-pill);
+  box-shadow:inset 0 0 0 1px var(--sh-outline-soft);
+  white-space:nowrap;
+}
+.sh-stem--a .sh-stem__tag{transform:rotate(-4deg)}
+.sh-stem--c .sh-stem__tag{transform:rotate(4deg)}
+.sh-stem.is-live::before{animation:dashflow 900ms linear infinite}
+
+/* 手柄读数 */
+.sh-pad{
+  margin-top:12px;
+  display:flex;align-items:center;gap:12px;
+}
+.sh-pad__keys{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;flex:1}
+.sh-pad__key{
+  height:30px;border-radius:10px;
+  display:grid;place-items:center;
+  background:var(--sh-surface-container);
+  font-size:11.5px;font-weight:800;color:var(--sh-muted);
+  transition:background 120ms, color 120ms, border-radius 160ms, transform 120ms;
+}
+.sh-pad__key.is-down{background:var(--sh-accent);color:var(--sh-on-accent);border-radius:var(--sh-r-pill);transform:scale(.94)}
+.sh-pad__stick{
+  width:52px;height:52px;flex:0 0 52px;border-radius:50%;
+  background:var(--sh-surface-container);
+  position:relative;
+}
+.sh-pad__stick::after{
+  content:"";position:absolute;width:22px;height:22px;border-radius:50%;
+  background:var(--sh-accent);left:15px;top:15px;
+  transition:transform 90ms linear;
+}
+
+/* ============================================================
+   卡片网格
+   ============================================================ */
+.sh-grid{
+  display:grid;
+  grid-template-columns:repeat(12,minmax(0,1fr));
+  gap:16px;
+  margin-top:20px;
+}
+.sh-tile{
+  position:relative;
+  grid-column:span 12;
+  padding:20px 22px 22px;
+  border-radius:var(--sh-r-card);
+  background:var(--sh-surface);
+  border:1px solid var(--sh-outline-soft);
+  box-shadow:var(--sh-elev-1);
+  transition:border-radius var(--sh-spatial), transform var(--sh-spatial), box-shadow var(--sh-effects);
+}
+.sh-tile--a{border-radius:var(--sh-r-card) var(--sh-r-card) var(--sh-r-card) 8px}
+.sh-tile--b{border-radius:8px var(--sh-r-card) var(--sh-r-card) var(--sh-r-card)}
+.sh-tile--c{border-radius:var(--sh-r-card) 8px var(--sh-r-card) var(--sh-r-card)}
+.sh-tile:hover{transform:translateY(-3px);box-shadow:var(--sh-elev-2)}
+.sh-tile__head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}
+.sh-tile__head h3{font-size:15.5px;font-weight:800;letter-spacing:-.025em}
+.sh-tile__head p{font-size:12.5px;color:var(--sh-muted);margin-top:3px;max-width:46ch;line-height:1.65}
+.sh-col-4{grid-column:span 4}
+.sh-col-5{grid-column:span 5}
+.sh-col-6{grid-column:span 6}
+.sh-col-7{grid-column:span 7}
+.sh-col-8{grid-column:span 8}
+.sh-tile--offset{transform:translateY(26px)}
+.sh-tile--offset:hover{transform:translateY(23px)}
+
+/* 行 + 开关 */
+.sh-rows{display:flex;flex-direction:column}
+.sh-row{
+  display:flex;align-items:center;gap:14px;
+  padding:11px 0;
+  border-top:1px dashed var(--sh-outline-soft);
+}
+.sh-row:first-child{border-top:0}
+.sh-row__copy{flex:1;min-width:0}
+.sh-row__copy strong{display:block;font-size:13.5px;font-weight:700}
+.sh-row__copy small{display:block;font-size:11.5px;color:var(--sh-muted);line-height:1.5}
+.sh-switch{
+  flex:0 0 46px;width:46px;height:27px;border-radius:var(--sh-r-pill);
+  background:var(--sh-surface-high);
+  position:relative;transition:background var(--sh-effects), border-radius var(--sh-effects);
+}
+.sh-switch::after{
+  content:"";position:absolute;top:3px;left:3px;
+  width:21px;height:21px;border-radius:50%;
+  background:var(--sh-surface);
+  box-shadow:0 1px 3px rgba(41,34,54,.28);
+  transition:transform 240ms var(--sh-stagger), background var(--sh-effects);
+}
+.sh-switch[aria-checked="true"]{background:var(--sh-accent)}
+.sh-switch[aria-checked="true"]::after{transform:translateX(19px);background:var(--sh-on-accent)}
+
+/* 下拉 */
+.sh-field{display:flex;flex-direction:column;gap:7px}
+.sh-field__label{font-size:12px;font-weight:700;color:var(--sh-muted)}
+.sh-select{
+  position:relative;display:flex;align-items:center;gap:8px;
+  height:42px;padding:0 13px;
+  border-radius:14px;
+  background:var(--sh-surface-low);
+  box-shadow:inset 0 0 0 1px var(--sh-outline-soft);
+  font-size:13.5px;font-weight:650;
+  transition:border-radius var(--sh-effects), background var(--sh-effects), box-shadow var(--sh-effects);
+}
+.sh-select:hover{border-radius:var(--sh-r-pill);background:var(--sh-surface-container)}
+.sh-select__value{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.sh-select__value small{color:var(--sh-muted);font-weight:500}
+
+/* 滑杆 */
+.sh-slider{
+  -webkit-appearance:none;appearance:none;width:100%;height:22px;background:none;
+}
+.sh-slider::-webkit-slider-runnable-track{
+  height:8px;border-radius:99px;
+  background:linear-gradient(to right,var(--sh-accent) var(--fill,42%),var(--sh-surface-high) var(--fill,42%));
+}
+.sh-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;width:22px;height:22px;border-radius:50%;
+  background:var(--sh-surface);border:2.5px solid var(--sh-accent);
+  margin-top:-7px;box-shadow:var(--sh-elev-1);
+  transition:transform 120ms, border-radius 160ms;
+}
+.sh-slider:hover::-webkit-slider-thumb{transform:scale(1.14)}
+
+/* 分段 */
+.sh-seg{display:flex;flex-direction:column;gap:7px}
+.sh-seg__track{
+  display:flex;gap:3px;padding:3px;
+  background:var(--sh-surface-low);
+  box-shadow:inset 0 0 0 1px var(--sh-outline-soft);
+  border-radius:var(--sh-r-outer);
+}
+.sh-seg__track button{
+  flex:1;height:36px;border-radius:var(--sh-r-inner);
+  font-size:13px;font-weight:650;color:var(--sh-muted);
+  transition:border-radius var(--sh-spatial), background var(--sh-effects), color var(--sh-effects);
+}
+.sh-seg__track button:first-child{border-radius:26px 6px 6px 26px}
+.sh-seg__track button:last-child{border-radius:6px 26px 26px 6px}
+.sh-seg__track button:hover{background:var(--sh-surface-high);color:var(--sh-ink)}
+.sh-seg__track button[aria-pressed="true"]{background:var(--sh-accent);color:var(--sh-on-accent);border-radius:var(--sh-r-pill)}
+
+/* 组合键 */
+.sh-combo{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:16px;
+  border-radius:18px;
+  background:var(--sh-surface-low);
+  box-shadow:inset 0 0 0 1px var(--sh-outline-soft);
+}
+.sh-key{
+  min-width:44px;height:40px;padding:0 12px;
+  display:grid;place-items:center;
+  border-radius:12px;
+  background:var(--sh-surface);
+  box-shadow:var(--sh-elev-1);
+  font-size:13px;font-weight:800;letter-spacing:.01em;
+}
+.sh-key--accent{background:var(--sh-accent);color:var(--sh-on-accent)}
+.sh-key__plus{color:var(--sh-muted);font-weight:700}
+.sh-presets{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+.sh-preset{
+  height:30px;padding:0 12px;border-radius:var(--sh-r-pill);
+  background:var(--sh-surface-container);color:var(--sh-muted);
+  font-size:12px;font-weight:650;
+  transition:background var(--sh-effects), color var(--sh-effects), border-radius var(--sh-effects);
+}
+.sh-preset:hover{background:var(--sh-accent-container);color:var(--sh-on-accent-container);border-radius:12px}
+
+/* 阶梯 / 进度 */
+.sh-meter{display:flex;flex-direction:column;gap:10px}
+.sh-meter__value{display:flex;align-items:baseline;gap:9px}
+.sh-meter__value strong{font-size:44px;font-weight:900;letter-spacing:-.05em;line-height:1;font-variant-numeric:tabular-nums}
+.sh-meter__value span{font-size:13px;color:var(--sh-muted);font-weight:600}
+.sh-meter__track{
+  height:10px;border-radius:99px;background:var(--sh-surface-high);overflow:hidden;
+}
+.sh-meter__fill{
+  height:100%;border-radius:99px;
+  background:linear-gradient(90deg,var(--sh-accent),color-mix(in srgb,var(--sh-accent) 62%,var(--sh-sky)));
+  transition:width 600ms var(--sh-stagger);
+}
+
+/* 权限节点 */
+.sh-perms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:20px}
+.sh-perm{
+  padding:19px 20px;
+  border-radius:var(--sh-r-card);
+  background:var(--sh-surface);
+  border:1px solid var(--sh-outline-soft);
+  box-shadow:var(--sh-elev-1);
+  transition:border-radius var(--sh-spatial), transform var(--sh-spatial), box-shadow var(--sh-effects);
+}
+.sh-perm:nth-child(odd){border-radius:var(--sh-r-card) var(--sh-r-card) 10px var(--sh-r-card)}
+.sh-perm:nth-child(even){border-radius:10px var(--sh-r-card) var(--sh-r-card) var(--sh-r-card)}
+.sh-perm:hover{transform:translateY(-3px);box-shadow:var(--sh-elev-2)}
+.sh-perm__top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.sh-perm__icon{
+  width:42px;height:42px;flex:0 0 42px;
+  display:grid;place-items:center;
+  border-radius:15px 15px 15px 5px;
+  background:var(--sh-accent-container);color:var(--sh-on-accent-container);
+  transform:rotate(-3deg);
+}
+.sh-perm--warn .sh-perm__icon{background:var(--sh-peach);color:var(--sh-on-peach)}
+.sh-perm__top .sh-chip{margin-left:auto}
+.sh-perm h3{font-size:15px;font-weight:800;letter-spacing:-.02em}
+.sh-perm p{font-size:12.5px;color:var(--sh-muted);margin-top:5px;line-height:1.65}
+.sh-perm__acts{display:flex;gap:8px;margin-top:15px;flex-wrap:wrap}
+.sh-path{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 13px;border-radius:12px;
+  background:var(--sh-surface-low);
+  font-size:12.5px;font-family:var(--sh-mono);
+  box-shadow:inset 0 0 0 1px var(--sh-outline-soft);
+  overflow:hidden;
+}
+.sh-path span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 测试器键位 */
+.sh-keys{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px}
+.sh-testkey{
+  height:46px;border-radius:14px;
+  background:var(--sh-surface-low);
+  box-shadow:inset 0 0 0 1px var(--sh-outline-soft);
+  font-size:12px;font-weight:750;color:var(--sh-muted);
+  transition:background 110ms, color 110ms, border-radius var(--sh-spatial), transform 110ms;
+}
+.sh-testkey.is-down{background:var(--sh-accent);color:var(--sh-on-accent);border-radius:var(--sh-r-pill);transform:scale(.94)}
+.sh-axes{display:flex;flex-direction:column;gap:11px;margin-top:16px}
+.sh-axis{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--sh-muted)}
+.sh-axis__name{width:52px;font-weight:700;font-variant-numeric:tabular-nums}
+.sh-axis__track{flex:1;height:9px;border-radius:99px;background:var(--sh-surface-high);position:relative;overflow:hidden}
+.sh-axis__fill{
+  position:absolute;top:0;bottom:0;border-radius:99px;
+  background:var(--sh-accent);transition:left 90ms linear, width 90ms linear;
+}
+.sh-axis__val{width:52px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+
+/* 形状实验室 */
+.sh-lab{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:22px;align-items:start}
+.sh-lab__stage{
+  position:relative;
+  display:grid;place-items:center;
+  min-height:290px;
+  border-radius:var(--sh-r-card) var(--sh-r-card) var(--sh-r-card) 12px;
+  background:var(--sh-surface-low);
+  box-shadow:inset 0 0 0 1px var(--sh-outline-soft);
+  overflow:hidden;
+}
+.sh-lab__stage::before{
+  content:"";position:absolute;width:250px;height:250px;border-radius:50%;
+  background:color-mix(in srgb,var(--sh-accent-container) 70%,transparent);
+}
+.sh-lab__shape{
+  position:relative;
+  width:168px;height:168px;
+  background:var(--sh-accent);
+  border-radius:46% 54% 51% 49% / 53% 45% 55% 47%;
+  transform:rotate(-4deg);
+  box-shadow:0 18px 40px -20px color-mix(in srgb,var(--sh-accent) 60%,transparent);
+  display:grid;place-items:center;
+  color:var(--sh-on-accent);
+  transition:border-radius 320ms var(--sh-stagger), transform 320ms var(--sh-stagger);
+}
+.sh-lab__caption{
+  position:absolute;bottom:14px;left:0;right:0;text-align:center;
+  font-size:12px;font-weight:700;color:var(--sh-muted);
+}
+.sh-roles{display:flex;flex-direction:column;gap:5px}
+.sh-role{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 13px;border-radius:14px;
+  text-align:left;width:100%;
+  transition:background var(--sh-effects), border-radius var(--sh-spatial);
+}
+.sh-role:hover{background:var(--sh-surface-low);border-radius:20px}
+.sh-role[aria-pressed="true"]{background:var(--sh-accent-container)}
+.sh-role__sw{width:34px;height:34px;flex:0 0 34px;background:var(--sh-accent);border-radius:12px 12px 12px 4px;transform:rotate(-4deg)}
+.sh-role__copy strong{display:block;font-size:13.5px;font-weight:750}
+.sh-role__copy small{display:block;font-size:11.5px;color:var(--sh-muted);line-height:1.5}
+.sh-ribbon{
+  display:flex;gap:9px;overflow-x:auto;padding:6px 2px 12px;
+  scrollbar-width:thin;
+}
+.sh-ribbon::-webkit-scrollbar{height:7px}
+.sh-ribbon::-webkit-scrollbar-thumb{background:var(--sh-outline-soft);border-radius:99px}
+.sh-swatch{
+  flex:0 0 46px;width:46px;height:46px;
+  background:var(--sh-surface-container);
+  transition:background var(--sh-effects), transform var(--sh-effects);
+}
+.sh-swatch.is-on{background:var(--sh-accent);transform:scale(1.08)}
+.sh-swatch:hover{transform:scale(1.12)}
+
+/* 更新对话框 */
+.sh-dialog-scrim{
+  position:absolute;inset:0;z-index:60;
+  background:color-mix(in srgb,var(--sh-ink) 34%,transparent);
+  backdrop-filter:blur(9px);
+  display:none;place-items:center;
+}
+.sh-dialog-scrim.is-open{display:grid}
+.sh-dialog{
+  width:452px;max-width:88vw;
+  padding:26px;border-radius:34px 34px 34px 12px;
+  background:var(--sh-surface);
+  box-shadow:var(--sh-elev-3);
+  display:flex;flex-direction:column;gap:18px;
+}
+.sh-dialog__top{display:flex;align-items:flex-start;gap:14px}
+.sh-dialog__mark{
+  width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;
+  border-radius:15px 15px 15px 5px;transform:rotate(-4deg);
+  background:var(--sh-accent-container);color:var(--sh-on-accent-container);
+}
+.sh-dialog__top h3{font-size:17px;font-weight:800;letter-spacing:-.025em}
+.sh-dialog__top small{font-size:12.5px;color:var(--sh-muted)}
+.sh-dialog__body{padding:15px 17px;border-radius:18px;background:var(--sh-surface-low);font-size:13px;line-height:1.75;color:var(--sh-muted)}
+.sh-dialog__acts{display:flex;justify-content:flex-end;gap:10px}
+
+/* rail (紧凑) */
+.sh-rail{
+  display:none;flex:0 0 74px;flex-direction:column;align-items:center;gap:8px;
+  padding:18px 0;
+}
+.sh-rail__item{
+  width:60px;height:60px;border-radius:20px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  font-size:10.5px;font-weight:700;color:var(--sh-muted);
+  transition:background var(--sh-effects), border-radius var(--sh-morph,350ms), color var(--sh-effects);
+}
+.sh-rail__item:hover{background:var(--sh-surface-container);border-radius:28px}
+.sh-rail__item[aria-current="page"]{background:var(--sh-accent-container);color:var(--sh-on-accent-container);border-radius:var(--sh-r-pill)}
+.sh-dock{display:none}
+
+/* 动效 */
+@keyframes flash{0%{opacity:0}22%{opacity:.92}100%{opacity:0}}
+@keyframes kick{0%{transform:rotate(-3.4deg) scale(1)}38%{transform:rotate(-3.4deg) scale(.9)}100%{transform:rotate(-3.4deg) scale(1)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes dashflow{to{background-position:14px 0}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.42;transform:scale(.7)}}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+
+.sh-head,.sh-bench,.sh-grid > *,.sh-perms > *{animation:rise 620ms var(--sh-stagger) both}
+.sh-grid > *:nth-child(1){animation-delay:60ms}
+.sh-grid > *:nth-child(2){animation-delay:110ms}
+.sh-grid > *:nth-child(3){animation-delay:160ms}
+.sh-grid > *:nth-child(4){animation-delay:210ms}
+.sh-perms > *:nth-child(1){animation-delay:80ms}
+.sh-perms > *:nth-child(2){animation-delay:130ms}
+.sh-perms > *:nth-child(3){animation-delay:180ms}
+.sh-perms > *:nth-child(4){animation-delay:230ms}
+
+/* 响应式 */
+@media (max-width:1600px){ :root{--sh-gutter:52px} }
+@media (max-width:1180px){
+  :root{--sh-gutter:34px}
+  .sh-sidebar{flex-basis:198px}
+  .sh-col-4,.sh-col-5{grid-column:span 6}
+  .sh-col-7,.sh-col-8{grid-column:span 12}
+  .sh-tile--offset{transform:none}
+  .sh-tile--offset:hover{transform:translateY(-3px)}
+  .sh-lab{grid-template-columns:1fr}
+}
+@container shell (max-width:899px){
+  .sh-sidebar{display:none}
+  .sh-rail{display:flex}
+  .sh-col-4,.sh-col-5,.sh-col-6,.sh-col-7,.sh-col-8{grid-column:span 12}
+  .sh-perms{grid-template-columns:1fr}
+}
+@container shell (max-width:639px){
+  :root{--sh-gutter:18px}
+  .sh-scene{grid-template-columns:1fr;gap:22px;padding:26px 0 18px}
+  .sh-stem{height:26px;width:2px;justify-self:center}
+  .sh-stem::before{left:50%;right:auto;top:5px;bottom:5px;border-top:0;border-left:1.5px dashed var(--sh-outline)}
+  .sh-node-card--a,.sh-node-card--c{transform:none}
+  .sh-core-btn{width:168px;height:168px}
+  .sh-rail{display:none}
+  .sh-dock{
+    display:flex;position:sticky;bottom:0;z-index:30;
+    margin:18px 12px 12px;padding:6px;gap:3px;
+    background:color-mix(in srgb,var(--sh-surface) 88%,transparent);
+    backdrop-filter:blur(16px);
+    border-radius:var(--sh-r-outer);
+    box-shadow:var(--sh-elev-2);
+  }
+  .sh-dock button{
+    flex:1;height:50px;border-radius:8px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    font-size:10.5px;font-weight:700;color:var(--sh-muted);
+    transition:border-radius var(--sh-spatial), background var(--sh-effects), color var(--sh-effects);
+  }
+  .sh-dock button[aria-current="page"]{background:var(--sh-accent-container);color:var(--sh-on-accent-container);border-radius:var(--sh-r-pill)}
+  .sh-head h1{font-size:36px}
+  .sh-keys{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .sh-titlebar__center{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
+</style>
+</head>
+<body>
+
+<div class="sh-shell">
+
+  <!-- ======================== 标题栏 ======================== -->
+  <header class="sh-titlebar">
+    <div class="sh-titlebar__brand">
+      静帧台面
+      <span>STILL PLATE</span>
+    </div>
+    <div class="sh-titlebar__center">
+      <i class="ic" data-ic="gamepad" style="color:var(--sh-accent)"></i>
+      Xbox Wireless Controller · 已连接
+    </div>
+    <div class="sh-titlebar__right">
+      <button class="sh-tb-btn" data-auth><i class="ic" data-ic="shield"></i>3/4 权限</button>
+      <button class="sh-tb-btn"><i class="ic" data-ic="textSize"></i>105%</button>
+      <button class="sh-tb-btn" id="themeBtn"><i class="ic" data-ic="moon"></i>深色</button>
+      <button class="sh-win"><i class="ic" data-ic="minus"></i></button>
+      <button class="sh-win"><i class="ic" data-ic="square"></i></button>
+      <button class="sh-win sh-win--close"><i class="ic" data-ic="close"></i></button>
+    </div>
+  </header>
+
+  <div class="sh-app-layout">
+
+    <!-- ======================== 侧栏 ======================== -->
+    <aside class="sh-sidebar">
+      <div class="sh-brand">
+        <div class="sh-brand__mark"><i class="ic" data-ic="camera" style="width:19px;height:19px"></i></div>
+        <div class="sh-brand__copy">
+          <strong>Shiin</strong>
+          <small>游戏手柄截图与回放</small>
+        </div>
+      </div>
+      <nav class="sh-sidebar__nav">
+        <button class="sh-nav-item" data-go="workspace" aria-current="page">
+          <i class="ic" data-ic="camera"></i>工作台
+        </button>
+        <button class="sh-nav-item" data-go="permissions">
+          <i class="ic" data-ic="shield"></i>权限
+          <span class="sh-nav-item__badge">1</span>
+        </button>
+        <button class="sh-nav-item" data-go="settings">
+          <i class="ic" data-ic="settings"></i>设置
+        </button>
+      </nav>
+      <div class="sh-sidebar__foot">
+        <div class="sh-note"><i></i>本机设置 · 自动保存</div>
+        <button class="sh-tb-btn" data-dialog style="justify-content:flex-start">
+          <i class="ic" data-ic="download"></i>检查更新
+        </button>
+      </div>
+    </aside>
+
+    <!-- ======================== 紧凑 rail ======================== -->
+    <nav class="sh-rail">
+      <button class="sh-rail__item" data-go="workspace" aria-current="page"><i class="ic" data-ic="camera" style="width:20px;height:20px"></i>工作台</button>
+      <button class="sh-rail__item" data-go="permissions"><i class="ic" data-ic="shield" style="width:20px;height:20px"></i>权限</button>
+      <button class="sh-rail__item" data-go="settings"><i class="ic" data-ic="settings" style="width:20px;height:20px"></i>设置</button>
+    </nav>
+
+    <!-- ======================== 内容 ======================== -->
+    <main class="sh-node">
+
+      <!-- ============ 工作台 ============ -->
+      <section class="sh-view is-active" id="view-workspace">
+        <div class="sh-page">
+
+          <div class="sh-head">
+            <div>
+              <div class="sh-head__label">工作台 <b>本机</b></div>
+              <h1>捕捉这一帧</h1>
+              <p class="sh-lede">手柄与捕获管线都已就绪。按下台面中央的图形立即截图，或让监听在后台等待你的组合键。</p>
+            </div>
+            <div class="sh-head__side">
+              <span class="sh-chip sh-chip--green sh-chip--live"><i></i>监听中</span>
+            </div>
+          </div>
+
+          <!-- 台面 -->
+          <div class="sh-bench">
+            <div class="sh-bench__top">
+              <h2>台面</h2>
+              <span class="sh-note">当前位置 · 本地会话</span>
+              <div class="sh-bench__top-spacer"></div>
+              <div class="sh-connected sh-connected--ghost">
+                <button data-capture><i class="ic" data-ic="camera"></i>立即截图</button>
+                <button data-listen aria-current="true"><i class="ic" data-ic="stop"></i>暂停监听</button>
+                <button><i class="ic" data-ic="wave"></i>保存回放</button>
+              </div>
+            </div>
+
+            <div class="sh-scene">
+              <!-- 节点 A：设备输入 -->
+              <div class="sh-node-card sh-node-card--a">
+                <h3>设备输入</h3>
+                <div class="sh-node-card__big">Xbox Wireless</div>
+                <div class="sh-node-card__sub">已连接 · 2.4 GHz · 电池 78%</div>
+                <div class="sh-pad">
+                  <div class="sh-pad__keys">
+                    <button class="sh-pad__key" data-key>A</button>
+                    <button class="sh-pad__key" data-key>B</button>
+                    <button class="sh-pad__key" data-key>X</button>
+                    <button class="sh-pad__key" data-key>Y</button>
+                    <button class="sh-pad__key" data-key>LB</button>
+                    <button class="sh-pad__key" data-key>RB</button>
+                    <button class="sh-pad__key" data-key>LT</button>
+                    <button class="sh-pad__key" data-key>RT</button>
+                  </div>
+                  <div class="sh-pad__stick" id="stick"></div>
+                </div>
+              </div>
+
+              <div class="sh-stem sh-stem--a is-live"><span class="sh-stem__tag">输入</span></div>
+
+              <!-- 中心：截图核 -->
+              <div class="sh-scene__stage">
+                <div class="sh-scene__core">
+                  <button class="sh-core-btn" id="core" aria-label="立即截图">
+                    <span class="sh-core-ring"></span>
+                    <span class="sh-core-ring sh-core-ring--inner"></span>
+                    <span class="sh-core-btn__flash"></span>
+                    <i class="ic" data-ic="camera" style="width:52px;height:52px;position:relative;stroke-width:1.5"></i>
+                    <span class="sh-core-btn__count" id="count">12</span>
+                  </button>
+                </div>
+                <div class="sh-scene__caption">
+                  <strong>按下图形即可截图</strong>
+                  <small>当前形状 · 云朵 / PUFFY</small>
+                </div>
+              </div>
+
+              <div class="sh-stem sh-stem--c is-live"><span class="sh-stem__tag">输出</span></div>
+
+              <!-- 节点 C：输出 -->
+              <div class="sh-node-card sh-node-card--c">
+                <h3>输出</h3>
+                <div class="sh-node-card__big" id="fmtBig">PNG · 写入文件</div>
+                <div class="sh-node-card__sub" id="dirSub">~/Pictures/Shiin</div>
+                <div class="sh-node-card__rows">
+                  <div class="sh-node-card__row"><span>捕获源</span><b id="srcVal">全屏 DXGI</b></div>
+                  <div class="sh-node-card__row"><span>分辨率</span><b>2560 × 1440</b></div>
+                  <div class="sh-node-card__row"><span>本次已捕获</span><b id="countRow">12 帧</b></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 卡片网格 -->
+          <div class="sh-grid">
+
+            <section class="sh-tile sh-tile--a sh-col-7">
+              <div class="sh-tile__head">
+                <div>
+                  <h3>捕获目标</h3>
+                  <p>决定这一帧从哪里取。窗口模式可以盯住游戏本体，避开其它前台窗口。</p>
+                </div>
+              </div>
+              <div class="sh-seg">
+                <div class="sh-seg__track" data-seg="src">
+                  <button aria-pressed="true">全屏 DXGI</button>
+                  <button aria-pressed="false">指定窗口</button>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr auto;gap:12px;margin-top:14px;align-items:end">
+                <div class="sh-field">
+                  <span class="sh-field__label">窗口来源</span>
+                  <button class="sh-select" disabled style="opacity:.5">
+                    <i class="ic" data-ic="appWindow"></i>
+                    <span class="sh-select__value">全屏模式下不可选 <small>· 切换到指定窗口后可用</small></span>
+                    <i class="ic" data-ic="chevronDown"></i>
+                  </button>
+                </div>
+                <div class="sh-connected">
+                  <button aria-current="true" data-fmt="PNG">PNG</button>
+                  <button data-fmt="JPG">JPG</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="sh-tile sh-tile--b sh-col-5 sh-tile--offset">
+              <div class="sh-tile__head">
+                <div>
+                  <h3>组合键</h3>
+                  <p>手柄上按下这一组就触发截图，不必离开游戏。</p>
+                </div>
+                <span class="sh-chip sh-chip--accent">已启用</span>
+              </div>
+              <div class="sh-combo">
+                <span class="sh-key sh-key--accent">LB</span>
+                <span class="sh-key__plus">+</span>
+                <span class="sh-key sh-key--accent">RB</span>
+                <span class="sh-key__plus">+</span>
+                <span class="sh-key sh-key--accent">A</span>
+              </div>
+              <div class="sh-presets">
+                <button class="sh-preset">LB + RB</button>
+                <button class="sh-preset">LT + RT</button>
+                <button class="sh-preset">Back + Start</button>
+                <button class="sh-preset">Y + B</button>
+              </div>
+              <div style="display:flex;gap:9px;margin-top:15px">
+                <button class="sh-btn sh-btn--tonal sh-btn--sm"><i class="ic" data-ic="target"></i>重新录制</button>
+                <button class="sh-btn sh-btn--ghost sh-btn--sm"><i class="ic" data-ic="trash"></i>清空</button>
+              </div>
+            </section>
+
+            <section class="sh-tile sh-tile--c sh-col-5">
+              <div class="sh-tile__head">
+                <div>
+                  <h3>监听</h3>
+                  <p>常驻后台，只在命中组合键时唤醒捕获管线。</p>
+                </div>
+              </div>
+              <div class="sh-rows">
+                <div class="sh-row">
+                  <div class="sh-row__copy"><strong>开启手柄监听</strong><small>按组合键立即触发</small></div>
+                  <button class="sh-switch" role="switch" aria-checked="true"></button>
+                </div>
+                <div class="sh-row">
+                  <div class="sh-row__copy"><strong>后台键盘快捷键</strong><small>需要输入监控权限</small></div>
+                  <button class="sh-switch" role="switch" aria-checked="false"></button>
+                </div>
+                <div class="sh-row">
+                  <div class="sh-row__copy"><strong>截图后悬浮通知</strong><small>右下角显示缩略图</small></div>
+                  <button class="sh-switch" role="switch" aria-checked="true"></button>
+                </div>
+              </div>
+            </section>
+
+            <section class="sh-tile sh-tile--a sh-col-7">
+              <div class="sh-tile__head">
+                <div>
+                  <h3>输入测试器</h3>
+                  <p>按下手柄任意键，确认这一格会亮。摇杆轴实时回显。</p>
+                </div>
+                <span class="sh-chip sh-chip--quiet">SDL2 · HID</span>
+              </div>
+              <div class="sh-keys">
+                <button class="sh-testkey" data-key>A</button>
+                <button class="sh-testkey" data-key>B</button>
+                <button class="sh-testkey" data-key>X</button>
+                <button class="sh-testkey" data-key>Y</button>
+                <button class="sh-testkey" data-key>LB</button>
+                <button class="sh-testkey" data-key>RB</button>
+                <button class="sh-testkey" data-key>Up</button>
+                <button class="sh-testkey" data-key>Down</button>
+                <button class="sh-testkey" data-key>Left</button>
+                <button class="sh-testkey" data-key>Right</button>
+                <button class="sh-testkey" data-key>Back</button>
+                <button class="sh-testkey" data-key>Start</button>
+              </div>
+              <div class="sh-axes">
+                <div class="sh-axis">
+                  <span class="sh-axis__name">LX</span>
+                  <span class="sh-axis__track"><span class="sh-axis__fill" id="ax0" style="left:44%;width:12%"></span></span>
+                  <span class="sh-axis__val" id="ax0v">-0.12</span>
+                </div>
+                <div class="sh-axis">
+                  <span class="sh-axis__name">LY</span>
+                  <span class="sh-axis__track"><span class="sh-axis__fill" id="ax1" style="left:47%;width:6%"></span></span>
+                  <span class="sh-axis__val" id="ax1v">+0.04</span>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+          <nav class="sh-dock">
+            <button data-go="workspace" aria-current="page"><i class="ic" data-ic="camera" style="width:20px;height:20px"></i>工作台</button>
+            <button data-go="permissions"><i class="ic" data-ic="shield" style="width:20px;height:20px"></i>权限</button>
+            <button data-go="settings"><i class="ic" data-ic="settings" style="width:20px;height:20px"></i>设置</button>
+          </nav>
+        </div>
+      </section>
+
+      <!-- ============ 权限 ============ -->
+      <section class="sh-view" id="view-permissions">
+        <div class="sh-page">
+          <div class="sh-head">
+            <div>
+              <div class="sh-head__label">权限 <b>macOS</b></div>
+              <h1>权限中心</h1>
+              <p class="sh-lede">系统权限决定截图、窗口识别与后台快捷键能否工作。处理完可以直接回到工作台。</p>
+            </div>
+            <div class="sh-head__side"><span class="sh-chip sh-chip--peach"><i></i>1 项待处理</span></div>
+          </div>
+
+          <div class="sh-bench">
+            <div class="sh-bench__top">
+              <h2>当前系统能力</h2>
+              <span class="sh-note">最近刷新 · 4 秒前</span>
+              <div class="sh-bench__top-spacer"></div>
+              <div class="sh-connected sh-connected--ghost">
+                <button><i class="ic" data-ic="shield"></i>一键请求全部权限</button>
+                <button><i class="ic" data-ic="refresh"></i>刷新状态</button>
+              </div>
+            </div>
+            <div class="sh-scene" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:34px 0 8px">
+              <div class="sh-meter">
+                <div class="sh-meter__value"><strong>3</strong><span>/ 4 已授予</span></div>
+                <div class="sh-meter__track"><span class="sh-meter__fill" style="width:75%"></span></div>
+                <p class="sh-lede" style="margin-top:6px">还差「输入监控」，后台键盘快捷键才可用。手柄触发不受影响。</p>
+              </div>
+              <div class="sh-scene__stage">
+                <button class="sh-core-btn" style="width:184px;height:184px" data-auth>
+                  <span class="sh-core-ring"></span>
+                  <i class="ic" data-ic="shield" style="width:48px;height:48px;position:relative;stroke-width:1.5"></i>
+                </button>
+                <div class="sh-scene__caption">
+                  <strong>能力形状 · 柏 CHAMFER</strong>
+                  <small>授权进度由形状体积表达</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sh-perms">
+            <article class="sh-perm">
+              <div class="sh-perm__top">
+                <span class="sh-perm__icon"><i class="ic" data-ic="camera" style="width:19px;height:19px"></i></span>
+                <span class="sh-chip sh-chip--green"><i></i>已授权</span>
+              </div>
+              <h3>屏幕录制</h3>
+              <p>捕获桌面、游戏窗口与当前前台窗口。</p>
+              <div class="sh-perm__acts">
+                <button class="sh-btn sh-btn--ghost sh-btn--sm"><i class="ic" data-ic="external"></i>系统设置</button>
+              </div>
+            </article>
+
+            <article class="sh-perm">
+              <div class="sh-perm__top">
+                <span class="sh-perm__icon"><i class="ic" data-ic="shield" style="width:19px;height:19px"></i></span>
+                <span class="sh-chip sh-chip--green"><i></i>已授权</span>
+              </div>
+              <h3>辅助功能</h3>
+              <p>识别前台窗口名称，用于自动归档与窗口裁切。</p>
+              <div class="sh-perm__acts">
+                <button class="sh-btn sh-btn--ghost sh-btn--sm"><i class="ic" data-ic="external"></i>系统设置</button>
+              </div>
+            </article>
+
+            <article class="sh-perm sh-perm--warn">
+              <div class="sh-perm__top">
+                <span class="sh-perm__icon"><i class="ic" data-ic="keyboard" style="width:19px;height:19px"></i></span>
+                <span class="sh-chip sh-chip--peach"><i></i>待授权</span>
+              </div>
+              <h3>输入监控</h3>
+              <p>后台键盘快捷键监听；手柄输入不依赖此权限。</p>
+              <div class="sh-perm__acts">
+                <button class="sh-btn sh-btn--tonal sh-btn--sm"><i class="ic" data-ic="shield"></i>主动请求</button>
+                <button class="sh-btn sh-btn--ghost sh-btn--sm"><i class="ic" data-ic="external"></i>系统设置</button>
+              </div>
+            </article>
+
+            <article class="sh-perm">
+              <div class="sh-perm__top">
+                <span class="sh-perm__icon"><i class="ic" data-ic="folder" style="width:19px;height:19px"></i></span>
+                <span class="sh-chip sh-chip--green"><i></i>可读写</span>
+              </div>
+              <h3>截图目录</h3>
+              <p>确认目录可读写，并可直接在 Finder 中打开。</p>
+              <div class="sh-path" style="margin-top:12px"><i class="ic" data-ic="folder"></i><span>~/Pictures/Shiin</span></div>
+              <div class="sh-perm__acts">
+                <button class="sh-btn sh-btn--ghost sh-btn--sm"><i class="ic" data-ic="check"></i>验证读写</button>
+                <button class="sh-btn sh-btn--ghost sh-btn--sm"><i class="ic" data-ic="external"></i>打开</button>
+              </div>
+            </article>
+          </div>
+
+          <div class="sh-grid">
+            <section class="sh-tile sh-tile--a sh-col-7">
+              <div class="sh-tile__head">
+                <div>
+                  <h3>截图权限实测</h3>
+                  <p>实际抓取一帧，验证权限是否真正生效，而不是只看开关状态。</p>
+                </div>
+                <span class="sh-chip sh-chip--accent sh-chip--live"><i></i>实时</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+                <button class="sh-btn sh-btn--filled" id="testBtn"><i class="ic" data-ic="camera"></i>立即实测截图</button>
+                <span class="sh-chip sh-chip--quiet" id="testOut">尚未实测</span>
+              </div>
+              <div id="preview" style="display:none;margin-top:16px">
+                <div style="height:150px;border-radius:20px 20px 20px 6px;background:linear-gradient(132deg,var(--sh-accent-container),var(--sh-sky));box-shadow:inset 0 0 0 1px var(--sh-outline-soft)"></div>
+                <div class="sh-note" style="margin-top:10px;padding:0">预览 · 2560 × 1440 · PNG</div>
+              </div>
+            </section>
+
+            <section class="sh-tile sh-tile--b sh-col-5 sh-tile--offset">
+              <div class="sh-tile__head">
+                <div>
+                  <h3>手柄 HID 通道</h3>
+                  <p>SDL2 与 Web Gamepad 双轨驱动。</p>
+                </div>
+              </div>
+              <div class="sh-meter__value" style="margin-bottom:4px"><strong>1</strong><span>个手柄已检测</span></div>
+              <div class="sh-rows">
+                <div class="sh-row">
+                  <div class="sh-row__copy"><strong>Xbox Wireless Controller</strong><small>SDL2 · 已就绪</small></div>
+                  <span class="sh-chip sh-chip--green"><i></i>在线</span>
+                </div>
+                <div class="sh-row">
+                  <div class="sh-row__copy"><strong>Web Gamepad 通道</strong><small>浏览器 API · 空闲</small></div>
+                  <span class="sh-chip"><i></i>空闲</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:9px;margin-top:14px">
+                <button class="sh-btn sh-btn--ghost sh-btn--sm"><i class="ic" data-ic="refresh"></i>重新扫描</button>
+                <button class="sh-btn sh-btn--ghost sh-btn--sm" data-go="workspace"><i class="ic" data-ic="target"></i>打开测试器</button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 设置 ============ -->
+      <section class="sh-view" id="view-settings">
+        <div class="sh-page">
+          <div class="sh-head">
+            <div>
+              <div class="sh-head__label">设置 <b>本机</b></div>
+              <h1>设置</h1>
+              <p class="sh-lede">形状、权限和启动行为都在这一页完成。改动即时生效，并只保存在这台设备。</p>
+            </div>
+            <div class="sh-head__side"><span class="sh-chip sh-chip--green"><i></i>自动保存</span></div>
+          </div>
+
+          <div class="sh-grid">
+            <section class="sh-tile sh-tile--a sh-col-7">
+              <div class="sh-tile__head">
+                <div>
+                  <h3>形状实验室</h3>
+                  <p>不同控件类别各取一形，同类控件保持一致。</p>
+                </div>
+                <span class="sh-chip sh-chip--accent">35 档</span>
+              </div>
+              <div class="sh-lab">
+                <div class="sh-lab__stage">
+                  <div class="sh-lab__shape" id="labShape"><i class="ic" data-ic="sparkles" style="width:38px;height:38px;position:relative"></i></div>
+                  <div class="sh-lab__caption" id="labCaption">HERO · 云朵 PUFFY</div>
+                </div>
+                <div class="sh-roles">
+                  <button class="sh-role" aria-pressed="true" data-role="HERO · 云朵">
+                    <span class="sh-role__sw" style="border-radius:46% 54% 51% 49%/53% 45% 55% 47%"></span>
+                    <span class="sh-role__copy"><strong>Hero · 主体</strong><small>截图核与大形状艺术</small></span>
+                  </button>
+                  <button class="sh-role" aria-pressed="false" data-role="DEVICE · 柏">
+                    <span class="sh-role__sw" style="border-radius:20px 20px 20px 5px"></span>
+                    <span class="sh-role__copy"><strong>Device · 设备</strong><small>手柄卡片与设备焦点</small></span>
+                  </button>
+                  <button class="sh-role" aria-pressed="false" data-role="CONTROL · 胶囊">
+                    <span class="sh-role__sw" style="border-radius:99px"></span>
+                    <span class="sh-role__copy"><strong>Control · 控件</strong><small>按钮、开关、滑块</small></span>
+                  </button>
+                  <button class="sh-role" aria-pressed="false" data-role="ICON · 花">
+                    <span class="sh-role__sw" style="border-radius:50%"></span>
+                    <span class="sh-role__copy"><strong>Icon · 图标</strong><small>图标底色与徽标</small></span>
+                  </button>
+                  <button class="sh-role" aria-pressed="false" data-role="METRIC · 宝石">
+                    <span class="sh-role__sw" style="border-radius:46% 54% 46% 54%/54% 46% 54% 46%"></span>
+                    <span class="sh-role__copy"><strong>Metric · 数值</strong><small>计数与统计块</small></span>
+                  </button>
+                </div>
+              </div>
+              <div class="sh-ribbon" id="ribbon"></div>
+            </section>
+
+            <section class="sh-tile sh-tile--b sh-col-5 sh-tile--offset">
+              <div class="sh-tile__head">
+                <div>
+                  <h3>形状策略</h3>
+                  <p>固定一套形状保持稳定，或每次启动重新抽取。</p>
+                </div>
+              </div>
+              <div class="sh-seg">
+                <div class="sh-seg__track" data-seg="mode">
+                  <button aria-pressed="true">固定</button>
+                  <button aria-pressed="false">启动随机</button>
+                </div>
+              </div>
+              <div class="sh-rows" style="margin-top:14px">
+                <div class="sh-row">
+                  <div class="sh-row__copy"><strong>当前会话组合</strong><small>Hero 云朵 · Device 柏 · Control 胶囊</small></div>
+                  <button class="sh-btn sh-btn--ghost sh-btn--sm">锁定</button>
+                </div>
+                <div class="sh-row">
+                  <div class="sh-row__copy"><strong>模拟下次启动</strong><small>预览随机结果，不写入设置</small></div>
+                  <button class="sh-btn sh-btn--tonal sh-btn--sm"><i class="ic" data-ic="dice"></i>抽一次</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="sh-tile sh-tile--c sh-col-6">
+              <div class="sh-tile__head">
+                <div>
+                  <h3>快门声音</h3>
+                  <p>截图时的听觉回执，以及桌面通知。</p>
+                </div>
+              </div>
+              <div class="sh-field" style="margin-bottom:16px">
+                <span class="sh-field__label">音量 · <span id="volOut">62</span>%</span>
+                <input class="sh-slider" type="range" min="0" max="100" value="62" style="--fill:62%" id="vol" />
+              </div>
+              <div class="sh-rows">
+                <div class="sh-row">
+                  <div class="sh-row__copy"><strong>音效</strong><small>机械快门 · 短促</small></div>
+                  <button class="sh-select" style="width:150px;height:38px;border-radius:99px">
+                    <span class="sh-select__value">机械快门</span><i class="ic" data-ic="chevronDown"></i>
+                  </button>
+                </div>
+                <div class="sh-row">
+                  <div class="sh-row__copy"><strong>悬浮通知</strong><small>右下角显示缩略图</small></div>
+                  <button class="sh-switch" role="switch" aria-checked="true"></button>
+                </div>
+              </div>
+              <div style="display:flex;gap:9px;margin-top:15px">
+                <button class="sh-btn sh-btn--tonal sh-btn--sm"><i class="ic" data-ic="volume"></i>试听</button>
+                <button class="sh-btn sh-btn--ghost sh-btn--sm"><i class="ic" data-ic="bell"></i>测试通知</button>
+              </div>
+            </section>
+
+            <section class="sh-tile sh-tile--a sh-col-6">
+              <div class="sh-tile__head">
+                <div>
+                  <h3>启动与数据</h3>
+                  <p>登录时自启、关闭行为与数据清理。</p>
+                </div>
+              </div>
+              <div class="sh-rows">
+                <div class="sh-row">
+                  <div class="sh-row__copy"><strong>登录时自动启动</strong><small>开机后常驻托盘</small></div>
+                  <button class="sh-switch" role="switch" aria-checked="true"></button>
+                </div>
+                <div class="sh-row">
+                  <div class="sh-row__copy"><strong>关闭窗口后驻留托盘</strong><small>组合键仍然生效</small></div>
+                  <button class="sh-switch" role="switch" aria-checked="false"></button>
+                </div>
+              </div>
+              <div style="display:flex;gap:9px;margin-top:15px;flex-wrap:wrap">
+                <button class="sh-btn sh-btn--ghost sh-btn--sm"><i class="ic" data-ic="fileText"></i>清空日志</button>
+                <button class="sh-btn sh-btn--ghost sh-btn--sm"><i class="ic" data-ic="refresh"></i>导出配置</button>
+                <button class="sh-btn sh-btn--ghost sh-btn--sm" data-dialog><i class="ic" data-ic="download"></i>检查更新</button>
+                <button class="sh-btn sh-btn--ghost sh-btn--sm"><i class="ic" data-ic="github"></i>GitHub</button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ======================== 更新对话框 ======================== -->
+  <div class="sh-dialog-scrim" id="scrim">
+    <div class="sh-dialog" role="dialog" aria-modal="true" aria-label="检查更新">
+      <div class="sh-dialog__top">
+        <span class="sh-dialog__mark"><i class="ic" data-ic="sparkles" style="width:21px;height:21px"></i></span>
+        <div style="flex:1">
+          <h3>发现新版本</h3>
+          <small>v2.0.0 → <b style="color:var(--sh-accent)">v2.1.0</b></small>
+        </div>
+        <button class="sh-btn sh-btn--icon sh-btn--ghost" data-dialog-close><i class="ic" data-ic="close"></i></button>
+      </div>
+      <div class="sh-dialog__body">
+        新增组合键预设与形状实验室的 35 档形状；修复窗口模式下偶发的裁切偏移，并将截图写入改为队列提交，避免连拍时丢帧。
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="sh-chip sh-chip--quiet">18.4 MB</span>
+        <span class="sh-chip sh-chip--sky">应用内热更新</span>
+        <span class="sh-chip sh-chip--green">已签名</span>
+      </div>
+      <div class="sh-dialog__acts">
+        <button class="sh-btn sh-btn--ghost" data-dialog-close>稍后</button>
+        <button class="sh-btn sh-btn--filled" data-dialog-close>立即下载更新</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ---------- 图标 ---------- */
+const ICONS = {
+  camera:['M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z','M12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z'],
+  gamepad:['M8 8h8a4 4 0 0 1 4 4v3a3 3 0 0 1-5.2 2L13 15h-2l-1.8 2A3 3 0 0 1 4 15v-3a4 4 0 0 1 4-4Z','M7 11h2','M8 10v2','M16 11h.01','M18 13h.01'],
+  settings:['M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z','M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.5-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 3.4a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 21 11a2 2 0 1 1 0 4Z'],
+  folder:['M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z'],
+  keyboard:['M2 7h20v10H2Z','M6 11h.01','M10 11h.01','M14 11h.01','M18 11h.01','M8 14h8'],
+  volume:['M11 5 6 9H3v6h3l5 4Z','M16 9a4 4 0 0 1 0 6','M19 6a8 8 0 0 1 0 12'],
+  appWindow:['M3 6h18v13H3Z','M3 10h18'],
+  target:['M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z','M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z'],
+  refresh:['M4 4v6h6','M20 20v-6h-6','M4 10a8 8 0 0 1 14-4','M20 14a8 8 0 0 1-14 4'],
+  trash:['M4 7h16','M9 7V4h6v3','M6 7l1 13h10l1-13'],
+  play:['M7 4l13 8-13 8Z'],
+  stop:['M6 6h12v12H6Z'],
+  check:['M4 12.5 9.5 18 20 6'],
+  close:['M6 6l12 12','M18 6L6 18'],
+  chevronDown:['M6 9l6 6 6-6'],
+  wave:['M2 12h3l2-6 3 12 3-9 2 3h7'],
+  shield:['M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6Z'],
+  external:['M14 4h6v6','M20 4l-8 8','M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'],
+  sun:['M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z','M12 2v2','M12 20v2','M2 12h2','M20 12h2','M5 5l1.5 1.5','M17.5 17.5 19 19','M19 5l-1.5 1.5','M6.5 17.5 5 19'],
+  moon:['M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z'],
+  sparkles:['M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8Z','M19 16l.9 2.1L22 19l-2.1.9L19 22l-.9-2.1L16 19l2.1-.9Z'],
+  dice:['M5 5h14v14H5Z','M9 9h.01','M15 9h.01','M12 12h.01','M9 15h.01','M15 15h.01'],
+  download:['M12 4v11','M7 11l5 5 5-5','M4 20h16'],
+  fileText:['M5 4h11l3 3v13H5Z','M8 9h8','M8 13h5'],
+  bell:['M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8','M13.7 21a2 2 0 0 1-3.4 0'],
+  textSize:['M3 6V4h13v2','M9.5 4v16','M7 20h5','M15 20l3-8 3 8','M16.2 17h3.6'],
+  minus:['M5 12h14'],
+  square:['M6 6h12v12H6Z'],
+  github:['M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12'],
+};
+const FILLED = new Set(['github']);
+document.querySelectorAll('i.ic').forEach((el) => {
+  const name = el.dataset.ic;
+  const paths = ICONS[name] || ICONS.info || ICONS.sparkles;
+  const filled = FILLED.has(name);
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', '17'); svg.setAttribute('height', '17');
+  svg.setAttribute('fill', filled ? 'currentColor' : 'none');
+  svg.setAttribute('stroke', filled ? 'none' : 'currentColor');
+  svg.setAttribute('stroke-width', filled ? '0' : '1.7');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.style.flex = '0 0 auto';
+  paths.forEach((d) => {
+    const p = document.createElementNS(ns, 'path');
+    p.setAttribute('d', d); svg.appendChild(p);
+  });
+  el.replaceWith(svg);
+});
+
+/* ---------- 视图切换 ---------- */
+function go(id){
+  document.querySelectorAll('.sh-view').forEach((v) => v.classList.toggle('is-active', v.id === 'view-' + id));
+  document.querySelectorAll('[data-go]').forEach((b) => {
+    if (b.dataset.go === id) b.setAttribute('aria-current', b.classList.contains('sh-nav-item') || b.classList.contains('sh-rail__item') || b.classList.contains('sh-dock') ? 'page' : 'true');
+    else b.removeAttribute('aria-current');
+  });
+  document.querySelector('.sh-node').scrollTop = 0;
+}
+document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => go(b.dataset.go)));
+
+/* ---------- 主题 ---------- */
+const themeBtn = document.getElementById('themeBtn');
+themeBtn.addEventListener('click', () => {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  document.documentElement.dataset.theme = dark ? 'light' : 'dark';
+  themeBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></svg>' + (dark ? '深色' : '浅色');
+  const svg = themeBtn.querySelector('svg');
+  const paths = dark ? ICONS.moon : ICONS.sun;
+  paths.forEach((d) => { const p = document.createElementNS('http://www.w3.org/2000/svg','path'); p.setAttribute('d', d); svg.appendChild(p); });
+});
+
+/* ---------- 截图核 ---------- */
+const core = document.getElementById('core');
+const countEl = document.getElementById('count');
+const countRow = document.getElementById('countRow');
+let shots = 12;
+function fire(){
+  core.classList.remove('is-fired');
+  void core.offsetWidth;
+  core.classList.add('is-fired');
+  shots += 1;
+  countEl.textContent = String(shots);
+  if (countRow) countRow.textContent = shots + ' 帧';
+}
+core.addEventListener('click', fire);
+document.querySelectorAll('[data-capture]').forEach((b) => b.addEventListener('click', fire));
+
+/* ---------- 手柄按键 ---------- */
+document.querySelectorAll('[data-key]').forEach((btn) => {
+  const down = () => btn.classList.add('is-down');
+  const up = () => btn.classList.remove('is-down');
+  btn.addEventListener('pointerdown',down);
+  btn.addEventListener('pointerup',up);
+  btn.addEventListener('pointerleave',up);
+  btn.addEventListener('pointercancel',up);
+  btn.addEventListener('click',()=>{down();setTimeout(up,180)});
+});
+
+/* ---------- 摇杆 ---------- */
+const stick = document.getElementById('stick');
+let lx = -0.12, ly = 0.04, dirx = 1, diry = 1;
+const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (!reduce) setInterval(() => {
+  lx += 0.05 * dirx; ly += 0.035 * diry;
+  if (lx > 0.82 || lx < -0.82) dirx *= -1;
+  if (ly > 0.72 || ly < -0.72) diry *= -1;
+  lx = Math.max(-0.9, Math.min(0.9, lx)); ly = Math.max(-0.9, Math.min(0.9, ly));
+  stick.firstElementChild.style.transform = `translate(${(lx*13).toFixed(1)}px, ${(ly*13).toFixed(1)}px)`;
+  ax(0, lx); ax(1, ly);
+}, 90);
+function ax(i, v){
+  const fill = document.getElementById('ax'+i), out = document.getElementById('ax'+i+'v');
+  if (!fill) return;
+  const start = (v + 1) / 2;
+  fill.style.left = (start*100).toFixed(1) + '%';
+  fill.style.width = Math.max(2, Math.abs(v)*46).toFixed(1) + '%';
+  out.textContent = (v >= 0 ? '+' : '') + v.toFixed(2);
+}
+
+/* ---------- 开关 ---------- */
+document.querySelectorAll('.sh-switch').forEach((sw) => {
+  sw.addEventListener('click', () => sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') === 'true' ? 'false' : 'true'));
+});
+
+/* ---------- 分段控件 ---------- */
+document.querySelectorAll('.sh-seg__track').forEach((track) => {
+  track.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    [...track.children].forEach((c) => c.setAttribute('aria-pressed', String(c === btn)));
+    if (track.dataset.seg === 'src') {
+      const win = btn.textContent.trim() === '指定窗口';
+      document.getElementById('srcVal').textContent = win ? '指定窗口 · Helios.exe' : '全屏 DXGI';
+      const sel = document.querySelector('[data-seg="src"]').closest('.sh-tile').querySelector('.sh-select');
+      sel.disabled = !win;
+      sel.style.opacity = win ? '1' : '.5';
+      sel.querySelector('.sh-select__value').innerHTML = win ? 'Helios.exe <small>· 2560 × 1440</small>' : '全屏模式下不可选 <small>· 切换到指定窗口后可用</small>';
+    }
+    if (track.dataset.seg === 'mode') { /* 仅演示切换 */ }
+  });
+});
+
+/* ---------- 格式与连接组 ---------- */
+document.querySelectorAll('[data-fmt]').forEach((b) => {
+  b.addEventListener('click', () => {
+    [...b.parentElement.children].forEach((c) => c.removeAttribute('aria-current'));
+    b.setAttribute('aria-current','true');
+    document.getElementById('fmtBig').textContent = b.dataset.fmt + ' · 写入文件';
+  });
+});
+document.querySelectorAll('.sh-connected:not(.sh-connected--ghost)').forEach((g) => {
+  g.addEventListener('click', (e) => {
+    const btn = e.target.closest('button'); if (!btn || btn.disabled) return;
+    if (btn.hasAttribute('data-fmt')) return;
+    [...g.children].forEach((c) => c.removeAttribute('aria-current'));
+    btn.setAttribute('aria-current','true');
+  });
+});
+
+/* ---------- 监听按钮 ---------- */
+document.querySelectorAll('[data-listen]').forEach((b) => {
+  b.addEventListener('click', () => {
+    const on = b.getAttribute('aria-current') === 'true';
+    b.setAttribute('aria-current', String(!on));
+    b.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></svg>';
+    (on ? ICONS.play : ICONS.stop).forEach((d) => { const p = document.createElementNS('http://www.w3.org/2000/svg','path'); p.setAttribute('d', d); b.querySelector('svg').appendChild(p); });
+    b.append(on ? '开启监听' : '暂停监听');
+    document.querySelectorAll('.sh-stem').forEach((s) => s.classList.toggle('is-live', !on));
+    const chip = document.querySelector('#view-workspace .sh-head__side .sh-chip');
+    chip.className = on ? 'sh-chip sh-chip--quiet' : 'sh-chip sh-chip--green sh-chip--live';
+    chip.innerHTML = '<i></i>' + (on ? '未监听' : '监听中');
+  });
+});
+
+/* ---------- 权限实测 ---------- */
+const testBtn = document.getElementById('testBtn');
+testBtn.addEventListener('click', () => {
+  const out = document.getElementById('testOut');
+  testBtn.disabled = true;
+  out.className = 'sh-chip sh-chip--quiet'; out.textContent = '实测中…';
+  setTimeout(() => {
+    testBtn.disabled = false;
+    out.className = 'sh-chip sh-chip--green'; out.textContent = '通过 · 118 ms';
+    document.getElementById('preview').style.display = 'block';
+  }, 900);
+});
+
+/* ---------- 形状实验室 ---------- */
+const RIBBON = [
+  ['圆形',50,50,50,50,50,50,50,50],
+  ['方圆形',34,34,34,34,34,34,34,34],
+  ['方',8,8,8,8,8,8,8,8],
+  ['胶囊',99,99,99,99,99,99,99,99],
+  ['菱形',18,18,18,18,18,18,18,18],
+  ['饼干',34,66,34,66,34,66,34,66],
+  ['云朵',46,54,51,49,53,45,55,47],
+  ['花',50,50,50,50,50,50,50,50],
+  ['宝石',46,54,46,54,54,46,54,46],
+  ['柏',20,20,20,20,20,20,20,5],
+  ['斜切',26,4,26,4,26,4,26,4],
+  ['莲蓬',38,62,42,58,58,42,62,38],
+];
+const ribbonEl = document.getElementById('ribbon');
+const labShape = document.getElementById('labShape');
+const labCaption = document.getElementById('labCaption');
+let activeRole = 'HERO · 云朵';
+RIBBON.forEach(([name, a,b,c,d,e,f,g,h], i) => {
+  const btn = document.createElement('button');
+  btn.className = 'sh-swatch' + (i === 6 ? ' is-on' : '');
+  btn.title = name;
+  btn.setAttribute('aria-label', name);
+  btn.style.borderRadius = `${a}% ${b}% ${c}% ${d}% / ${e}% ${f}% ${g}% ${h}%`;
+  btn.addEventListener('click', () => {
+    ribbonEl.querySelectorAll('.sh-swatch').forEach((s) => s.classList.remove('is-on'));
+    btn.classList.add('is-on');
+    labShape.style.borderRadius = btn.style.borderRadius;
+    labCaption.textContent = activeRole + ' · 已换为 ' + name;
+  });
+  ribbonEl.appendChild(btn);
+});
+document.querySelectorAll('.sh-role').forEach((r) => {
+  r.addEventListener('click', () => {
+    document.querySelectorAll('.sh-role').forEach((x) => x.setAttribute('aria-pressed', String(x === r)));
+    activeRole = r.dataset.role;
+    labCaption.textContent = activeRole;
+    labShape.style.borderRadius = r.querySelector('.sh-role__sw').style.borderRadius || '';
+  });
+});
+
+/* ---------- 滑块 ---------- */
+const vol = document.getElementById('vol');
+vol.addEventListener('input', () => {
+  vol.style.setProperty('--fill', vol.value + '%');
+  document.getElementById('volOut').textContent = vol.value;
+});
+
+/* ---------- 对话框 ---------- */
+const scrim = document.getElementById('scrim');
+document.querySelectorAll('[data-dialog]').forEach((b) => b.addEventListener('click', () => scrim.classList.add('is-open')));
+document.querySelectorAll('[data-dialog-close]').forEach((b) => b.addEventListener('click', () => scrim.classList.remove('is-open')));
+scrim.addEventListener('click', (e) => { if (e.target === scrim) scrim.classList.remove('is-open'); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') scrim.classList.remove('is-open'); });
+document.querySelectorAll('[data-auth]').forEach((b) => b.addEventListener('click', () => go('permissions')));
+</script>
+</body>
+</html>

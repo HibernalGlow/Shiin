@@ -1,0 +1,78 @@
+[
+  {
+    "file": "page-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 316,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "nestedCards",
+        "label": "卡片里套卡片",
+        "count": 1,
+        "examples": [
+          "div.sb-source-row「显示器 Monitor #26359 (2560」（外层 section.sb-tile.sb-capture-tile）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（正文低于 4.5:1，大字低于 3:1）",
+        "count": 7,
+        "examples": [
+          "span「开启监听」（3.14:1）",
+          "strong「立即截图」（1.16:1）",
+          "span「按下 · 留住」（1.16:1）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-1024x900.png",
+    "state": null,
+    "size": "1024x900",
+    "zoom": 1,
+    "animationWaitMs": 231,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "nestedCards",
+        "label": "卡片里套卡片",
+        "count": 1,
+        "examples": [
+          "div.sb-source-row「显示器 Monitor #26359 (2560」（外层 section.sb-tile.sb-capture-tile）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（正文低于 4.5:1，大字低于 3:1）",
+        "count": 7,
+        "examples": [
+          "span「开启监听」（3.14:1）",
+          "strong「立即截图」（1.16:1）",
+          "span「按下 · 留住」（1.16:1）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-720x900.png",
+    "state": null,
+    "size": "720x900",
+    "zoom": 1,
+    "failed": true,
+    "issues": [
+      "第 2 步「click .oil-nav-item」：匹配到 3 个元素 .oil-nav-item，但都不可见，不能操作（被祖先 aside 隐藏：display:none）；先执行让它出现的那一步，或换成当前可见的元素；线索：去掉最后一段后 \"（空）\" 匹配 0 个元素；例如 click .open"
+    ]
+  },
+  {
+    "file": "page-480x900.png",
+    "state": null,
+    "size": "480x900",
+    "zoom": 1,
+    "failed": true,
+    "issues": [
+      "第 2 步「click .oil-nav-item」：匹配到 3 个元素 .oil-nav-item，但都不可见，不能操作（被祖先 aside 隐藏：display:none）；先执行让它出现的那一步，或换成当前可见的元素；线索：去掉最后一段后 \"（空）\" 匹配 0 个元素；例如 click .open"
+    ]
+  }
+]

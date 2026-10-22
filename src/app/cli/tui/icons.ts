@@ -16,6 +16,7 @@ export type IconName =
   | 'settings'
   | 'status'
   | 'warning'
+  | 'window'
 
 const glyphs: Record<IconName, string> = {
   action: '▶',
@@ -31,6 +32,7 @@ const glyphs: Record<IconName, string> = {
   settings: '☷',
   status: '●',
   warning: '⚠',
+  window: '◫',
 }
 
 export function icon(name: IconName): string {

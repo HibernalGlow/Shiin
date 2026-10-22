@@ -73,6 +73,11 @@ export function Dashboard({
                 <InlineMetric label={t('saveWay')} value={saveWayText(session.plan.saveWay, t)} />
                 <InlineMetric label={t('format')} value={session.plan.format.toUpperCase()} />
                 <InlineMetric
+                  label={t('subfolder')}
+                  value={session.plan.saveByActiveWinTitle ? t('subfolderOn') : t('subfolderOff')}
+                  tone={session.plan.saveByActiveWinTitle ? 'success' : undefined}
+                />
+                <InlineMetric
                   label={t('obsStatus')}
                   value={session.context.obsConnected ? t('connected') : t('disconnected')}
                   tone={session.context.obsConnected ? 'success' : 'warning'}
@@ -89,12 +94,18 @@ export function Dashboard({
               <text fg={theme.colors.mutedForeground}>{`${t('comboKeys')}: ${combo}`}</text>
             </box>
 
-            <box flexDirection="row" gap={1} marginTop={1} flexShrink={0}>
+            <box flexDirection="row" gap={1} marginTop={1} flexShrink={0} flexWrap="wrap">
               <Button id="listen" onPress={() => void session.toggleListen()} focused={session.listening} width={16}>
                 {session.listening ? '■ 停止监听' : '▶ 开始监听'}
               </Button>
               <Button id="capture" onPress={() => void session.capture()} disabled={session.busy} width={16}>
                 {`${icon('camera')} 截图 (C)`}
+              </Button>
+              <Button id="capture-focused" onPress={() => void session.captureFocused()} disabled={session.busy} width={18}>
+                {`${icon('window')} ${t('actionCaptureFocused')} (W)`}
+              </Button>
+              <Button id="subfolder" onPress={() => session.toggleSaveByActiveWinTitle()} width={20}>
+                {`📁 ${t('subfolder')}: ${session.plan.saveByActiveWinTitle ? t('subfolderOn') : t('subfolderOff')} (F)`}
               </Button>
               <Button id="replay" onPress={() => void session.replay()} disabled={session.busy} width={16}>
                 {`${icon('replay')} 回放 (R)`}
@@ -455,6 +466,27 @@ export function SettingsScreen({
             <text fg={theme.colors.mutedForeground}>{t('fieldPathHint')}</text>
           </box>
 
+          <box flexDirection="column" flexShrink={0}>
+            <text fg={theme.colors.mutedForeground}>{t('saveByActiveWinTitle')}</text>
+            <box flexDirection="row" gap={1} alignItems="center">
+              <Chip
+                marker
+                selected={session.plan.saveByActiveWinTitle}
+                onPress={() => session.patchPlan({ saveByActiveWinTitle: true })}
+              >
+                {t('subfolderOn')}
+              </Chip>
+              <Chip
+                marker
+                selected={!session.plan.saveByActiveWinTitle}
+                onPress={() => session.patchPlan({ saveByActiveWinTitle: false })}
+              >
+                {t('subfolderOff')}
+              </Chip>
+              <text fg={theme.colors.mutedForeground}>{t('saveByActiveWinTitleHint')}</text>
+            </box>
+          </box>
+
           <box flexDirection="row" gap={1} flexShrink={0} marginTop={1}>
             <Button
               id="save-config"
@@ -560,6 +592,8 @@ export function HelpScreen({ t, onBack }: { t: Translator; onBack: () => void })
   const rows: [string, string][] = [
     ['Space', t('actionListen')],
     ['C', t('actionCapture')],
+    ['W', t('actionCaptureFocused')],
+    ['F', t('saveByActiveWinTitle')],
     ['R', t('actionReplay')],
     ['N', t('overlayTestKey')],
     ['S', t('settings')],

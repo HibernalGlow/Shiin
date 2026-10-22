@@ -1,3 +1,5 @@
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import { parseArgs } from '../src/app/cli/args.js'
@@ -50,7 +52,7 @@ describe('overlay payload', () => {
     expect(normalizeOverlayScale(0.1)).toBe(0.6)
     expect(normalizeOverlayScale('9')).toBe(2)
     expect(normalizeOverlayScale(undefined)).toBe(1)
-    expect(toImageUrl('/tmp/a b/预览.png')).toBe('file:///tmp/a%20b/%E9%A2%84%E8%A7%88.png')
+    expect(toImageUrl('/tmp/a b/预览.png')).toBe(pathToFileURL(path.resolve('/tmp/a b/预览.png')).href)
     expect(toImageUrl('data:image/png;base64,AA==')).toBe('data:image/png;base64,AA==')
   })
 })

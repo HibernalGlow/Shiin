@@ -1,3 +1,13 @@
+/**
+ * Shiin 统一宿主适配器 (Unified HTTP + SSE Host Bridge)
+ *
+ * 核心架构原则：
+ * 1. Node.js CLI (shiin serve) 是唯一的截图、手柄、热键与 OBS 业务后端；
+ * 2. 所有业务请求（截图、手柄、配置存储、设备列表、监听启停、状态同步）统一走本地 HTTP API + SSE；
+ * 3. 极薄的桌面外壳桥接（窗口最小化、轻量模式、原生目录对话框、开机自启、热更新）在 Electron 存在时通过 window.electronAPI 委派；
+ * 4. 在独立浏览器或第三方 Web 容器中访问时无缝平稳降级。
+ */
+
 import type {
   IHostBridge,
   HostRuntimeState,
@@ -20,12 +30,25 @@ declare global {
   }
 }
 
+let serviceBaseUrl = ''
+
+if (typeof window !== 'undefined' && window.electronAPI?.getServiceUrl) {
+  try {
+    void window.electronAPI.getServiceUrl().then((url: string) => {
+      if (typeof url === 'string' && url.trim()) {
+        serviceBaseUrl = url.trim().replace(/\/+$/, '')
+      }
+    })
+  } catch {}
+}
+
 async function fetchLocalApi<T>(endpoint: string, body?: unknown): Promise<T | null> {
   if (typeof fetch === 'undefined') return null
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 1500)
+  const timer = setTimeout(() => controller.abort(), 3000)
   try {
-    const res = await fetch(endpoint, {
+    const fullUrl = serviceBaseUrl && !endpoint.startsWith('http') ? `${serviceBaseUrl}${endpoint}` : endpoint
+    const res = await fetch(fullUrl, {
       method: body !== undefined ? 'POST' : 'GET',
       headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -51,11 +74,10 @@ export class ElectronHostBridge implements IHostBridge {
   private gamepadStateCache: { at: number; value: { buttons: boolean[]; axes: number[] } | null } | null = null
 
   private get api() {
-    return window.electronAPI || {}
+    return typeof window !== 'undefined' ? window.electronAPI || {} : {}
   }
 
-  /** 有 preload 就走 IPC；否则把同一个 URL 当作 Node Web 宿主。 */
-  private get hasElectronApi(): boolean {
+  public get hasElectronApi(): boolean {
     return typeof window !== 'undefined' && Boolean(window.electronAPI)
   }
 
@@ -67,12 +89,13 @@ export class ElectronHostBridge implements IHostBridge {
   }
 
   /**
-   * Web 宿主的事件通道。页面关闭不影响后台监听；重新打开时从 `/api/state` 恢复，
-   * 之后由 SSE 推送截图、回放、设备插拔与监听状态。
+   * 统一事件通道（SSE）：
+   * 无论是在桌面外壳窗口中还是在独立浏览器中，统一由本地服务的 /api/events 推送事件。
    */
   private ensureEventSource(): void {
-    if (this.hasElectronApi || this.eventSource || typeof EventSource === 'undefined') return
-    const source = new EventSource('/api/events')
+    if (this.eventSource || typeof EventSource === 'undefined') return
+    const eventUrl = serviceBaseUrl ? `${serviceBaseUrl}/api/events` : '/api/events'
+    const source = new EventSource(eventUrl)
     const payloadOf = (event: Event): any => {
       try {
         return JSON.parse((event as MessageEvent).data)
@@ -90,31 +113,36 @@ export class ElectronHostBridge implements IHostBridge {
         for (const callback of this.deviceListeners) callback(data.devices)
       }
     })
+
     source.addEventListener('screenshot', (event) => {
       const data = payloadOf(event)?.data
       if (data) for (const callback of this.screenshotListeners) callback(data)
     })
+
     source.addEventListener('replayBuffer', (event) => {
       const data = payloadOf(event)?.data
       if (data) for (const callback of this.replayListeners) callback(data)
     })
+
     source.addEventListener('statusChanged', (event) => {
       const data = payloadOf(event)?.data
       const listening = typeof data?.listening === 'boolean' ? data.listening : Boolean(data)
       for (const callback of this.listeningListeners) callback(listening)
     })
+
     source.addEventListener('deviceChanged', (event) => {
       const data = payloadOf(event)?.data
       if (Array.isArray(data)) {
         for (const callback of this.deviceListeners) callback(data)
       }
     })
+
     this.eventSource = source
   }
 
   private async fetchGamepadState(): Promise<{ buttons: boolean[]; axes: number[] } | null> {
     const now = Date.now()
-    if (this.gamepadStateCache && now - this.gamepadStateCache.at < 25) {
+    if (this.gamepadStateCache && now - this.gamepadStateCache.at < 20) {
       return this.gamepadStateCache.value
     }
     const res = await fetchLocalApi<{ buttons?: unknown; axes?: unknown }>('/api/gamepad/state')
@@ -130,32 +158,38 @@ export class ElectronHostBridge implements IHostBridge {
   }
 
   public async getStore<T>(key: string, defaultValue: T): Promise<T> {
-    if (this.api.getStore) {
-      return await this.api.getStore(key, defaultValue)
+    const res = await fetchLocalApi<{ value: T }>('/api/store/get', { key, defaultValue })
+    if (res && 'value' in res) return res.value
+
+    if (typeof localStorage !== 'undefined') {
+      const val = localStorage.getItem(key)
+      if (val === null) return defaultValue
+      try {
+        return JSON.parse(val)
+      } catch {
+        return val as unknown as T
+      }
     }
-    if (!this.hasElectronApi) {
-      const res = await fetchLocalApi<{ value: T }>('/api/store/get', { key, defaultValue })
-      if (res && 'value' in res) return res.value
-    }
-    const val = localStorage.getItem(key)
-    if (val === null) return defaultValue
-    try {
-      return JSON.parse(val)
-    } catch {
-      return val as unknown as T
-    }
+    return defaultValue
   }
 
   public async setStore<T>(key: string, value: T): Promise<void> {
-    if (this.api.setStore) {
-      await this.api.setStore(key, value)
-      return
+    const res = await fetchLocalApi<{ ok: boolean }>('/api/store/set', { key, value })
+    if (key === 'globalConfig') {
+      try {
+        const parsed = typeof value === 'string' ? JSON.parse(value) : (value as any)
+        if (parsed?.closeType && this.api.syncCloseType) {
+          void this.api.syncCloseType(parsed.closeType)
+        }
+        if (parsed?.locale && this.api.applyLocale) {
+          void this.api.applyLocale(parsed.locale)
+        }
+      } catch {}
     }
-    if (!this.hasElectronApi) {
-      const res = await fetchLocalApi<{ ok: boolean }>('/api/store/set', { key, value })
-      if (res?.ok) return
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value))
     }
-    localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value))
   }
 
   private browserGamepads(): Gamepad[] {
@@ -164,20 +198,9 @@ export class ElectronHostBridge implements IHostBridge {
   }
 
   public async getConnectedGamepads(): Promise<GamepadDeviceInfo[]> {
-    if (this.api.getAllGamePad) {
-      try {
-        const mainDevices = await this.api.getAllGamePad()
-        if (Array.isArray(mainDevices) && mainDevices.length > 0) return mainDevices
-      } catch {}
-    }
+    const apiDevs = await fetchLocalApi<GamepadDeviceInfo[]>('/api/gamepads')
+    if (apiDevs && apiDevs.length > 0) return apiDevs
 
-    // Node 宿主优先：它的 ButtonN 与全局监听用的是同一套 SDL 索引。
-    if (!this.hasElectronApi) {
-      const apiDevs = await fetchLocalApi<GamepadDeviceInfo[]>('/api/gamepads')
-      if (apiDevs) return apiDevs
-    }
-
-    // 仅当没有 Node 宿主时用 Web Gamepad API 兜底（索引口径与 SDL 不保证一致）。
     const raw = this.browserGamepads()
     if (raw.length > 0) {
       return raw.map((gp, idx) => ({
@@ -188,129 +211,65 @@ export class ElectronHostBridge implements IHostBridge {
       }))
     }
 
-    return []
+    return apiDevs || []
   }
 
   public async openGamepad(device: GamepadDeviceInfo): Promise<boolean> {
-    if (this.api.openSdl2Device) {
-      return await this.api.openSdl2Device(device)
-    }
-    if (!this.hasElectronApi) {
-      const res = await fetchLocalApi<{ ok: boolean }>('/api/gamepads/open', { device })
-      if (res) return Boolean(res.ok)
-    }
-    return false
+    const res = await fetchLocalApi<{ ok: boolean }>('/api/gamepads/open', { device })
+    return Boolean(res?.ok)
   }
 
   public async closeGamepad(): Promise<void> {
-    if (this.api.closeSdl2DeviceInstance) {
-      await this.api.closeSdl2DeviceInstance()
-      return
-    }
-    if (!this.hasElectronApi) {
-      await fetchLocalApi('/api/gamepads/close', {})
-    }
+    await fetchLocalApi('/api/gamepads/close', {})
   }
 
   public onGamepadDevicesChanged(cb: (devices: GamepadDeviceInfo[]) => void): () => void {
-    if (this.api.onGamepadDevicesChanged) {
-      return this.api.onGamepadDevicesChanged(cb)
-    }
-    if (!this.hasElectronApi) {
-      const unbind = this.addListener(this.deviceListeners, cb)
-      this.ensureEventSource()
-      return unbind
-    }
-    return () => {}
+    const unbind = this.addListener(this.deviceListeners, cb)
+    this.ensureEventSource()
+    return unbind
   }
 
   public async getCurrentButtons(): Promise<boolean[]> {
-    if (this.api.getCurrentButtonsValue) {
-      const mainButtons = await this.api.getCurrentButtonsValue()
-      if (Array.isArray(mainButtons) && mainButtons.length > 0) {
-        return mainButtons
-      }
-    }
+    const state = await this.fetchGamepadState()
+    if (state) return state.buttons
 
-    if (!this.hasElectronApi) {
-      const state = await this.fetchGamepadState()
-      if (state) return state.buttons
-    }
-
-    // Electron 主进程没有 SDL Worker 时的降级：把页面里的 Web Gamepad 状态注入主进程。
     const raw = this.browserGamepads()
     if (raw.length > 0) {
-      const active = raw[0]
-      const webButtons = active.buttons.map((button) => button.pressed)
-      if (this.api.syncWebGamepad) {
-        void this.api.syncWebGamepad(
-          raw.map((gp, idx) => ({ _index: idx, id: gp.id, name: gp.id, type: 'gamecontroller' })),
-          webButtons,
-          active.axes.slice(),
-        )
-      }
-      return webButtons
+      return raw[0].buttons.map((b) => b.pressed)
     }
-
     return []
   }
 
   public async getCurrentAxes(): Promise<number[]> {
-    if (this.api.getCurrentAxesValue) {
-      const mainAxes = await this.api.getCurrentAxesValue()
-      if (Array.isArray(mainAxes) && mainAxes.length > 0) {
-        return mainAxes
-      }
-    }
-
-    if (!this.hasElectronApi) {
-      const state = await this.fetchGamepadState()
-      if (state) return state.axes
-    }
+    const state = await this.fetchGamepadState()
+    if (state) return state.axes
 
     const raw = this.browserGamepads()
     return raw.length > 0 ? raw[0].axes.slice() : []
   }
 
   public async getScreenSources(): Promise<CaptureDisplayInfo[]> {
-    if (this.api.getScreenSources) {
-      const list = await this.api.getScreenSources()
-      if (Array.isArray(list) && list.length > 0) return list
-    }
     const apiScreens = await fetchLocalApi<CaptureDisplayInfo[]>('/api/screens')
     if (apiScreens && apiScreens.length > 0) return apiScreens
     return [{ id: 0, name: 'Primary Display (主显示器)' }]
   }
 
   public async getCaptureWindows(): Promise<CaptureWindowInfo[]> {
-    if (this.api.getCaptureWindows) {
-      return await this.api.getCaptureWindows()
-    }
     const apiWins = await fetchLocalApi<CaptureWindowInfo[]>('/api/windows')
-    if (apiWins) return apiWins
-    return []
+    return apiWins || []
   }
 
   public async capture(config: ScreenshotConfig): Promise<ScreenshotResult | null> {
-    if (this.api.screenShot) {
-      const res = await this.api.screenShot(config)
-      if (res && typeof res === 'object') {
-        return res
-      }
-      return {
-        ok: res !== null,
-        filePath: typeof res === 'string' ? res : null,
-        timestamp: Date.now(),
-        format: config.imageFormat,
-      }
-    }
     const apiRes = await fetchLocalApi<ScreenshotResult>('/api/capture', { config })
     return apiRes
   }
 
   public async selectFolder(): Promise<string | null> {
     if (this.api.selectFolder) {
-      return await this.api.selectFolder()
+      try {
+        const folder = await this.api.selectFolder()
+        if (folder) return folder
+      } catch {}
     }
     const apiRes = await fetchLocalApi<{ path: string | null }>('/api/select-folder', {})
     return apiRes?.path ?? null
@@ -318,114 +277,54 @@ export class ElectronHostBridge implements IHostBridge {
 
   public async openFolder(folderPath: string): Promise<{ ok: boolean; path?: string; error?: string }> {
     if (this.api.openFolder) {
-      const res = await this.api.openFolder(folderPath || '')
-      if (res && typeof res === 'object') {
-        return res
-      }
-      return { ok: true, path: folderPath }
+      try {
+        const res = await this.api.openFolder(folderPath || '')
+        if (res && typeof res === 'object') return res
+      } catch {}
     }
     const apiRes = await fetchLocalApi<{ ok: boolean; path?: string; error?: string }>('/api/open-folder', {
       path: folderPath || '',
     })
-    if (apiRes) return apiRes
-    return { ok: false, error: 'Host bridge unavailable' }
+    return apiRes || { ok: false, error: 'Host bridge unavailable' }
   }
 
   public async startListening(config: ScreenshotConfig): Promise<boolean> {
-    if (this.api.startListening) {
-      const res = await this.api.startListening()
-      return res?.ok ?? true
-    }
-    if (this.api.updateTrayListeningState) {
-      this.api.updateTrayListeningState(true)
-      this.api.updateTrayIcon(true)
-    }
-    if (!this.hasElectronApi) {
-      const res = await fetchLocalApi<{ ok: boolean; reason?: string }>('/api/listen/start', { config })
-      if (res) return Boolean(res.ok)
-    }
-    return false
+    const res = await fetchLocalApi<{ ok: boolean; reason?: string }>('/api/listen/start', { config })
+    return Boolean(res?.ok)
   }
 
   public async stopListening(): Promise<void> {
-    if (this.api.stopListening) {
-      await this.api.stopListening()
-      return
-    }
-    if (this.api.updateTrayListeningState) {
-      this.api.updateTrayListeningState(false)
-      this.api.updateTrayIcon(false)
-    }
-    if (!this.hasElectronApi) {
-      await fetchLocalApi('/api/listen/stop', {})
-    }
+    await fetchLocalApi('/api/listen/stop', {})
   }
 
   public async getListeningState(): Promise<boolean> {
-    if (this.api.getListeningState) {
-      return Boolean(await this.api.getListeningState())
-    }
-    if (!this.hasElectronApi) {
-      const res = await fetchLocalApi<{ listening: boolean }>('/api/listen/state')
-      if (res) return Boolean(res.listening)
-    }
-    return false
+    const res = await fetchLocalApi<{ listening: boolean }>('/api/listen/state')
+    return Boolean(res?.listening)
   }
 
   public async getRuntimeState(): Promise<HostRuntimeState | null> {
-    if (this.api.getRuntimeState) {
-      return await this.api.getRuntimeState()
-    }
-    if (!this.hasElectronApi) {
-      return await fetchLocalApi<HostRuntimeState>('/api/state')
-    }
-    return null
+    return await fetchLocalApi<HostRuntimeState>('/api/state')
   }
 
   public onListeningStateChanged(cb: (isListening: boolean) => void): () => void {
-    const unbinds: (() => void)[] = []
-    if (this.api.onListenStatusChanged) {
-      const un = this.api.onListenStatusChanged(cb)
-      if (typeof un === 'function') unbinds.push(un)
-    }
-    const startHandler = () => cb(true)
-    const stopHandler = () => cb(false)
-    if (this.api.onStartListenFromTray) this.api.onStartListenFromTray(startHandler)
-    if (this.api.onStopListenFromTray) this.api.onStopListenFromTray(stopHandler)
-    if (!this.hasElectronApi) {
-      unbinds.push(this.addListener(this.listeningListeners, cb))
-      this.ensureEventSource()
-    }
-
-    return () => {
-      unbinds.forEach((u) => u())
-    }
+    const unbind = this.addListener(this.listeningListeners, cb)
+    this.ensureEventSource()
+    return unbind
   }
 
   public onScreenshotCompleted(cb: (result: ScreenshotResult) => void): () => void {
-    if (this.api.onScreenshotCompleted) {
-      return this.api.onScreenshotCompleted(cb)
-    }
-    if (!this.hasElectronApi) {
-      const unbind = this.addListener(this.screenshotListeners, cb)
-      this.ensureEventSource()
-      return unbind
-    }
-    return () => {}
+    const unbind = this.addListener(this.screenshotListeners, cb)
+    this.ensureEventSource()
+    return unbind
   }
 
   public onObsReplayCompleted(cb: (result: { ok: boolean; error?: string }) => void): () => void {
-    if (this.api.onObsReplayCompleted) {
-      return this.api.onObsReplayCompleted(cb)
-    }
-    if (!this.hasElectronApi) {
-      const unbind = this.addListener(this.replayListeners, cb)
-      this.ensureEventSource()
-      return unbind
-    }
-    return () => {}
+    const unbind = this.addListener(this.replayListeners, cb)
+    this.ensureEventSource()
+    return unbind
   }
 
+  // ===== 桌面外壳专用轻量桥接能力 =====
   public minimizeWindow(): void {
     if (this.api.minimizeWindow) this.api.minimizeWindow()
   }
@@ -463,9 +362,6 @@ export class ElectronHostBridge implements IHostBridge {
   }
 
   public async setUiScale(scale: number): Promise<number> {
-    if (this.api.setUiScale) {
-      return await this.api.setUiScale(scale)
-    }
     return scale
   }
 
@@ -473,25 +369,21 @@ export class ElectronHostBridge implements IHostBridge {
     if (this.api.showScreenshotNotification) {
       this.api.showScreenshotNotification({ title, desc: body, img })
     } else if (typeof Notification !== 'undefined') {
-      new Notification(title, { body })
+      try {
+        new Notification(title, { body })
+      } catch {}
     }
   }
 
   public async saveOBSReplay(): Promise<{ ok: boolean; error?: string }> {
-    if (this.api.saveOBSReplay) {
-      return await this.api.saveOBSReplay()
-    }
-    if (!this.hasElectronApi) {
-      const res = await fetchLocalApi<{ ok: boolean; error?: string }>('/api/obs/save-replay', {})
-      if (res) return res
-    }
-    return { ok: false, error: 'Host bridge unavailable' }
+    const res = await fetchLocalApi<{ ok: boolean; error?: string }>('/api/obs/save-replay', {})
+    return res || { ok: false, error: 'Host bridge unavailable' }
   }
 
   public async openExternal(url: string): Promise<void> {
     if (this.api.openExternal) {
       await this.api.openExternal(url)
-    } else {
+    } else if (typeof window !== 'undefined') {
       window.open(url, '_blank')
     }
   }
@@ -504,20 +396,14 @@ export class ElectronHostBridge implements IHostBridge {
   }
 
   public async clearLogFiles(): Promise<{ ok: boolean; removed: number }> {
-    if (this.api.clearLogFiles) {
-      return await this.api.clearLogFiles()
-    }
     return { ok: true, removed: 0 }
   }
 
   public get isMac(): boolean {
-    return this.api.platform === 'darwin' || /Macintosh|Mac OS X/i.test(navigator.userAgent)
+    return this.api.platform === 'darwin' || (typeof navigator !== 'undefined' && /Macintosh|Mac OS X/i.test(navigator.userAgent))
   }
 
   public async getMacOSPermissions(options?: { activeProbe?: boolean }): Promise<MacOSPermissionsStatus> {
-    if (this.api.getMacOSPermissions) {
-      return await this.api.getMacOSPermissions(options)
-    }
     const endpoint = options?.activeProbe ? '/api/permissions?activeProbe=1' : '/api/permissions'
     const apiRes = await fetchLocalApi<MacOSPermissionsStatus>(endpoint)
     if (apiRes) return apiRes
@@ -543,49 +429,17 @@ export class ElectronHostBridge implements IHostBridge {
     target: PermissionTargetType = 'all',
     options?: { openSettingsIfDenied?: boolean }
   ): Promise<MacOSPermissionsStatus> {
-    if (this.api.requestMacOSPermission) {
-      return await this.api.requestMacOSPermission(target, options)
-    }
     const apiRes = await fetchLocalApi<MacOSPermissionsStatus>('/api/request-permission', {
       target,
       options,
     })
     if (apiRes) return apiRes
-    if (target === 'screen' || target === 'accessibility' || target === 'input' || target === 'files' || target === 'folder') {
-      await this.openMacOSPreference(
-        target === 'input'
-          ? 'input'
-          : target === 'accessibility'
-          ? 'accessibility'
-          : target === 'files' || target === 'folder'
-          ? 'files'
-          : 'screen'
-      )
-    }
     return await this.getMacOSPermissions({ activeProbe: true })
   }
 
   public async testScreenshotPermission(config?: ScreenshotConfig): Promise<ScreenshotPermissionTestResult> {
-    if (this.api.testScreenshotPermission) {
-      return await this.api.testScreenshotPermission(config)
-    }
     const apiRes = await fetchLocalApi<ScreenshotPermissionTestResult>('/api/test-screenshot', { config })
     if (apiRes) return apiRes
-
-    if (config) {
-      const start = Date.now()
-      const cap = await this.capture(config)
-      const perms = await this.getMacOSPermissions({ activeProbe: true })
-      return {
-        ok: Boolean(cap?.ok),
-        granted: Boolean(cap?.ok),
-        filePath: cap?.filePath,
-        sizeBytes: cap?.sizeBytes,
-        latencyMs: Date.now() - start,
-        error: cap?.error,
-        permissions: perms,
-      }
-    }
     return { ok: false, granted: false, error: 'Host bridge unavailable' }
   }
 
@@ -616,17 +470,12 @@ export class ElectronHostBridge implements IHostBridge {
       await this.api.showItemInFolder(fullPath)
       return
     }
-    if (!this.hasElectronApi) {
-      const res = await fetchLocalApi<{ ok: boolean }>('/api/show-in-folder', { path: fullPath })
-      if (res?.ok) return
-    }
+    const res = await fetchLocalApi<{ ok: boolean }>('/api/show-in-folder', { path: fullPath })
+    if (res?.ok) return
     await this.openFolder(fullPath)
   }
 
   public onOpenPermissionDialog(cb: (data?: any) => void): () => void {
-    if (this.api.onOpenPermissionDialog) {
-      return this.api.onOpenPermissionDialog(cb)
-    }
     return () => {}
   }
 }

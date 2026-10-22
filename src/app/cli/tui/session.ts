@@ -36,6 +36,10 @@ export interface ShiinSession {
   last: ShiinActionResult | null
   context: ShiinContext
   capture: () => Promise<void>
+  /** 快捷截取当前聚焦的前台活动窗口。 */
+  captureFocused: () => Promise<void>
+  /** 快捷切换按窗口名保存到子文件夹。 */
+  toggleSaveByActiveWinTitle: () => void
   replay: () => Promise<void>
   /** 弹一条测试覆层，验证 CLI/TUI 与桌面端共用同一条通知通路。 */
   testNotification: () => void
@@ -190,6 +194,36 @@ export function useShiinSession(manager: ScreenshotManager, t: Translator): Shii
     }))
   }, [manager, runGuarded])
 
+  const captureFocused = useCallback(async () => {
+    const focusedPlan: ShiinPlan = {
+      ...planRef.current,
+      target: 'window',
+      windowMode: 'focused',
+    }
+    await runGuarded(() => executeCapture(manager, focusedPlan, translatorRef.current, (event) => {
+      if (event.progress !== undefined) setProgress(event.progress)
+    }))
+  }, [manager, runGuarded])
+
+  const patchPlan = useCallback(
+    (patch: Partial<ShiinPlan>) => {
+      // 设置页的改动先进 manager 的内存配置：这样手柄触发（不走 executeCapture）
+      // 也会立刻按新的窗口口径截图；“保存配置”只决定是否落盘。
+      const next = { ...planRef.current, ...patch }
+      planRef.current = next
+      setPlan(next)
+      manager.syncConfig(planToPatch(next))
+    },
+    [manager],
+  )
+
+  const toggleSaveByActiveWinTitle = useCallback(() => {
+    const nextVal = !planRef.current.saveByActiveWinTitle
+    patchPlan({ saveByActiveWinTitle: nextVal })
+    const t = translatorRef.current
+    pushLog('info', `${t('saveByActiveWinTitle')}: ${nextVal ? t('subfolderOn') : t('subfolderOff')}`)
+  }, [patchPlan, pushLog])
+
   const replay = useCallback(async () => {
     await runGuarded(() => executeReplay(manager, translatorRef.current))
   }, [manager, runGuarded])
@@ -234,18 +268,6 @@ export function useShiinSession(manager: ScreenshotManager, t: Translator): Shii
     [manager, pushLog, refreshContext],
   )
 
-  const patchPlan = useCallback(
-    (patch: Partial<ShiinPlan>) => {
-      // 设置页的改动先进 manager 的内存配置：这样手柄触发（不走 executeCapture）
-      // 也会立刻按新的窗口口径截图；“保存配置”只决定是否落盘。
-      const next = { ...planRef.current, ...patch }
-      planRef.current = next
-      setPlan(next)
-      manager.syncConfig(planToPatch(next))
-    },
-    [manager],
-  )
-
   const clearLogs = useCallback(() => setLogs([]), [])
 
   return useMemo(
@@ -262,6 +284,8 @@ export function useShiinSession(manager: ScreenshotManager, t: Translator): Shii
       last,
       context,
       capture,
+      captureFocused,
+      toggleSaveByActiveWinTitle,
       replay,
       testNotification,
       toggleListen,
@@ -272,7 +296,7 @@ export function useShiinSession(manager: ScreenshotManager, t: Translator): Shii
       refresh,
       clearLogs,
     }),
-    [plan, patchPlan, devices, buttons, axes, listening, busy, progress, logs, last, context, capture, replay, testNotification, toggleListen, saveSettings, saveCombo, ensureDevice, pushLog, refresh, clearLogs],
+    [plan, patchPlan, devices, buttons, axes, listening, busy, progress, logs, last, context, capture, captureFocused, toggleSaveByActiveWinTitle, replay, testNotification, toggleListen, saveSettings, saveCombo, ensureDevice, pushLog, refresh, clearLogs],
   )
 }
 

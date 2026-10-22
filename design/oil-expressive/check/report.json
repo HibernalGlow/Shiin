@@ -1,0 +1,30 @@
+[
+  {
+    "file": "page.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 256,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "eyebrow",
+        "label": "标题上方的眉标",
+        "count": 1,
+        "examples": [
+          "p.sb-eyebrow「PERMISSIONS / 权限中心」"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（正文低于 4.5:1，大字低于 3:1）",
+        "count": 38,
+        "examples": [
+          "span「开启监听」（3.14:1）",
+          "p.sb-eyebrow「PERMISSIONS / 权限中心」（1.93:1）",
+          "p.sb-lede「系统权限决定截图、窗口识别与后台快捷键能否工作。」（2.35:1）"
+        ]
+      }
+    ]
+  }
+]

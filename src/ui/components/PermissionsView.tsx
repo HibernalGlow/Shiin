@@ -191,7 +191,6 @@ export const PermissionsView: React.FC<PermissionsViewProps> = ({
       <div className="sb-page">
         <header className="sb-masthead">
           <div>
-            <p className="sb-eyebrow">PERMISSIONS / {isZh ? '权限中心' : 'PERMISSIONS'}</p>
             <h2>{isZh ? '权限中心' : 'Permissions'}</h2>
             <p className="sb-lede">
               {isZh
