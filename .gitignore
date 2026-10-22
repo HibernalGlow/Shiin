@@ -47,5 +47,14 @@ package-lock.json
 /.workbuddy
 .workbuddy
 
+# 浏览器验证跑的日志与截图（Playwright 输出，重跑即得）
+/output
+/.playwright-cli
+
+# 手柄线稿参考包：代码里用的是蒸馏进 shapes 的矢量路径，原包只留许可与说明
+/assets/gamepad-line-art-pack/*
+!/assets/gamepad-line-art-pack/LICENSE.txt
+!/assets/gamepad-line-art-pack/README.md
+
 # workspace 包的构建产物（包入口与别名都指向 src，dist 不入库）
 /packages/*/dist
