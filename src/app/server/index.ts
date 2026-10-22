@@ -41,6 +41,8 @@ const execFileAsync = promisify(execFile)
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024
 const HEARTBEAT_MS = 15_000
+/** `bundle.1a2b3c4d.js` / `vendor.9f8e7d6c.css` — safe to cache forever. */
+const CONTENT_HASHED = /[.-][0-9a-f]{8}\.(?:js|mjs|css|map|woff2|png|svg)$/i
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -516,7 +518,13 @@ export async function startWebServer(options: WebServerOptions): Promise<WebServ
       res.writeHead(200, {
         'Content-Type': MIME_TYPES[ext] ?? 'application/octet-stream',
         'Content-Length': stat.size,
-        'Cache-Control': ext === '.html' ? 'no-store' : 'public, max-age=3600',
+        // Only content-hashed assets may be cached: everything else has to be
+        // revalidated so rebuilding the UI is visible on a plain reload.
+        'Cache-Control': ext === '.html'
+          ? 'no-store'
+          : CONTENT_HASHED.test(path.basename(filePath))
+            ? 'public, max-age=31536000, immutable'
+            : 'no-cache',
       })
       if (req.method === 'HEAD') {
         res.end()
