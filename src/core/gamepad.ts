@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module'
 import type { GamepadDeviceInfo } from './types.js'
+import { getAllSdlMappingLines, detectController } from '@hibernalglow/gamepad-expressive'
 
 const require = createRequire(import.meta.url)
 
@@ -43,6 +44,14 @@ function getSdl(): any {
 
   try {
     sdl = require('@kmamal/sdl')
+    if (sdl && sdl.controller && typeof sdl.controller.addMappings === 'function') {
+      try {
+        const lines = getAllSdlMappingLines()
+        sdl.controller.addMappings(lines)
+      } catch (e) {
+        console.warn('[GamepadCore] Failed to register SDL GameController mappings:', e)
+      }
+    }
     return sdl
   } catch (e) {
     console.warn('[GamepadCore] Failed to load @kmamal/sdl:', e)
@@ -56,8 +65,27 @@ export type DeviceChangeCallback = (devices: GamepadDeviceInfo[]) => void
 const HAT_DIRECTION_KEYS = ['up', 'right', 'down', 'left']
 const TRIGGER_COOLDOWN_MS = 300
 
+const CONTROLLER_BUTTON_INDEX_MAP: Record<string, number> = {
+  a: 0,             // A / ✕
+  b: 1,             // B / ○
+  x: 2,             // X / □
+  y: 3,             // Y / △
+  leftShoulder: 4,  // LB / L1
+  rightShoulder: 5, // RB / R1
+  back: 8,          // Back / Share
+  start: 9,         // Start / Options
+  leftStick: 10,    // L3
+  rightStick: 11,   // R3
+  dpadUp: 12,       // 十字键 ↑
+  dpadDown: 13,     // 十字键 ↓
+  dpadLeft: 14,     // 十字键 ←
+  dpadRight: 15,    // 十字键 →
+  guide: 16,        // Home / PS 键
+}
+
 export class GamepadCore {
   private deviceInstance: any = null
+  private isControllerDevice = false
   private activeDeviceIndex = 0
   private buttons: boolean[] = new Array(20).fill(false)
   private axes: number[] = new Array(10).fill(0)
@@ -90,17 +118,17 @@ export class GamepadCore {
     if (this.hasBoundSdlEvents) return
     const sdlInstance = getSdl()
     try {
-      if (sdlInstance && sdlInstance.joystick && typeof sdlInstance.joystick.on === 'function') {
-        sdlInstance.joystick.on('deviceAdd', () => {
-          this.notifyDeviceChanged()
-        })
-        sdlInstance.joystick.on('deviceRemove', () => {
-          this.notifyDeviceChanged()
-        })
-        this.hasBoundSdlEvents = true
+      if (sdlInstance && sdlInstance.controller && typeof sdlInstance.controller.on === 'function') {
+        sdlInstance.controller.on('deviceAdd', () => this.notifyDeviceChanged())
+        sdlInstance.controller.on('deviceRemove', () => this.notifyDeviceChanged())
       }
+      if (sdlInstance && sdlInstance.joystick && typeof sdlInstance.joystick.on === 'function') {
+        sdlInstance.joystick.on('deviceAdd', () => this.notifyDeviceChanged())
+        sdlInstance.joystick.on('deviceRemove', () => this.notifyDeviceChanged())
+      }
+      this.hasBoundSdlEvents = true
     } catch (e) {
-      console.warn('[GamepadCore] Failed to bind global SDL joystick events:', e)
+      console.warn('[GamepadCore] Failed to bind global SDL controller/joystick events:', e)
     }
   }
 
@@ -130,18 +158,36 @@ export class GamepadCore {
       return this.virtualDevices
     }
     const sdlInstance = getSdl()
-    if (!sdlInstance || !sdlInstance.joystick) {
+    if (!sdlInstance || (!sdlInstance.controller && !sdlInstance.joystick)) {
       return this.virtualDevices
     }
     this.ensureSdlEventsBound()
     try {
-      const devices = sdlInstance.joystick.devices || []
-      return devices.map((d: any, index: number) => ({
-        _index: index,
-        id: String(d.id ?? index),
-        name: d.name || `Gamepad #${index + 1}`,
-        type: d.type,
-      }))
+      const cDevices = sdlInstance.controller?.devices || []
+      const jDevices = sdlInstance.joystick?.devices || []
+      const devices = cDevices.length > 0 ? cDevices : jDevices
+      return devices.map((d: any, index: number) => {
+        const detection = detectController({
+          guid: d.guid,
+          name: d.name,
+          vendorId: d.vendor,
+          productId: d.product,
+          type: d.type || (cDevices.includes(d) ? 'gamecontroller' : undefined),
+          mapping: d.mapping,
+        })
+        return {
+          _index: index,
+          id: String(d.id ?? index),
+          name: d.name || `Gamepad #${index + 1}`,
+          type: d.type || (cDevices.includes(d) ? 'gamecontroller' : undefined),
+          guid: d.guid,
+          vendorId: d.vendor,
+          productId: d.product,
+          version: d.version,
+          mapping: d.mapping,
+          controllerFamily: detection.family,
+        }
+      })
     } catch {
       return this.virtualDevices
     }
@@ -164,6 +210,7 @@ export class GamepadCore {
       }
       this.deviceInstance = null
     }
+    this.isControllerDevice = false
     this.hatStates = []
     this.hatCount = 0
   }
@@ -186,7 +233,7 @@ export class GamepadCore {
     }
 
     const sdlInstance = getSdl()
-    if (!sdlInstance || !sdlInstance.joystick) {
+    if (!sdlInstance || (!sdlInstance.controller && !sdlInstance.joystick)) {
       // 在无直接原生 SDL 的宿主进程（例如 Electron 主进程）下，以虚拟设备模式接管，保留已有 Worker 注入的状态
       this.deviceInstance = { index: targetIndex, virtual: true }
       if (!this.hasWorkerState) {
@@ -196,7 +243,47 @@ export class GamepadCore {
     }
 
     try {
-      const sdlDevice = sdlInstance.joystick.devices[targetIndex]
+      // 1. 优先作为具有 SDL_GameControllerDB 标准映射的 GameController 打开（自动归一化 PS5/PS4/Xbox/Switch 键位）
+      const controllerDevices = sdlInstance.controller?.devices || []
+      const controllerDevice = controllerDevices[targetIndex] || controllerDevices.find((d: any) => d._index === targetIndex || d.id === targetIndex)
+      if (sdlInstance.controller && controllerDevice) {
+        this.deviceInstance = sdlInstance.controller.openDevice(controllerDevice)
+        this.isControllerDevice = true
+        this.resetDeviceState()
+
+        this.deviceInstance.on('buttonDown', (data: { button: string }) => {
+          const idx = CONTROLLER_BUTTON_INDEX_MAP[data.button]
+          if (idx !== undefined && idx < this.buttons.length) {
+            this.buttons[idx] = true
+          }
+        })
+
+        this.deviceInstance.on('buttonUp', (data: { button: string }) => {
+          const idx = CONTROLLER_BUTTON_INDEX_MAP[data.button]
+          if (idx !== undefined && idx < this.buttons.length) {
+            this.buttons[idx] = false
+          }
+        })
+
+        this.deviceInstance.on('axisMotion', (data: { axis: string; value: number }) => {
+          if (data.axis === 'leftStickX') this.axes[0] = data.value
+          else if (data.axis === 'leftStickY') this.axes[1] = data.value
+          else if (data.axis === 'rightStickX') this.axes[2] = data.value
+          else if (data.axis === 'rightStickY') this.axes[3] = data.value
+          else if (data.axis === 'leftTrigger') {
+            this.axes[4] = data.value
+            this.buttons[6] = data.value >= 0.5
+          } else if (data.axis === 'rightTrigger') {
+            this.axes[5] = data.value
+            this.buttons[7] = data.value >= 0.5
+          }
+        })
+
+        return true
+      }
+
+      // 2. 否则降级为原始 joystick 设备打开
+      const sdlDevice = sdlInstance.joystick?.devices?.[targetIndex]
       if (!sdlDevice) {
         this.deviceInstance = { index: targetIndex, virtual: true }
         if (!this.hasWorkerState) {
@@ -206,6 +293,7 @@ export class GamepadCore {
       }
 
       this.deviceInstance = sdlInstance.joystick.openDevice(sdlDevice)
+      this.isControllerDevice = false
       this.resetDeviceState()
 
       this.deviceInstance.on('buttonDown', (data: { button: number }) => {
@@ -253,6 +341,15 @@ export class GamepadCore {
   }
 
   private resetDeviceState(): void {
+    if (this.isControllerDevice) {
+      this.physicalButtonCount = 17
+      this.buttons = new Array(17).fill(false)
+      this.axes = new Array(6).fill(0)
+      this.hatCount = 0
+      this.hatStates = []
+      return
+    }
+
     const bCount = this.deviceInstance?.buttons?.length || 20
     this.physicalButtonCount = bCount
     this.buttons = new Array(bCount).fill(false)
@@ -294,9 +391,33 @@ export class GamepadCore {
   public getCurrentButtons(): boolean[] {
     if (!this.deviceInstance) return this.buttons
 
+    if (this.isControllerDevice && this.deviceInstance?.buttons) {
+      const b = this.deviceInstance.buttons
+      const a = this.deviceInstance.axes || {}
+      return [
+        Boolean(b.a),
+        Boolean(b.b),
+        Boolean(b.x),
+        Boolean(b.y),
+        Boolean(b.leftShoulder),
+        Boolean(b.rightShoulder),
+        (Number(a.leftTrigger) || 0) >= 0.5,
+        (Number(a.rightTrigger) || 0) >= 0.5,
+        Boolean(b.back),
+        Boolean(b.start),
+        Boolean(b.leftStick),
+        Boolean(b.rightStick),
+        Boolean(b.dpadUp),
+        Boolean(b.dpadDown),
+        Boolean(b.dpadLeft),
+        Boolean(b.dpadRight),
+        Boolean(b.guide),
+      ]
+    }
+
     let physical = this.buttons.slice()
     try {
-      if (this.deviceInstance.buttons) {
+      if (Array.isArray(this.deviceInstance.buttons)) {
         physical = Array.from(this.deviceInstance.buttons)
       }
     } catch {
@@ -310,7 +431,18 @@ export class GamepadCore {
   }
 
   public getCurrentAxes(): number[] {
-    if (this.deviceInstance?.axes) {
+    if (this.isControllerDevice && this.deviceInstance?.axes) {
+      const a = this.deviceInstance.axes
+      return [
+        Number(a.leftStickX) || 0,
+        Number(a.leftStickY) || 0,
+        Number(a.rightStickX) || 0,
+        Number(a.rightStickY) || 0,
+        Number(a.leftTrigger) || 0,
+        Number(a.rightTrigger) || 0,
+      ]
+    }
+    if (this.deviceInstance?.axes && Array.isArray(this.deviceInstance.axes)) {
       return Array.from(this.deviceInstance.axes)
     }
     return this.axes

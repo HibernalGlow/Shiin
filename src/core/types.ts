@@ -53,6 +53,12 @@ export interface GamepadDeviceInfo {
   buttonsCount?: number
   axesCount?: number
   hatsCount?: number
+  guid?: string
+  vendorId?: number
+  productId?: number
+  version?: number
+  mapping?: string
+  controllerFamily?: 'xbox' | 'playstation' | 'nintendo' | 'generic'
 }
 
 export interface CaptureDisplayInfo {
@@ -90,6 +96,23 @@ export interface ActiveWinResult {
   }
 }
 
+export type ImageFormat = 'jpg' | 'png' | 'webp' | 'avif'
+
+export type {
+  SCMPMetadata,
+  SCMPPrivacySettings,
+  MetadataStorageMode,
+  SidecarNamingStyle,
+} from '@hibernalglow/capture-metadata-profile'
+
+export type OverlayNotifyPosition =
+  | 'top-right'
+  | 'top-left'
+  | 'bottom-right'
+  | 'bottom-left'
+  | 'left'
+  | 'right'
+
 export interface ScreenshotConfig {
   path: string
   comboKeys: string[]
@@ -101,7 +124,10 @@ export interface ScreenshotConfig {
   screenSourceId: string | number
   windowSourceId: string | number
   screenShotSaveWay: ScreenShotSaveWayEnum
-  imageFormat: 'jpg' | 'png'
+  imageFormat: ImageFormat
+  imageQuality?: number
+  imageLossless?: boolean
+  imageEffort?: number
   fileNameTemplate: string
   saveByActiveWinTitle: boolean
   keyboardTrigger: boolean
@@ -114,12 +140,12 @@ export interface ScreenshotConfig {
   autoListenResolution?: AutoListenResolution
   overlayNotify?: 'show' | 'hide'
   overlayNotifyDuration?: number
-  overlayNotifyPosition?: 'left' | 'right'
+  overlayNotifyPosition?: OverlayNotifyPosition
   overlayNotifySize?: number | string
   autoStart?: boolean
   startInLightweightMode?: boolean
   closeType?: 'exit' | 'tray' | 'lightweight'
-  theme?: 'dark' | 'light'
+  theme?: 'dark' | 'light' | 'auto'
   accentColor?: string
   uiScale?: number
   locale?: string
@@ -128,6 +154,18 @@ export interface ScreenshotConfig {
   obsIp?: string
   obsPort?: number
   obsPassword?: string
+
+  // 截图上下文与资产元数据配置 (SCMP v1.0)
+  metadataRecordingEnabled?: boolean
+  recordAppName?: boolean
+  recordAppId?: boolean
+  recordWindowTitle?: boolean
+  recordTriggerDevice?: boolean
+  metadataStorageMode?: 'embedIfSupported' | 'sidecarOnly' | 'both' | 'databaseOnly'
+  sidecarNaming?: 'basename.ext.xmp' | 'basename.xmp'
+
+  // 跨应用捕获中枢与工作流
+  enableCaptureHub?: boolean
 }
 
 export const DEFAULT_CONFIG: ScreenshotConfig = {
@@ -142,6 +180,9 @@ export const DEFAULT_CONFIG: ScreenshotConfig = {
   windowSourceId: '',
   screenShotSaveWay: ScreenShotSaveWayEnum.FileOnly,
   imageFormat: 'jpg',
+  imageQuality: 90,
+  imageLossless: false,
+  imageEffort: 4,
   fileNameTemplate: 'Screenshot_%timestamp%',
   saveByActiveWinTitle: false,
   keyboardTrigger: false,
@@ -152,17 +193,25 @@ export const DEFAULT_CONFIG: ScreenshotConfig = {
   autoListenResolution: 'never',
   overlayNotify: 'show',
   overlayNotifyDuration: 2,
-  overlayNotifyPosition: 'left',
+  overlayNotifyPosition: 'top-right',
   overlayNotifySize: 1,
   autoStart: false,
   closeType: 'exit',
-  theme: 'dark',
+  theme: 'auto',
   accentColor: 'lime',
   uiScale: 1,
   locale: 'zh',
   obsIp: '127.0.0.1',
   obsPort: 4455,
   obsPassword: '',
+  metadataRecordingEnabled: true,
+  recordAppName: true,
+  recordAppId: true,
+  recordWindowTitle: false,
+  recordTriggerDevice: true,
+  metadataStorageMode: 'embedIfSupported',
+  sidecarNaming: 'basename.ext.xmp',
+  enableCaptureHub: false,
 }
 
 export interface ScreenshotResult {
@@ -170,6 +219,9 @@ export interface ScreenshotResult {
   filePath?: string | null
   error?: string
   timestamp: number
-  format: 'jpg' | 'png'
+  format: ImageFormat
   sizeBytes?: number
+  appName?: string
+  windowTitle?: string
+  scmp?: import('@hibernalglow/capture-metadata-profile').SCMPMetadata
 }

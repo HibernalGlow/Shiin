@@ -227,6 +227,9 @@ export async function runDoctor(manager: ScreenshotManager, t: Translator, confi
 const EDITABLE_KEYS = [
   'path',
   'imageFormat',
+  'imageQuality',
+  'imageLossless',
+  'imageEffort',
   'screenShotSaveWay',
   'captureTargetType',
   'windowCaptureMode',
@@ -248,8 +251,27 @@ export function isEditableKey(key: string): key is EditableKey {
 /** `shiin config set` 的取值收敛：只收本仓认识的键，值按字段类型转换。 */
 export function coerceConfigValue(key: EditableKey, raw: string): { value: unknown } | { error: string } {
   if (key === 'imageFormat') {
-    if (raw !== 'jpg' && raw !== 'png') return { error: 'imageFormat must be jpg or png' }
+    if (!['jpg', 'png', 'webp', 'avif'].includes(raw)) {
+      return { error: 'imageFormat must be jpg, png, webp, or avif' }
+    }
     return { value: raw }
+  }
+  if (key === 'imageQuality') {
+    const num = Number(raw)
+    if (!Number.isInteger(num) || num < 1 || num > 100) {
+      return { error: 'imageQuality must be an integer between 1 and 100' }
+    }
+    return { value: num }
+  }
+  if (key === 'imageLossless') {
+    return { value: raw === 'true' || raw === '1' }
+  }
+  if (key === 'imageEffort') {
+    const num = Number(raw)
+    if (!Number.isInteger(num) || num < 0 || num > 9) {
+      return { error: 'imageEffort must be an integer between 0 and 9' }
+    }
+    return { value: num }
   }
   if (key === 'screenShotSaveWay') {
     const allowed = Object.values(ScreenShotSaveWayEnum) as string[]

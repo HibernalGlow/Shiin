@@ -140,7 +140,8 @@ function printHelp(host: CliHost, language: Language): void {
         '',
         rich(host, 'capture flags', 'blue', 'bold'),
         '  --target screen|window    --save file|clipboard|both',
-        '  --format jpg|png          --path <dir>        --json',
+        '  --format jpg|png|webp|avif --quality 1-100   --lossless',
+        '  --path <dir>              --json',
         '  --screen <id>             --window <id|focused>  (focused = current foreground window)',
         '  --window-mode specified|focused                  (how a window target is chosen)',
         '  --subfolder / --no-subfolder                     save into subdirectories named after window title',
@@ -175,6 +176,8 @@ function planFromFlags(config: Parameters<typeof planFromConfig>[0], flags: Reco
   const target = stringFlag(flags, 'target')
   const save = stringFlag(flags, 'save')
   const format = stringFlag(flags, 'format')
+  const quality = stringFlag(flags, 'quality')
+  const lossless = booleanFlag(flags, 'lossless')
   const windowMode = stringFlag(flags, 'window-mode')
   const subfolder = booleanFlag(flags, 'subfolder') ?? booleanFlag(flags, 'save-by-title')
   return {
@@ -189,7 +192,9 @@ function planFromFlags(config: Parameters<typeof planFromConfig>[0], flags: Reco
           : save === 'file'
             ? ScreenShotSaveWayEnum.FileOnly
             : base.saveWay,
-    format: format === 'png' ? 'png' : format === 'jpg' ? 'jpg' : base.format,
+    format: ['jpg', 'png', 'webp', 'avif'].includes(format as string) ? (format as any) : base.format,
+    quality: quality && !Number.isNaN(Number(quality)) ? Math.max(1, Math.min(100, Number(quality))) : base.quality,
+    lossless: lossless ?? base.lossless,
     path: stringFlag(flags, 'path') ?? base.path,
     saveByActiveWinTitle: subfolder ?? base.saveByActiveWinTitle,
   }
@@ -521,13 +526,19 @@ async function runServe(host: CliHost, rest: string[], language: Language): Prom
           if (!result || typeof result !== 'object') return
           if (result.ok) void playBackgroundShutterSound(manager.config.sound, manager.config.soundPower)
           if (!overlayDisabledByEnv() && manager.config.overlayNotify !== 'hide') {
-            showSystemNotification(captureOverlayRequest(result, createTranslator(resolveLanguage(manager.config.locale, process.env))))
+            showOverlayNotification(
+              captureOverlayRequest(result, createTranslator(resolveLanguage(manager.config.locale, process.env))),
+              manager.config,
+            )
           }
         } else if (event.type === 'replayBuffer') {
           const result = event.data as { ok?: boolean; error?: string } | undefined
           if (!result?.ok) return
           if (!overlayDisabledByEnv() && manager.config.overlayNotify !== 'hide') {
-            showSystemNotification(replayOverlayRequest(result, createTranslator(resolveLanguage(manager.config.locale, process.env))))
+            showOverlayNotification(
+              replayOverlayRequest(result, createTranslator(resolveLanguage(manager.config.locale, process.env))),
+              manager.config,
+            )
           }
         }
       },

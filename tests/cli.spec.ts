@@ -215,7 +215,8 @@ describe('config coercion', () => {
   })
 
   it('rejects values that would corrupt the config', () => {
-    expect(coerceConfigValue('imageFormat', 'webp')).toEqual({ error: 'imageFormat must be jpg or png' })
+    expect(coerceConfigValue('imageFormat', 'bmp')).toEqual({ error: 'imageFormat must be jpg, png, webp, or avif' })
+    expect(coerceConfigValue('imageQuality', '150')).toEqual({ error: 'imageQuality must be an integer between 1 and 100' })
     expect(coerceConfigValue('obsPort', 'abc')).toEqual({ error: 'obsPort must be a positive number' })
     expect(coerceConfigValue('captureTargetType', 'monitor')).toEqual({ error: 'captureTargetType must be screen or window' })
     expect(coerceConfigValue('windowCaptureMode', 'auto')).toEqual({
@@ -230,6 +231,10 @@ describe('config coercion', () => {
 
   it('converts declared values to their runtime shapes', () => {
     expect(coerceConfigValue('imageFormat', 'png')).toEqual({ value: 'png' })
+    expect(coerceConfigValue('imageFormat', 'webp')).toEqual({ value: 'webp' })
+    expect(coerceConfigValue('imageFormat', 'avif')).toEqual({ value: 'avif' })
+    expect(coerceConfigValue('imageQuality', '85')).toEqual({ value: 85 })
+    expect(coerceConfigValue('imageLossless', 'true')).toEqual({ value: true })
     expect(coerceConfigValue('obsPort', '4455')).toEqual({ value: 4455 })
     expect(coerceConfigValue('comboKeys', 'Button0, Button7;L1')).toEqual({ value: ['Button0', 'Button7', 'L1'] })
   })

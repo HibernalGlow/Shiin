@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import sharp from 'sharp'
 import screenshot from 'screenshot-desktop'
 import { Window as ScreenshotWindow, Monitor as ScreenshotMonitor } from 'node-screenshots'
 import activeWin from 'active-win'
@@ -12,9 +13,18 @@ import {
   type CaptureWindowInfo,
   type ActiveWinResult,
   type ScreenshotResult,
+  type ImageFormat,
   ScreenShotSaveWayEnum,
+  ScreenShotWayEnum,
   CaptureTargetTypeEnum,
 } from './types.js'
+import {
+  type SCMPMetadata,
+  type SCMPPrivacySettings,
+  injectMetadataToBuffer,
+  serializeSCMPToXmp,
+  writeSidecar,
+} from '@hibernalglow/capture-metadata-profile'
 import { formatFileName, sanitizeToValidFolderName } from './filename.js'
 import { isDirectoryWritable } from './config.js'
 
@@ -412,22 +422,75 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errMsg = 'Operation tim
 }
 
 /**
+ * 统一图片编码管线
+ * 无论输入是无损 PNG Buffer 还是其它图片 Buffer，均按目标格式与质量参数编码
+ */
+export async function encodeImageBuffer(
+  input: Buffer,
+  options: {
+    format: ImageFormat
+    quality?: number
+    lossless?: boolean
+    effort?: number
+  }
+): Promise<Buffer> {
+  const { format, quality = 90, lossless = false, effort = 4 } = options
+  const clampedQuality = Math.max(1, Math.min(100, Math.round(quality)))
+
+  if (format === 'png') {
+    // 若无特殊无损参数微调，原图如果已是 PNG 可以极速返回，或通过 compressionLevel 编码
+    const compressionLevel = Math.max(0, Math.min(9, Math.round(((100 - clampedQuality) / 100) * 9)))
+    return await sharp(input)
+      .png({ compressionLevel, effort })
+      .toBuffer()
+  }
+
+  if (format === 'jpg') {
+    return await sharp(input)
+      .jpeg({ quality: clampedQuality, mozjpeg: true })
+      .toBuffer()
+  }
+
+  if (format === 'webp') {
+    return await sharp(input)
+      .webp({
+        quality: clampedQuality,
+        lossless: Boolean(lossless),
+        effort,
+      })
+      .toBuffer()
+  }
+
+  if (format === 'avif') {
+    return await sharp(input)
+      .avif({
+        quality: clampedQuality,
+        lossless: Boolean(lossless),
+        effort,
+      })
+      .toBuffer()
+  }
+
+  return input
+}
+
+/**
  * macOS 原生 `/usr/sbin/screencapture` 捕获辅助函数
  * 不仅绕过 screenshot-desktop 在 Apple Silicon (M1~M4) 上因 SPDisplaysDataType 解析失败报错的问题，
  * 还能在首次调用时主动触发 macOS 的「屏幕录制 (Screen Recording)」系统授权弹窗。
  */
-export async function captureMacScreenNative(options: {
-  format: 'jpg' | 'png'
+export async function captureMacScreenNative(options?: {
+  format?: 'jpg' | 'png' | ImageFormat
   screenId?: string | number
   windowId?: string | number
 }): Promise<Buffer> {
-  const ext = options.format === 'png' ? 'png' : 'jpg'
+  const ext = options?.format === 'jpg' ? 'jpg' : 'png'
   const tmpFile = path.join(os.tmpdir(), `shiin_mac_cap_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`)
   const args: string[] = ['-x', '-t', ext]
 
-  if (options.windowId !== undefined && options.windowId !== '') {
+  if (options?.windowId !== undefined && options?.windowId !== '') {
     args.push('-l', String(options.windowId))
-  } else if (options.screenId !== undefined && options.screenId !== '' && Number(options.screenId) > 0) {
+  } else if (options?.screenId !== undefined && options?.screenId !== '' && Number(options.screenId) > 0) {
     // screencapture 的 -D 参数从 1 开始表示主显示器
     args.push('-D', String(Number(options.screenId) + 1))
   }
@@ -461,12 +524,14 @@ export async function captureMacScreenNative(options: {
  */
 async function captureWindowBuffer(
   windowId: string | number,
-  format: 'jpg' | 'png',
-  hints?: { title?: string; ownerName?: string },
+  hintsOrFormat?: 'jpg' | 'png' | ImageFormat | { title?: string; ownerName?: string },
+  maybeHints?: { title?: string; ownerName?: string },
 ): Promise<Buffer> {
+  const hints = typeof hintsOrFormat === 'object' ? hintsOrFormat : maybeHints
+
   if (process.platform === 'darwin' && windowId !== undefined && windowId !== '') {
     try {
-      const macWinBuf = await captureMacScreenNative({ format, windowId })
+      const macWinBuf = await captureMacScreenNative({ format: 'png', windowId })
       if (macWinBuf && macWinBuf.length > 0) {
         return macWinBuf
       }
@@ -532,7 +597,7 @@ async function captureWindowBuffer(
     } else {
       // target.captureImage() 截取的正是该窗口自身完整的渲染画面（坐标系从 0,0 开始）。
       // 绝不能拿桌面屏幕绝对坐标 (tx, ty) 去裁切它，否则在高分屏 DPI 缩放或偏右窗口时会导致窗口大部分被切掉。
-      const buffer = format === 'png' ? await image.toPng(true) : await image.toJpeg(true)
+      const buffer = await image.toPng(true)
       if (buffer && buffer.length > 0) {
         directBuffer = buffer
       }
@@ -563,10 +628,11 @@ async function captureWindowBuffer(
     }
 
     const screenImg = matchedMonitor.captureImageSync()
-    const monW = typeof matchedMonitor.width === 'function' ? matchedMonitor.width() : matchedMonitor.width
-    const monH = typeof matchedMonitor.height === 'function' ? matchedMonitor.height() : matchedMonitor.height
-    const monX = typeof matchedMonitor.x === 'function' ? matchedMonitor.x() : matchedMonitor.x
-    const monY = typeof matchedMonitor.y === 'function' ? matchedMonitor.y() : matchedMonitor.y
+    const mon = matchedMonitor as any
+    const monW = typeof mon.width === 'function' ? mon.width() : mon.width
+    const monH = typeof mon.height === 'function' ? mon.height() : mon.height
+    const monX = typeof mon.x === 'function' ? mon.x() : mon.x
+    const monY = typeof mon.y === 'function' ? mon.y() : mon.y
 
     // 计算实际像素与逻辑坐标之间的缩放比（支持 125%/150%/200% 等 Windows 高分屏缩放）
     const scaleX = monW && monW > 0 ? screenImg.width / monW : 1
@@ -581,7 +647,7 @@ async function captureWindowBuffer(
 
     if (cropW > 10 && cropH > 10) {
       const croppedImg = screenImg.cropSync(cropX, cropY, cropW, cropH)
-      const buffer = format === 'png' ? croppedImg.toPngSync() : croppedImg.toJpegSync()
+      const buffer = croppedImg.toPngSync()
       if (buffer && buffer.length > 0) {
         return buffer
       }
@@ -601,10 +667,13 @@ export async function performScreenshot(
   options?: {
     writeClipboard?: (buf: Buffer) => void
     confirmOverwrite?: (filePath: string) => Promise<boolean>
+    triggerWay?: 'gamepad' | 'keyboard' | 'tray' | 'ui' | 'cli' | 'obs' | 'api'
+    triggerDevice?: string
+    triggerCombo?: string
   }
 ): Promise<ScreenshotResult> {
-  const format = config.imageFormat === 'png' ? 'png' : 'jpg'
-  let buffer: Buffer
+  const format: ImageFormat = config.imageFormat || 'jpg'
+  let rawPngBuffer: Buffer
   let resolvedActiveWindow: ActiveWinResult | null | undefined
 
   try {
@@ -615,13 +684,13 @@ export async function performScreenshot(
     if (isWindow) {
       const target = await resolveWindowCaptureTarget(config)
       resolvedActiveWindow = target.active
-      buffer = await captureWindowBuffer(target.id, format, target)
+      rawPngBuffer = await captureWindowBuffer(target.id, target)
     } else {
       const screenId = config.screenSourceId
       if (process.platform === 'darwin') {
-        // macOS 优先使用原生 screencapture -x (兼容 Apple Silicon M1~M4 且能主动拉起系统录屏权限请求)
+        // macOS 优先使用原生 screencapture -x -t png (无损捕获)
         try {
-          buffer = await captureMacScreenNative({ format, screenId })
+          rawPngBuffer = await captureMacScreenNative({ format: 'png', screenId })
         } catch (macErr) {
           // 降级尝试 node-screenshots
           const monitors = ScreenshotMonitor.all()
@@ -631,20 +700,20 @@ export async function performScreenshot(
               : null) || monitors[0]
           if (mon) {
             const screenImg = mon.captureImageSync()
-            buffer = format === 'png' ? screenImg.toPngSync() : screenImg.toJpegSync()
+            rawPngBuffer = screenImg.toPngSync()
           } else {
             throw macErr
           }
         }
       } else {
         try {
-          buffer = await screenshot({
+          rawPngBuffer = await screenshot({
             screen: screenId !== undefined && screenId !== '' ? Number(screenId) : undefined,
-            format,
+            format: 'png',
           })
         } catch {
           try {
-            buffer = await screenshot({ format })
+            rawPngBuffer = await screenshot({ format: 'png' })
           } catch {
             const monitors = ScreenshotMonitor.all()
             const mon =
@@ -653,7 +722,7 @@ export async function performScreenshot(
                 : null) || monitors[0]
             if (mon) {
               const screenImg = mon.captureImageSync()
-              buffer = format === 'png' ? screenImg.toPngSync() : screenImg.toJpegSync()
+              rawPngBuffer = screenImg.toPngSync()
             } else {
               throw new Error('No monitor available for screen capture')
             }
@@ -670,6 +739,24 @@ export async function performScreenshot(
     }
   }
 
+  // 统一编码为目标格式
+  let buffer: Buffer
+  try {
+    buffer = await encodeImageBuffer(rawPngBuffer, {
+      format,
+      quality: config.imageQuality,
+      lossless: config.imageLossless,
+      effort: config.imageEffort,
+    })
+  } catch (encodeErr: any) {
+    return {
+      ok: false,
+      error: `Encode error (${format}): ${encodeErr?.message || String(encodeErr)}`,
+      timestamp: Date.now(),
+      format,
+    }
+  }
+
   // 计算输出路径（使用 resolveScreenshotSaveDir 防止 macOS 下写入只读根目录 `/`）
   let finalPath: string | null = null
   const needSaveFile = config.screenShotSaveWay !== ScreenShotSaveWayEnum.CilpboardOnly
@@ -679,6 +766,58 @@ export async function performScreenshot(
   const readNamingActive = async () => {
     if (namingActive === undefined) namingActive = await getActiveWindowInfo()
     return namingActive
+  }
+
+  // SCMP v1.0 截图元数据组装与无损注入
+  let scmpMetadata: SCMPMetadata | undefined
+  const privacySettings: SCMPPrivacySettings = {
+    enabled: config.metadataRecordingEnabled !== false,
+    recordAppName: config.recordAppName !== false,
+    recordAppId: config.recordAppId !== false,
+    recordWindowTitle: Boolean(config.recordWindowTitle),
+    recordTriggerDevice: config.recordTriggerDevice !== false,
+    recordTechnicalContext: true,
+  }
+
+  if (config.metadataRecordingEnabled !== false) {
+    const active = await readNamingActive()
+    scmpMetadata = {
+      schemaVersion: '1.0.0',
+      createDate: new Date().toISOString(),
+      captureTarget: config.captureTargetType === CaptureTargetTypeEnum.Window ? 'window' : 'screen',
+      captureEngine:
+        config.screenshotWay === ScreenShotWayEnum.OBS
+          ? 'obs'
+          : process.platform === 'darwin'
+            ? 'screencapture'
+            : 'node-screenshots',
+      triggerWay: options?.triggerWay || (config.keyboardTrigger ? 'keyboard' : 'gamepad'),
+      triggerDevice: options?.triggerDevice || (config.keyboardTrigger ? 'Keyboard' : 'Gamepad'),
+      triggerCombo:
+        options?.triggerCombo ||
+        (config.comboKeys && config.comboKeys.length > 0 ? config.comboKeys.join('+') : undefined),
+      appName: active?.owner?.name,
+      appId: active?.owner?.path,
+      windowTitle: active?.title,
+      platform: `${process.platform}-${process.arch}`,
+      colorSpace: process.platform === 'darwin' ? 'Display P3' : 'sRGB',
+    }
+
+    const storageMode = config.metadataStorageMode || 'embedIfSupported'
+    if (storageMode === 'embedIfSupported' || storageMode === 'both') {
+      try {
+        if (['png', 'jpg', 'jpeg', 'webp'].includes(format)) {
+          buffer = injectMetadataToBuffer(
+            buffer,
+            format as 'png' | 'jpg' | 'jpeg' | 'webp',
+            scmpMetadata,
+            privacySettings,
+          )
+        }
+      } catch (injectErr) {
+        console.warn('[ScreenshotCore] Failed to embed metadata chunk losslessly:', injectErr)
+      }
+    }
   }
 
   if (needSaveFile) {
@@ -721,6 +860,17 @@ export async function performScreenshot(
       try {
         fs.writeFileSync(candidatePath, buffer)
         finalPath = candidatePath
+
+        // 如果配置了需要写 Sidecar (.xmp)
+        const storageMode = config.metadataStorageMode || 'embedIfSupported'
+        if (scmpMetadata && (storageMode === 'sidecarOnly' || storageMode === 'both')) {
+          try {
+            const xmpXml = serializeSCMPToXmp(scmpMetadata, privacySettings)
+            await writeSidecar(candidatePath, xmpXml, config.sidecarNaming)
+          } catch (sidecarErr) {
+            console.warn('[ScreenshotCore] Failed to write sidecar file:', sidecarErr)
+          }
+        }
       } catch (err: any) {
         return {
           ok: false,
@@ -734,11 +884,16 @@ export async function performScreenshot(
 
   if (needClipboard && options?.writeClipboard) {
     try {
-      options.writeClipboard(buffer)
+      // 剪贴板兼容性关键设计：系统剪贴板（如 Windows System.Drawing / macOS «class PNGf»）不识别 WebP/AVIF，
+      // 对于 WebP/AVIF 输出，剪贴板优先写入兼容性最佳的无损 rawPngBuffer。
+      const clipBuffer = format === 'webp' || format === 'avif' ? rawPngBuffer : buffer
+      options.writeClipboard(clipBuffer)
     } catch (e) {
       console.warn('[ScreenshotCore] Failed to write clipboard:', e)
     }
   }
+
+  const finalActiveWin = await readNamingActive()
 
   return {
     ok: true,
@@ -746,5 +901,8 @@ export async function performScreenshot(
     timestamp: Date.now(),
     format,
     sizeBytes: buffer.length,
+    appName: finalActiveWin?.owner?.name || undefined,
+    windowTitle: finalActiveWin?.title || undefined,
+    scmp: scmpMetadata,
   }
 }

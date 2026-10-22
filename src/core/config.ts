@@ -179,7 +179,21 @@ export async function loadFullConfig(storage: IConfigStorage, deviceName?: strin
 
   // 补齐缺省值
   if (!result.fileNameTemplate?.trim()) result.fileNameTemplate = 'Screenshot_%timestamp%'
-  if (!result.imageFormat) result.imageFormat = 'jpg'
+  if (!result.imageFormat || !['jpg', 'png', 'webp', 'avif'].includes(result.imageFormat)) {
+    result.imageFormat = 'jpg'
+  }
+  if (
+    typeof result.imageQuality !== 'number' ||
+    Number.isNaN(result.imageQuality) ||
+    result.imageQuality < 1 ||
+    result.imageQuality > 100
+  ) {
+    result.imageQuality = 90
+  }
+  result.imageLossless = Boolean(result.imageLossless)
+  if (typeof result.imageEffort !== 'number' || Number.isNaN(result.imageEffort)) {
+    result.imageEffort = 4
+  }
 
   return result
 }

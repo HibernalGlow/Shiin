@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module'
 import Schema from '@deepseek-ai/schemastery'
 import { defineNode, type NodeHandlers } from './sdk/index.js'
-import { ScreenshotManager, ScreenShotWayEnum, CaptureTargetTypeEnum, ScreenShotSaveWayEnum } from '../core/index.js'
+import { ScreenshotManager, ScreenShotWayEnum, CaptureTargetTypeEnum, ScreenShotSaveWayEnum, type ImageFormat } from '../core/index.js'
 
 export const name = '@hibernalglow/xaihi-shiin'
 
@@ -9,7 +9,9 @@ export const inject = ['commands']
 
 export interface Config {
   screenshotPath: string
-  imageFormat: 'jpg' | 'png'
+  imageFormat: ImageFormat
+  imageQuality: number
+  imageLossless: boolean
   obsIp: string
   obsPort: number
   obsPassword: string
@@ -18,7 +20,9 @@ export interface Config {
 
 export const Config = Schema.object({
   screenshotPath: Schema.string().default('').description('默认截图保存目录（留空则保存在运行目录下的 screenshots 文件夹）'),
-  imageFormat: Schema.union(['jpg', 'png']).default('jpg').description('图片格式 (jpg 或 png)'),
+  imageFormat: Schema.union(['jpg', 'png', 'webp', 'avif']).default('jpg').description('图片格式 (jpg, png, webp, avif)'),
+  imageQuality: Schema.number().min(1).max(100).default(90).description('图片编码质量 (1-100)'),
+  imageLossless: Schema.boolean().default(false).description('是否开启无损编码 (适用于 WebP / AVIF)'),
   obsIp: Schema.string().default('127.0.0.1').description('OBS WebSocket 服务器 IP'),
   obsPort: Schema.number().default(4455).description('OBS WebSocket 服务器端口'),
   obsPassword: Schema.string().role('secret').default('').description('OBS WebSocket 访问密码'),
@@ -47,6 +51,8 @@ export function apply(ctx: any, config: Config): void {
   void manager.init().then(() => {
     if (config.screenshotPath) manager.config.path = config.screenshotPath
     if (config.imageFormat) manager.config.imageFormat = config.imageFormat
+    if (config.imageQuality) manager.config.imageQuality = config.imageQuality
+    if (config.imageLossless !== undefined) manager.config.imageLossless = config.imageLossless
     if (config.obsIp) manager.config.obsIp = config.obsIp
     if (config.obsPort) manager.config.obsPort = config.obsPort
     if (config.obsPassword) manager.config.obsPassword = config.obsPassword

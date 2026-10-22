@@ -1,6 +1,7 @@
 import OBSWebSocket from 'obs-websocket-js'
-import type { ScreenshotConfig, ScreenshotResult } from './types.js'
+import type { ScreenshotConfig, ScreenshotResult, ImageFormat } from './types.js'
 import { formatFileName } from './filename.js'
+import { encodeImageBuffer } from './screenshot.js'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -78,14 +79,23 @@ export class OBSManager {
       const currentProgram = await this.obs.call('GetCurrentProgramScene')
       const sceneName = currentProgram.currentProgramSceneName
 
-      const imgFormat = config.imageFormat === 'png' ? 'png' : 'jpg'
+      const targetFormat: ImageFormat = config.imageFormat || 'jpg'
+      // 从 OBS 获取无损 PNG 数据源
       const response = await this.obs.call('GetSourceScreenshot', {
         sourceName: sceneName,
-        imageFormat: imgFormat,
+        imageFormat: 'png',
       })
 
       const base64Data = response.imageData.replace(/^data:image\/\w+;base64,/, '')
-      const buffer = Buffer.from(base64Data, 'base64')
+      const rawPngBuffer = Buffer.from(base64Data, 'base64')
+
+      // 通过统一编码管线编码为目标格式
+      const buffer = await encodeImageBuffer(rawPngBuffer, {
+        format: targetFormat,
+        quality: config.imageQuality,
+        lossless: config.imageLossless,
+        effort: config.imageEffort,
+      })
 
       let saveDir = config.path?.trim() || path.join(process.cwd(), 'screenshots')
       if (!fs.existsSync(saveDir)) {
@@ -93,15 +103,17 @@ export class OBSManager {
       }
 
       const fileName = formatFileName(config.fileNameTemplate)
-      const filePath = path.join(saveDir, `${fileName}.${imgFormat}`)
+      const filePath = path.join(saveDir, `${fileName}.${targetFormat}`)
       fs.writeFileSync(filePath, buffer)
 
       return {
         ok: true,
         filePath,
         timestamp: Date.now(),
-        format: imgFormat,
+        format: targetFormat,
         sizeBytes: buffer.length,
+        appName: 'OBS Studio',
+        windowTitle: sceneName || 'OBS Scene',
       }
     } catch (err: any) {
       return {

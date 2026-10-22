@@ -12,6 +12,7 @@ import {
   type CaptureWindowInfo,
   type ScreenshotConfig,
   type WindowCaptureMode,
+  type ImageFormat,
 } from '../../core/types.js'
 import type {
   InteractionField,
@@ -23,7 +24,6 @@ import type {
 import type { Translator } from './i18n.js'
 
 export type CaptureTarget = 'screen' | 'window'
-export type ImageFormat = 'jpg' | 'png'
 
 export interface ShiinPlan {
   target: CaptureTarget
@@ -33,6 +33,8 @@ export interface ShiinPlan {
   windowId: string
   saveWay: ScreenShotSaveWayEnum
   format: ImageFormat
+  quality?: number
+  lossless?: boolean
   path: string
   /** 是否按当前活动窗口标题在保存目录下自动创建并归档到子文件夹。 */
   saveByActiveWinTitle: boolean
@@ -66,6 +68,8 @@ export function planToPatch(plan: ShiinPlan): Partial<ScreenshotConfig> {
       : {}),
     screenShotSaveWay: plan.saveWay,
     imageFormat: plan.format,
+    ...(plan.quality !== undefined ? { imageQuality: plan.quality } : {}),
+    ...(plan.lossless !== undefined ? { imageLossless: plan.lossless } : {}),
     path: plan.path,
     saveByActiveWinTitle: plan.saveByActiveWinTitle,
   }
@@ -77,7 +81,9 @@ export function planFromConfig(config: ScreenshotConfig, overridePath?: string):
     windowMode: config.windowCaptureMode === 'specified' ? 'specified' : 'focused',
     windowId: config.windowSourceId === undefined || config.windowSourceId === null ? '' : String(config.windowSourceId),
     saveWay: config.screenShotSaveWay ?? ScreenShotSaveWayEnum.FileOnly,
-    format: config.imageFormat === 'png' ? 'png' : 'jpg',
+    format: config.imageFormat || 'jpg',
+    quality: config.imageQuality ?? 90,
+    lossless: Boolean(config.imageLossless),
     path: overridePath ?? config.path ?? '',
     saveByActiveWinTitle: Boolean(config.saveByActiveWinTitle),
   }
@@ -143,6 +149,8 @@ export function createCaptureSchema(context: ShiinContext, t: Translator): Termi
       options: [
         { value: 'jpg', label: t('formatJpg') },
         { value: 'png', label: t('formatPng') },
+        { value: 'webp', label: 'WebP' },
+        { value: 'avif', label: 'AVIF' },
       ],
       visibleWhen: writesFile,
     },
@@ -163,7 +171,7 @@ export function createCaptureSchema(context: ShiinContext, t: Translator): Termi
     {
       id: 'saveByActiveWinTitle',
       label: t('saveByActiveWinTitle'),
-      kind: 'confirm',
+      kind: 'boolean',
       description: t('saveByActiveWinTitleHint'),
       visibleWhen: writesFile,
     },
@@ -211,6 +219,7 @@ export function createCaptureSchema(context: ShiinContext, t: Translator): Termi
       saveWay: values.saveWay as ScreenShotSaveWayEnum,
       format: values.format === 'png' ? 'png' : 'jpg',
       path: String(values.path ?? '').trim(),
+      saveByActiveWinTitle: Boolean(values.saveByActiveWinTitle),
     }),
     validate: (values, planned) => {
       if (planned.target === 'window' && planned.windowMode === 'specified' && !planned.windowId) {

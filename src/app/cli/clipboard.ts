@@ -10,6 +10,7 @@ import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import type { ImageFormat } from '../../core/types.js'
 
 function run(command: string, args: string[]): boolean {
   try {
@@ -28,16 +29,25 @@ export function clipboardImageSupported(): boolean {
 }
 
 /** 把一张图片写进系统剪贴板；返回是否成功。 */
-export function writeImageToClipboard(buffer: Buffer, format: 'jpg' | 'png'): boolean {
+export function writeImageToClipboard(buffer: Buffer, format: ImageFormat | string): boolean {
+  // 检查 buffer 魔数：如果实际数据是 PNG（例如核心层对 WebP/AVIF 输出做了剪贴板解耦），直接按 PNG 处理
+  const isActuallyPng =
+    buffer.length >= 8 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47
+
+  const effectiveFormat = isActuallyPng ? 'png' : format
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shiin-clip-'))
-  const source = path.join(tempDir, `capture.${format}`)
+  const source = path.join(tempDir, `capture.${effectiveFormat}`)
   fs.writeFileSync(source, buffer)
 
   try {
     if (process.platform === 'darwin') {
       // AppleScript 只认 PNG；JPEG 先让 sips 转一份。
-      const png = format === 'png' ? source : path.join(tempDir, 'capture.png')
-      if (format !== 'png' && !run('sips', ['-s', 'format', 'png', source, '--out', png])) return false
+      const png = effectiveFormat === 'png' ? source : path.join(tempDir, 'capture.png')
+      if (effectiveFormat !== 'png' && !run('sips', ['-s', 'format', 'png', source, '--out', png])) return false
       const script = `set the clipboard to (read (POSIX file "${png}") as «class PNGf»)`
       return run('osascript', ['-e', script])
     }
@@ -52,7 +62,7 @@ export function writeImageToClipboard(buffer: Buffer, format: 'jpg' | 'png'): bo
       return run('powershell', ['-NoProfile', '-STA', '-Command', script])
     }
     if (process.platform === 'linux') {
-      const mime = format === 'png' ? 'image/png' : 'image/jpeg'
+      const mime = effectiveFormat === 'png' ? 'image/png' : 'image/jpeg'
       if (run('xclip', ['-selection', 'clipboard', '-t', mime, '-i', source])) return true
       try {
         return spawnSync('wl-copy', ['--type', mime], { input: fs.readFileSync(source) }).status === 0
@@ -67,7 +77,7 @@ export function writeImageToClipboard(buffer: Buffer, format: 'jpg' | 'png'): bo
 }
 
 /** 给核心层用的回调：成功返回 void，失败抛出可读错误（核心只做 warn，不会中断截图）。 */
-export function createClipboardWriter(format: 'jpg' | 'png'): (buffer: Buffer) => void {
+export function createClipboardWriter(format: ImageFormat | string): (buffer: Buffer) => void {
   return (buffer: Buffer) => {
     if (!writeImageToClipboard(buffer, format)) {
       throw new Error('clipboard tool unavailable')
