@@ -18,7 +18,7 @@ import {
   type Md3eShapePreferences,
 } from './md3e-shapes.js'
 import { TitleBar } from './components/TitleBar.js'
-import { AppIcon } from './components/AppIcon.js'
+import { CaptureDock, type WorkspaceDestination } from './components/CaptureDock.js'
 import { ElectronHostBridge } from './adapter/electron.js'
 import { formatGamepadKey } from './gamepad-utils.js'
 import {
@@ -36,8 +36,31 @@ import { WorkspaceView } from './components/WorkspaceView.js'
 import { SETTINGS_BENTO_CSS } from './components/settings-bento-css.js'
 import type { MacOSPermissionsStatus } from './adapter/types.js'
 import { registerExpressiveStyles } from './expressive-theme.js'
+import { AnalyticsDashboardView } from './components/dashboard/AnalyticsDashboardView.js'
+import {
+  FeedbackHost,
+  useFeedbackManager,
+  type FeedbackNotice,
+} from './components/feedback/index.js'
+import { useTheme } from './useTheme.js'
+import {
+  type ActivityStatsData,
+  GamepadEdgeDetector,
+  createSeedStatsData,
+  createEmptyStatsData,
+  recordScreenshot,
+  recordButtonPress,
+  recordListenToggle,
+  recordObsReplay,
+} from '../core/stats.js'
+import {
+  type DashboardLayoutConfig,
+  getDefaultDashboardLayout,
+  normalizeDashboardLayout,
+} from './dashboard-layout.js'
+import { getButtonDisplayName } from './components/dashboard/dashboard-utils.js'
 
-type Lens = 'workspace' | 'settings'
+type Lens = WorkspaceDestination
 
 export const App: React.FC = () => {
   const reduceMotion = useReducedMotion()
@@ -47,7 +70,15 @@ export const App: React.FC = () => {
   const [captureResult, setCaptureResult] = React.useState<ScreenshotResult | null>(null)
   const bridge = React.useMemo(() => new ElectronHostBridge(), [])
 
-  const [lens, setLens] = React.useState<Lens>('workspace')
+  const [lens, setLens] = React.useState<Lens>(() => {
+    if (typeof window !== 'undefined') {
+      const qLens = new URLSearchParams(window.location.search).get('lens')
+      if (qLens === 'workspace' || qLens === 'analytics' || qLens === 'settings') {
+        return qLens as Lens
+      }
+    }
+    return 'workspace'
+  })
   const [permissionRequest, setPermissionRequest] = React.useState(0)
   const [settingsSection, setSettingsSection] = React.useState<'general' | 'permissions'>('general')
   const [saveState, setSaveState] = React.useState<'saved' | 'saving' | 'error'>('saved')
@@ -56,7 +87,27 @@ export const App: React.FC = () => {
   const saveQueue = React.useRef(Promise.resolve())
   const queuedSaves = React.useRef(0)
 
-  const [config, setConfig] = React.useState<ScreenshotConfig>({ ...DEFAULT_CONFIG })
+  const [config, setConfig] = React.useState<ScreenshotConfig>(() => {
+    const base = { ...DEFAULT_CONFIG }
+    if (typeof window !== 'undefined') {
+      const q = new URLSearchParams(window.location.search)
+      const qTheme = q.get('theme')
+      if (qTheme === 'light' || qTheme === 'dark' || qTheme === 'auto') {
+        base.theme = qTheme as any
+      }
+      if (
+        q.get('enableHub') === 'true' ||
+        q.get('enableHub') === '1' ||
+        q.get('hub') === 'inbox' ||
+        q.get('hub') === 'workflows' ||
+        q.get('hub') === 'detail'
+      ) {
+        base.enableCaptureHub = true
+      }
+    }
+    return base
+  })
+  const effectiveTheme = useTheme(config.theme)
   const [listening, setListening] = React.useState<boolean>(false)
   const [gamepads, setGamepads] = React.useState<GamepadDeviceInfo[]>([])
   const [selectedGamepadIndex, setSelectedGamepadIndex] = React.useState<number>(0)
@@ -89,8 +140,33 @@ export const App: React.FC = () => {
   const [hasUpdate, setHasUpdate] = React.useState<boolean>(false)
   const [maximized, setMaximized] = React.useState<boolean>(false)
   const [macPermissions, setMacPermissions] = React.useState<MacOSPermissionsStatus | null>(null)
+
+  const {
+    notices: feedbackNotices,
+    showNotice,
+    showScreenshot,
+    showTask,
+    dismiss: dismissNotice,
+    pauseTimer,
+    resumeTimer,
+  } = useFeedbackManager(locale)
+
   const [lastNotice, updateLastNotice] = React.useState({ text: '', revision: 0 })
-  const setLastNotice = (text: string) => updateLastNotice(current => ({ text, revision: current.revision + 1 }))
+  const setLastNotice = React.useCallback(
+    (text: string, options?: Partial<FeedbackNotice>) => {
+      updateLastNotice((current) => ({ text, revision: current.revision + 1 }))
+      if (text) {
+        showNotice(text, options)
+      }
+    },
+    [showNotice]
+  )
+  const [stats, setStats] = React.useState<ActivityStatsData>(createSeedStatsData)
+  const [dashboardLayout, setDashboardLayout] = React.useState<DashboardLayoutConfig>(getDefaultDashboardLayout)
+  const statsRef = React.useRef<ActivityStatsData>(stats)
+  statsRef.current = stats
+  const edgeDetectorRef = React.useRef<GamepadEdgeDetector>(new GamepadEdgeDetector())
+  const listeningStartTimeRef = React.useRef<number>(0)
   const localeRef = React.useRef(locale)
   localeRef.current = locale
 
@@ -120,6 +196,15 @@ export const App: React.FC = () => {
       const savedShapes = await bridge.getStore('shapePreferences', DEFAULT_SHAPE_PREFERENCES)
       setShapePreferences(normalizeShapePreferences(savedShapes))
 
+      const savedStats = await bridge.getStore('shiin_activity_stats', null)
+      if (savedStats && typeof savedStats === 'object' && 'version' in (savedStats as any)) {
+        setStats(savedStats as ActivityStatsData)
+      }
+      const savedLayout = await bridge.getStore('shiin_dashboard_layout', null)
+      if (savedLayout) {
+        setDashboardLayout(normalizeDashboardLayout(savedLayout))
+      }
+
       if (bridge.getAutoStart) {
         const auto = await bridge.getAutoStart()
         setConfig((prev) => ({ ...prev, autoStart: auto }))
@@ -130,9 +215,20 @@ export const App: React.FC = () => {
           const perms = await bridge.getMacOSPermissions({ activeProbe: false })
           setMacPermissions(perms)
           if (perms.isMac && !perms.screenCapture) {
-            setLastNotice(savedLocale.startsWith('zh')
-              ? '屏幕录制权限待授权，可在设置中开启'
-              : 'Screen recording permission is required')
+            showTask({
+              id: 'perm-screen',
+              title: savedLocale.startsWith('zh') ? '需要屏幕录制权限' : 'Screen Recording Required',
+              message: savedLocale.startsWith('zh')
+                ? '授权后才能捕获屏幕画面。请在系统设置中允许 Shiin。'
+                : 'Grant Screen Recording access in macOS Settings to capture game screens.',
+              action: {
+                label: savedLocale.startsWith('zh') ? '打开系统设置' : 'Open Settings',
+                onClick: () => {
+                  openPermissions()
+                  if (bridge.openMacOSPreference) void bridge.openMacOSPreference('screen')
+                },
+              },
+            })
           }
         } catch {
           setLastNotice(savedLocale.startsWith('zh') ? '暂时无法检测系统权限，请检查本地服务。' : 'System access could not be checked. Check the local service.')
@@ -166,31 +262,54 @@ export const App: React.FC = () => {
       }
 
       const devs = await bridge.getConnectedGamepads()
-      if (devs.length > 0) setGamepads(devs)
+      if (devs.length > 0) {
+        setGamepads(devs)
+        void bridge.openGamepad(devs[0])
+      }
 
       setScreens(await bridge.getScreenSources())
       setWindows(await bridge.getCaptureWindows())
     })()
 
-    const unbindListen = bridge.onListeningStateChanged((state) => setListening(state))
+    const unbindListen = bridge.onListeningStateChanged((state) => {
+      setListening(state)
+      const duration = state ? 0 : (listeningStartTimeRef.current > 0 ? Date.now() - listeningStartTimeRef.current : 0)
+      if (state) listeningStartTimeRef.current = Date.now()
+      else listeningStartTimeRef.current = 0
+      const updated = recordListenToggle(statsRef.current, state, duration)
+      statsRef.current = updated
+      setStats(updated)
+      persistSetting('shiin_activity_stats', updated)
+    })
     const unbindDevices = bridge.onGamepadDevicesChanged?.((devs) => {
       if (Array.isArray(devs)) setGamepads(devs)
     })
     const unbindScreenshot = bridge.onScreenshotCompleted?.((res) => {
       setCaptureResult(res)
       if (res?.ok) {
+        const updated = recordScreenshot(statsRef.current, {
+          filePath: res.filePath,
+          appName: res.appName,
+          windowTitle: res.windowTitle,
+          format: res.format,
+          isListening: listeningStartTimeRef.current > 0,
+        })
+        statsRef.current = updated
+        setStats(updated)
+        persistSetting('shiin_activity_stats', updated)
+
         const current = configRef.current
         if (current.sound && current.sound !== 'None') {
           void playCaptureSound(current.sound, current.soundPower)
         }
-        setLastNotice(
-          localeRef.current.startsWith('zh')
-            ? `截图成功: ${res.filePath || '已写入系统剪贴板'}`
-            : `Captured: ${res.filePath || 'Clipboard'}`
-        )
+        showScreenshot(res)
       }
     })
     const unbindObsReplay = bridge.onObsReplayCompleted?.((res) => {
+      const updated = recordObsReplay(statsRef.current, Boolean(res?.ok), res?.error, listeningStartTimeRef.current > 0)
+      statsRef.current = updated
+      setStats(updated)
+      persistSetting('shiin_activity_stats', updated)
       if (res?.ok) {
         setLastNotice(localeRef.current.startsWith('zh') ? 'OBS 回放缓冲已保存' : 'OBS replay buffer saved')
       }
@@ -255,9 +374,23 @@ export const App: React.FC = () => {
       const currentAxes = await bridge.getCurrentAxes()
       setAxes(currentAxes)
 
+      if (currentButtons && currentButtons.length > 0) {
+        edgeDetectorRef.current.processButtons(currentButtons, (_btnIdx, btnKey) => {
+          const activeDev = gamepads.find((g) => g._index === selectedGamepadIndex) || gamepads[0]
+          const prettyName = getButtonDisplayName(btnKey, localeRef.current.startsWith('zh'))
+          const updated = recordButtonPress(statsRef.current, btnKey, prettyName, activeDev?.name)
+          statsRef.current = updated
+          setStats(updated)
+          persistSetting('shiin_activity_stats', updated)
+        })
+      }
+
       const hasAnyInput =
         (currentButtons && currentButtons.some(Boolean)) ||
         (currentAxes && currentAxes.some((value) => Math.abs(value) > 0.15))
+      if (hasAnyInput && bridge.syncWebGamepad) {
+        void bridge.syncWebGamepad(gamepads, currentButtons, currentAxes)
+      }
       if ((gamepads.length === 0 && hasAnyInput) || tick % 30 === 0) {
         void refreshGamepads()
       }
@@ -396,14 +529,21 @@ export const App: React.FC = () => {
     const result = await bridge.capture(config)
     setCaptureResult(result ?? { ok: false, error: locale.startsWith('zh') ? '捕获服务未返回结果' : 'Capture service returned no result', timestamp: Date.now(), format: config.imageFormat })
     if (result?.ok) {
+      const updated = recordScreenshot(statsRef.current, {
+        filePath: result.filePath,
+        appName: result.appName,
+        windowTitle: result.windowTitle,
+        format: result.format,
+        isListening: listening,
+      })
+      statsRef.current = updated
+      setStats(updated)
+      persistSetting('shiin_activity_stats', updated)
+
       if (config.sound && config.sound !== 'None') {
         void playCaptureSound(config.sound, config.soundPower)
       }
-      setLastNotice(
-        locale.startsWith('zh')
-          ? `截图成功: ${result.filePath || '已写入系统剪贴板'}`
-          : `Captured: ${result.filePath || 'Clipboard'}`
-      )
+      showScreenshot(result)
       bridge.showNotification?.(
         locale.startsWith('zh') ? '截图已保存' : 'Screenshot Saved',
         result.filePath || (locale.startsWith('zh') ? '已复制至系统剪贴板' : 'Copied to clipboard'),
@@ -463,6 +603,10 @@ export const App: React.FC = () => {
 
   const handleSaveOBS = async () => {
     const result = await bridge.saveOBSReplay()
+    const updated = recordObsReplay(statsRef.current, Boolean(result?.ok), result?.error, listening)
+    statsRef.current = updated
+    setStats(updated)
+    persistSetting('shiin_activity_stats', updated)
     setLastNotice(
       result?.ok
         ? locale.startsWith('zh')
@@ -472,6 +616,27 @@ export const App: React.FC = () => {
           ? `OBS 回放保存失败: ${result?.error}`
           : `OBS replay failed: ${result?.error}`
     )
+  }
+
+  const handleClearStats = () => {
+    const empty = createEmptyStatsData()
+    statsRef.current = empty
+    setStats(empty)
+    persistSetting('shiin_activity_stats', empty)
+    setLastNotice(locale.startsWith('zh') ? '已清空统计数据与事件流' : 'Cleared statistics & activity stream')
+  }
+
+  const handleSeedStats = () => {
+    const seed = createSeedStatsData()
+    statsRef.current = seed
+    setStats(seed)
+    persistSetting('shiin_activity_stats', seed)
+    setLastNotice(locale.startsWith('zh') ? '已载入演示数据（包含《终末地》等）' : 'Loaded demo statistics')
+  }
+
+  const handleSaveDashboardLayout = (nextLayout: DashboardLayoutConfig) => {
+    setDashboardLayout(nextLayout)
+    persistSetting('shiin_dashboard_layout', nextLayout)
   }
 
   const handleOpenFolder = () => {
@@ -548,26 +713,6 @@ export const App: React.FC = () => {
     setWindows(await bridge.getCaptureWindows())
   }
 
-  const navigationItems = React.useMemo(
-    () => [
-      {
-        id: 'workspace',
-        label: isZh ? '工作台' : 'Workspace',
-        shortLabel: isZh ? '工作台' : 'Work',
-        title: isZh ? '工作台' : 'Workspace',
-        icon: <AppIcon name="monitor" size={19} />,
-      },
-      {
-        id: 'settings',
-        label: isZh ? '设置' : 'Settings',
-        shortLabel: isZh ? '设置' : 'Settings',
-        title: isZh ? '设置' : 'Settings',
-        icon: <AppIcon name="settings" size={19} />,
-      },
-    ],
-    [isZh]
-  )
-
   const selectLens = (next: Lens) => {
     setSettingsSection('general')
     setLens(next)
@@ -581,7 +726,7 @@ export const App: React.FC = () => {
       session={shapeSession}
       onPreferencesChange={handleShapePreferencesChange}
     >
-      <div className="shiin-shell">
+      <div className="shiin-shell" data-theme={effectiveTheme}>
         <TitleBar
           listening={listening}
           uiScale={uiScale}
@@ -604,31 +749,31 @@ export const App: React.FC = () => {
           }}
           onClose={() => bridge.closeWindow?.()}
           isMac={bridge.isMac}
+          isWeb={bridge.isWeb}
           permissions={macPermissions}
           onOpenPermissions={openPermissions}
+          destination={lens}
+          onNavigate={selectLens}
+          onCapture={() => void handleCapture()}
+          capturePending={capturePending}
         />
 
         <div className="shiin-app-layout">
-          <nav className="shiin-tabs" role="tablist" aria-label={isZh ? '主导航' : 'Main navigation'}>
-            {navigationItems.map((item, index) => (
-              <button key={item.id} id={`tab-${item.id}`} type="button" role="tab"
-                aria-selected={lens === item.id} aria-controls="shiin-main-panel"
-                tabIndex={lens === item.id ? 0 : -1}
-                onClick={() => selectLens(item.id as Lens)}
-                onKeyDown={(event) => {
-                  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
-                  event.preventDefault()
-                  const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index
-                  selectLens(navigationItems[next].id as Lens)
-                  document.getElementById(`tab-${navigationItems[next].id}`)?.focus()
-                }}>
-                {item.icon}<span>{item.label}</span>
-                {lens === item.id && <motion.span className="shiin-tab-indicator" layoutId="primary-tab" transition={{ type: 'spring', stiffness: 420, damping: 32 }} />}
-              </button>
-            ))}
-          </nav>
-
-          <main id="shiin-main-panel" role="tabpanel" aria-labelledby={`tab-${lens}`} className="shiin-node" data-testid="shiin-app" data-ui-variant="expressive" data-surface="bento" data-lens={lens}>
+          <CaptureDock
+            destination={lens}
+            onNavigate={selectLens}
+            locale={locale}
+            listening={listening}
+            pending={capturePending}
+            result={captureResult}
+            notice={lastNotice.text}
+            noticeRevision={lastNotice.revision}
+            onCapture={() => void handleCapture()}
+            onToggleListen={() => void handleToggleListen()}
+            onSaveOBS={() => void handleSaveOBS()}
+            onOpenFolder={handleOpenFolder}
+          />
+          <main id="shiin-main-panel" role="tabpanel" aria-label={lens === 'workspace' ? (isZh ? '工作台' : 'Workspace') : lens === 'analytics' ? (isZh ? '统计' : 'Analytics') : (isZh ? '设置' : 'Settings')} className="shiin-node" data-testid="shiin-app" data-ui-variant="expressive" data-surface="bento" data-lens={lens}>
             <AnimatePresence mode="wait" initial={false}>
             <motion.div className="shiin-view-transition" key={lens}
               onAnimationStart={() => { if (settingsSection !== 'permissions') document.getElementById('shiin-main-panel')?.scrollTo({ top: 0 }) }}
@@ -636,13 +781,13 @@ export const App: React.FC = () => {
               exit={{ opacity: 0, y: reduceMotion ? 0 : -8 }} transition={{ duration: reduceMotion ? 0 : 0.18 }}>
               {lens === 'workspace' ? (
                 <WorkspaceView
-                  capturePending={capturePending}
-                  captureResult={captureResult}
                   config={config}
                   onChange={patchConfig}
                   listening={listening}
-                  onToggleListen={() => void handleToggleListen()}
+                  capturePending={capturePending}
+                  captureResult={captureResult}
                   onCapture={() => void handleCapture()}
+                  onToggleListen={() => void handleToggleListen()}
                   onSaveOBS={() => void handleSaveOBS()}
                   onOpenFolder={handleOpenFolder}
                   onSelectFolder={() => void handleSelectFolder()}
@@ -668,9 +813,18 @@ export const App: React.FC = () => {
                   onRefreshGamepads={() => {
                     void bridge.getConnectedGamepads().then((devices) => setGamepads(devices))
                   }}
-                  lastNotice={lastNotice.text}
-                  noticeRevision={lastNotice.revision}
                   locale={locale}
+                />
+              ) : lens === 'analytics' ? (
+                <AnalyticsDashboardView
+                  stats={stats}
+                  listening={listening}
+                  activeDeviceName={gamepads.find((g) => g._index === selectedGamepadIndex)?.name || gamepads[0]?.name}
+                  locale={locale}
+                  initialLayout={dashboardLayout}
+                  onSaveLayout={handleSaveDashboardLayout}
+                  onClearData={handleClearStats}
+                  onSeedDemoData={handleSeedStats}
                 />
               ) : (
                 <SettingsView
@@ -722,20 +876,17 @@ export const App: React.FC = () => {
             </AnimatePresence>
           </main>
 
-          {lens === 'workspace' && <div className="shiin-mobile-toolbar" role="toolbar" aria-label={isZh ? '截图操作' : 'Capture actions'}>
-            <motion.button type="button" className="shiin-mobile-capture" disabled={capturePending} aria-busy={capturePending}
-              whileTap={reduceMotion ? undefined : { scale: 0.96 }} onClick={() => void handleCapture()}>
-              <AppIcon name={capturePending ? 'clock' : 'camera'} size={22} />
-              {capturePending ? (isZh ? '正在截图…' : 'Capturing…') : (isZh ? '立即截图' : 'Capture now')}
-            </motion.button>
-            <button type="button" aria-pressed={listening} onClick={() => void handleToggleListen()}>
-              <AppIcon name={listening ? 'stop' : 'play'} size={20} />
-              <span>{listening ? (isZh ? '暂停' : 'Pause') : (isZh ? '监听' : 'Listen')}</span>
-            </button>
-            <button type="button" onClick={() => void handleSaveOBS()}><AppIcon name="wave" size={20} /><span>{isZh ? '回放' : 'Replay'}</span></button>
-          </div>}
-
         </div>
+
+        <FeedbackHost
+          notices={feedbackNotices}
+          locale={locale}
+          theme={effectiveTheme}
+          onDismiss={dismissNotice}
+          onOpenFolder={handleOpenFolder}
+          onPauseTimer={pauseTimer}
+          onResumeTimer={resumeTimer}
+        />
 
         <UpdateDialog open={updateDialogOpen} onClose={() => setUpdateDialogOpen(false)} />
       </div>

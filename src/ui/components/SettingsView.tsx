@@ -18,6 +18,7 @@ import { BentoSelect, Md3eMorphShape } from './bento-controls.js'
 import { ScreenshotSoundEnum, type ScreenshotConfig } from '../../core/types.js'
 import type { MacOSPermissionsStatus, PermissionTargetType, ScreenshotPermissionTestResult } from '../adapter/types.js'
 import { PermissionSettings } from './PermissionSettings.js'
+import { ScreenCornerPicker } from './ScreenCornerPicker.js'
 
 export interface SettingsViewProps {
   config: ScreenshotConfig
@@ -28,6 +29,7 @@ export interface SettingsViewProps {
   onOpenFolder?: () => void
   onSelectFolder?: () => void
   onSelectLocale?: (locale: string) => void
+  onTestNotification?: () => void
   appVersion?: string
   locale?: string
   isMac?: boolean
@@ -56,6 +58,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onOpenFolder,
   onSelectFolder,
   onSelectLocale,
+  onTestNotification,
   appVersion = '2.0.0',
   locale = 'zh',
   isMac = false,
@@ -171,17 +174,39 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const testNotification = async () => {
     const { playCaptureSound } = await import('../audio.js')
     void playCaptureSound(config.sound, config.soundPower)
-    if ((window as any).electronAPI?.showScreenshotNotification) {
+    const title = isZh ? '截图测试通知' : 'Screenshot toast test'
+    const desc = isZh ? '通知浮层与音效工作正常' : 'Toast and sound are working properly'
+    if (onTestNotification) {
+      onTestNotification()
+    } else if ((window as any).electronAPI?.showScreenshotNotification) {
       void (window as any).electronAPI.showScreenshotNotification({
-        title: isZh ? '截图测试通知' : 'Screenshot toast test',
-        desc: isZh ? '通知浮层与音效工作正常' : 'Toast and sound are working properly',
+        title,
+        desc,
         duration: 3500,
+        position: config.overlayNotifyPosition,
+        scale: config.overlayNotifySize,
+        theme: config.theme,
       })
+    } else {
+      void fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          desc,
+          duration: 3500,
+          type: 'text',
+          position: config.overlayNotifyPosition,
+          scale: config.overlayNotifySize,
+          theme: config.theme,
+          force: true,
+        }),
+      }).catch(() => {})
     }
   }
 
   return (
-    <div className="shiin-bento">
+    <div className="shiin-bento shiin-settings">
       <div className="sb-page">
         <header className="sb-masthead">
           <div>
@@ -454,6 +479,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <div className="sb-settings-grid">
               <div className="sb-field">
+                <span className="sb-field-label">{isZh ? '外观主题' : 'APPEARANCE THEME'}</span>
+                <BentoSelect
+                  value={config.theme || 'auto'}
+                  options={[
+                    { value: 'auto', label: isZh ? '跟随系统' : 'System auto' },
+                    { value: 'light', label: isZh ? '浅色模式 (Bento)' : 'Light (Bento)' },
+                    { value: 'dark', label: isZh ? '深色模式' : 'Dark' },
+                  ]}
+                  onChange={(next) => onChange({ theme: next as ScreenshotConfig['theme'] })}
+                  ariaLabel={isZh ? '外观主题' : 'Appearance theme'}
+                />
+              </div>
+              <div className="sb-field">
                 <span className="sb-field-label">{isZh ? '关闭主窗口' : 'CLOSE BEHAVIOR'}</span>
                 <BentoSelect
                   value={config.closeType || 'exit'}
@@ -575,17 +613,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </span>
             </button>
             <div className="sb-notify-position-field">
-              <span className="sb-field-label">{isZh ? '通知位置' : 'TOAST POSITION'}</span>
-              <BentoSelect
-                className="sb-notify-select-control"
-                variant="notify"
-                value={config.overlayNotifyPosition || 'right'}
-                options={[
-                  { value: 'right', label: isZh ? '右上角' : 'Top right' },
-                  { value: 'left', label: isZh ? '左上角' : 'Top left' },
-                ]}
-                onChange={(next) => onChange({ overlayNotifyPosition: next as ScreenshotConfig['overlayNotifyPosition'] })}
-                ariaLabel={isZh ? '通知位置' : 'Toast position'}
+              <span className="sb-field-label">{isZh ? '全屏覆层停靠位置' : 'OVERLAY DOCK CORNER'}</span>
+              <ScreenCornerPicker
+                value={config.overlayNotifyPosition || 'top-right'}
+                onChange={(next) => onChange({ overlayNotifyPosition: next })}
+                locale={locale}
+                disabled={!notifyOn}
               />
             </div>
             <div className="sb-notify-actions">
@@ -601,6 +634,152 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 }
               >
                 {isZh ? '试听' : 'Preview'}
+              </button>
+            </div>
+          </section>
+
+          <section
+            className="sb-tile sb-metadata-tile"
+            id="settings-metadata"
+            aria-label={isZh ? '截图元数据与资产标准' : 'Metadata & Asset Profile'}
+          >
+            <div className="sb-tile-head">
+              <div>
+                <h3>{isZh ? '截图元数据标准 (SCMP v1.0)' : 'Capture Metadata Profile'}</h3>
+                <p>
+                  {isZh
+                    ? '基于 XMP + IPTC 国际规范，无损记录截图技术参数与前台上下文。'
+                    : 'Standards-compliant XMP + IPTC capture context and asset profiling.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="sb-toggle-group sb-toggle-group--two" role="group" aria-label={isZh ? '元数据开关' : 'Metadata toggles'}>
+              <button
+                type="button"
+                className="sb-toggle"
+                aria-pressed={config.metadataRecordingEnabled !== false}
+                onClick={() => onChange({ metadataRecordingEnabled: config.metadataRecordingEnabled === false })}
+              >
+                <span className="sb-toggle-icon"><AppIcon name="camera" size={18} /></span>
+                <span className="sb-toggle-copy">
+                  <strong>{isZh ? '记录截图上下文' : 'Record Context'}</strong>
+                  <small>{isZh ? '写入标准 XMP / IPTC' : 'Embed ISO XMP'}</small>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="sb-toggle"
+                disabled={config.metadataRecordingEnabled === false}
+                aria-pressed={Boolean(config.recordWindowTitle)}
+                onClick={() => onChange({ recordWindowTitle: !config.recordWindowTitle })}
+              >
+                <span className="sb-toggle-icon"><AppIcon name="shield" size={18} /></span>
+                <span className="sb-toggle-copy">
+                  <strong>{isZh ? '记录窗口标题' : 'Record Window Title'}</strong>
+                  <small>{isZh ? '⚠️ 包含文档/网页标题' : 'Opt-in privacy warning'}</small>
+                </span>
+              </button>
+            </div>
+
+            {config.metadataRecordingEnabled !== false && (
+              <>
+                <div className="sb-toggle-group sb-toggle-group--two" style={{ marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    className="sb-toggle"
+                    aria-pressed={config.recordAppName !== false}
+                    onClick={() => onChange({ recordAppName: config.recordAppName === false })}
+                  >
+                    <span className="sb-toggle-icon"><AppIcon name="monitor" size={18} /></span>
+                    <span className="sb-toggle-copy">
+                      <strong>{isZh ? '前台应用/游戏名' : 'App / Game Name'}</strong>
+                      <small>{isZh ? '自动归类与检索' : 'Auto categorization'}</small>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="sb-toggle"
+                    aria-pressed={config.recordTriggerDevice !== false}
+                    onClick={() => onChange({ recordTriggerDevice: config.recordTriggerDevice === false })}
+                  >
+                    <span className="sb-toggle-icon"><AppIcon name="gamepad" size={18} /></span>
+                    <span className="sb-toggle-copy">
+                      <strong>{isZh ? '手柄与触发按键' : 'Trigger Device & Keys'}</strong>
+                      <small>{isZh ? '记录操作设备信息' : 'Controller & shortcut'}</small>
+                    </span>
+                  </button>
+                </div>
+
+                <div className="sb-settings-grid" style={{ marginTop: '12px' }}>
+                  <div className="sb-field">
+                    <span className="sb-field-label">{isZh ? '元数据存储策略' : 'METADATA STORAGE'}</span>
+                    <BentoSelect
+                      value={config.metadataStorageMode || 'embedIfSupported'}
+                      options={[
+                        { value: 'embedIfSupported', label: isZh ? '无损内嵌优先 (推荐)' : 'Lossless Embed' },
+                        { value: 'sidecarOnly', label: isZh ? '仅独立 .xmp 伴随文件' : 'Sidecar (.xmp) only' },
+                        { value: 'both', label: isZh ? '同时内嵌与生成 .xmp' : 'Both Embed & Sidecar' },
+                        { value: 'databaseOnly', label: isZh ? '仅存内部数据库' : 'Database only' },
+                      ]}
+                      onChange={(next) => onChange({ metadataStorageMode: next as ScreenshotConfig['metadataStorageMode'] })}
+                      ariaLabel={isZh ? '元数据存储策略' : 'Metadata storage'}
+                    />
+                  </div>
+
+                  <div className="sb-field">
+                    <span className="sb-field-label">{isZh ? '伴随文件命名规范' : 'SIDECAR CONVENTION'}</span>
+                    <BentoSelect
+                      value={config.sidecarNaming || 'basename.ext.xmp'}
+                      options={[
+                        { value: 'basename.ext.xmp', label: 'shot.png.xmp (digiKam/LR)' },
+                        { value: 'basename.xmp', label: 'shot.xmp (darktable)' },
+                      ]}
+                      onChange={(next) => onChange({ sidecarNaming: next as ScreenshotConfig['sidecarNaming'] })}
+                      ariaLabel={isZh ? '伴随文件命名规范' : 'Sidecar naming convention'}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+          </section>
+
+          <section
+            className="sb-tile sb-hub-tile"
+            id="settings-hub"
+            aria-label={isZh ? '跨应用捕获中枢与收件箱' : 'Capture Hub & Workflows'}
+          >
+            <div className="sb-tile-head">
+              <div>
+                <h3>{isZh ? '跨应用捕获中枢 (Capture Hub)' : 'Capture Hub & Workflows'}</h3>
+                <p>
+                  {isZh
+                    ? '开启后在工作台展示待整理收件箱与工作流引擎入口，支持自动场景分类、会话聚类与规则处理。'
+                    : 'Display the Universal Capture Inbox and automated workflow triggers in the workspace.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="sb-toggle-group" role="group" aria-label={isZh ? '捕获中枢开关' : 'Capture Hub toggle'}>
+              <button
+                type="button"
+                className="sb-toggle"
+                aria-pressed={Boolean(config.enableCaptureHub)}
+                onClick={() => onChange({ enableCaptureHub: !config.enableCaptureHub })}
+              >
+                <span className="sb-toggle-icon"><AppIcon name="archive" size={18} /></span>
+                <span className="sb-toggle-copy">
+                  <strong>{isZh ? '工作台显示捕获中枢' : 'Show Hub in Workspace'}</strong>
+                  <small>
+                    {isZh
+                      ? config.enableCaptureHub
+                        ? '已启用 · 工作台显示待整理收件箱与工作流'
+                        : '默认关闭 · 隐藏该组件以保持工作台极简专注'
+                      : config.enableCaptureHub
+                        ? 'Enabled · Shows inbox card in workspace'
+                        : 'Disabled (Default) · Keeps workspace clean'}
+                  </small>
+                </span>
               </button>
             </div>
           </section>

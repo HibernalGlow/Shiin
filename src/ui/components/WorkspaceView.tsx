@@ -9,11 +9,14 @@ import {
   type CaptureWindowInfo,
   type GamepadDeviceInfo,
   type ScreenshotConfig,
+  type ScreenshotResult,
 } from '../../core/types.js'
 import type { MacOSPermissionsStatus } from '../adapter/types.js'
 import { useMd3eShapes } from '../md3e-shape-context.js'
 import { EquipmentDeck } from './EquipmentDeck.js'
-import type { ScreenshotResult } from '../../core/types.js'
+import { WorkspaceTile } from './WorkspaceTile.js'
+import { CaptureHubWidget } from './hub/CaptureHubWidget.js'
+import { ControllerTester } from '@hibernalglow/gamepad-expressive'
 
 export interface WorkspaceViewProps {
   capturePending?: boolean
@@ -46,8 +49,6 @@ export interface WorkspaceViewProps {
   macPermissions?: MacOSPermissionsStatus | null
   onOpenPermissions: () => void
   onRefreshGamepads?: () => void
-  lastNotice?: string
-  noticeRevision?: number
   locale: string
 }
 
@@ -82,14 +83,13 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   macPermissions,
   onOpenPermissions,
   onRefreshGamepads,
-  lastNotice,
-  noticeRevision,
   locale,
 }) => {
   const { session } = useMd3eShapes()
   const [presetMenuOpen, setPresetMenuOpen] = React.useState(false)
   const presetWrapRef = React.useRef<HTMLDivElement>(null)
   const presetTriggerRef = React.useRef<HTMLButtonElement>(null)
+
   React.useEffect(() => {
     if (!presetMenuOpen) return
     presetWrapRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()
@@ -110,42 +110,109 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       document.removeEventListener('keydown', onKeyDown)
     }
   }, [presetMenuOpen])
+
   const isZh = locale.startsWith('zh')
   const isWindowMode = config.captureTargetType === CaptureTargetTypeEnum.Window
   const isFocusedWindow = isWindowMode && config.windowCaptureMode === 'focused'
   const permissionMissing = Boolean(macPermissions?.isMac && !macPermissions.screenCapture)
+  const activeDevice = gamepads.find((gamepad) => gamepad._index === selectedGamepadIndex) || gamepads[0]
+
   const keyName = (key: string) => {
     const info = formatGamepadKey(key, isZh ? 'zh' : 'en')
     return { code: info.key, name: info.name }
   }
 
+  const targetLabel = isFocusedWindow
+    ? isZh
+      ? '当前聚焦窗口'
+      : 'Focused window'
+    : isWindowMode
+      ? windows.find((window) => String(window.id) === String(config.windowSourceId))?.title ||
+        (isZh ? '指定窗口' : 'Pinned window')
+      : screens.find((screen) => String(screen.id) === String(config.screenSourceId))?.name ||
+        (isZh ? '全屏捕获' : 'Full desktop')
+
+  const targetModeLabel = isFocusedWindow
+    ? isZh
+      ? '跟随焦点'
+      : 'Focused'
+    : isWindowMode
+      ? isZh
+        ? '指定窗口'
+        : 'Window'
+      : isZh
+        ? '全屏模式'
+        : 'Desktop'
+
+  const outputLabel = `${config.imageFormat.toUpperCase()} · ${
+    config.screenShotSaveWay === ScreenShotSaveWayEnum.CilpboardOnly
+      ? isZh
+        ? '剪贴板'
+        : 'Clipboard'
+      : config.screenShotSaveWay === ScreenShotSaveWayEnum.FileAndCilpboard
+        ? isZh
+          ? '文件 + 剪贴板'
+          : 'File + clipboard'
+        : isZh
+          ? '文件'
+          : 'File'
+  }`
+
+  const comboSummary = config.comboKeys.length
+    ? config.comboKeys.map((key) => keyName(key).name).join(' + ')
+    : isZh
+      ? '尚未设置组合键'
+      : 'No combo configured'
+
   return (
     <div className="shiin-bento shiin-workspace">
       <div className="sb-page">
         <div className="sb-grid">
-          <EquipmentDeck locale={locale} listening={listening} pending={capturePending} result={captureResult}
-            target={isFocusedWindow ? (isZh ? '当前聚焦窗口' : 'Focused window') : isWindowMode
-              ? (windows.find(window => String(window.id) === String(config.windowSourceId))?.title || (isZh ? '指定窗口' : 'Pinned window'))
-              : (screens.find(screen => String(screen.id) === String(config.screenSourceId))?.name || (isZh ? '全屏捕获' : 'Full desktop'))}
-            output={`${config.imageFormat.toUpperCase()} · ${config.screenShotSaveWay === ScreenShotSaveWayEnum.CilpboardOnly
-              ? (isZh ? '剪贴板' : 'Clipboard') : config.screenShotSaveWay === ScreenShotSaveWayEnum.FileAndCilpboard
-                ? (isZh ? '文件 + 剪贴板' : 'File + clipboard') : (isZh ? '文件' : 'File')}`}
+          <EquipmentDeck
+            locale={locale}
+            listening={listening}
+            pending={capturePending}
+            result={captureResult}
+            activeDevice={activeDevice}
+            target={targetLabel}
+            targetModeLabel={targetModeLabel}
+            output={outputLabel}
+            folder={config.path || ''}
+            comboSummary={comboSummary}
+            comboCount={config.comboKeys.length}
+            autoArchive={Boolean(config.saveByActiveWinTitle)}
+            obsReplay={Boolean(config.obsReplayBufferOnLongPress)}
             permissionMissing={permissionMissing}
-            onCapture={onCapture} onToggleListen={onToggleListen} onSaveOBS={onSaveOBS}
-            onOpenFolder={onOpenFolder} onOpenPermissions={onOpenPermissions} notice={lastNotice} noticeRevision={noticeRevision} />
+            onCapture={onCapture}
+            onToggleListen={onToggleListen}
+            onSaveOBS={onSaveOBS}
+            onOpenFolder={onOpenFolder}
+            onOpenPermissions={onOpenPermissions}
+            onRefreshGamepads={onRefreshGamepads}
+          />
 
-          <section className="sb-tile sb-capture-tile" aria-label={isZh ? '画面捕获与输出' : 'Capture and output'}>
+          {/* Capture Hub & Universal Inbox Entry (span 12 on Desktop, opt-in via Settings) */}
+          {config.enableCaptureHub && <CaptureHubWidget locale={locale} />}
+
+          {/* Unified Capture & Output Tile (span 7 on Desktop, Left Pane on Tablet, First on Mobile) */}
+          <section
+            className="sb-tile sb-capture-tile"
+            aria-label={isZh ? '画面捕获与输出' : 'Capture and output'}
+          >
             <div className="sb-tile-head">
               <div>
                 <h3>{isZh ? '画面捕获与输出' : 'Capture & output'}</h3>
                 <p>
                   {isZh
-                    ? '选择来源、格式与保存位置。'
-                    : 'Choose a source, format and destination.'}
+                    ? '选择捕获目标、图像格式与文件归档位置。'
+                    : 'Choose capture source, image format, and destination folder.'}
                 </p>
               </div>
-              <span className="sb-chip">{macPermissions?.isMac ? 'macOS' : (isZh ? '画面来源' : 'Capture source')}</span>
+              <span className="sb-chip">
+                {macPermissions?.isMac ? 'macOS' : isZh ? '画面来源' : 'Capture source'}
+              </span>
             </div>
+
             <div className="sb-field" style={{ marginTop: 12 }}>
               <span className="sb-field-label">{isZh ? '捕获目标' : 'Capture target'}</span>
               <div className="sb-target-group" role="group" aria-label={isZh ? '捕获目标' : 'Capture target'}>
@@ -154,7 +221,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                   aria-pressed={!isWindowMode}
                   onClick={() => onChange({ captureTargetType: CaptureTargetTypeEnum.Screen })}
                 >
-                  <AppIcon name="monitor" size={14} />
+                  <AppIcon name="monitor" size={15} />
                   {isZh ? '全屏' : 'Desktop'}
                 </button>
                 <button
@@ -167,7 +234,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     })
                   }
                 >
-                  <AppIcon name="appWindow" size={14} />
+                  <AppIcon name="appWindow" size={15} />
                   {isZh ? '指定窗口' : 'Pinned window'}
                 </button>
                 <button
@@ -180,11 +247,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     })
                   }
                 >
-                  <AppIcon name="target" size={14} />
+                  <AppIcon name="target" size={15} />
                   {isZh ? '聚焦窗口' : 'Focused window'}
                 </button>
               </div>
             </div>
+
             <div className="sb-source-row">
               <span className="sb-source-icon" aria-hidden="true">
                 <Md3eMorphShape path={session.shapes.icon.svgPath} className="sb-source-shape" />
@@ -192,7 +260,17 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               </span>
               <div className="sb-source-copy">
                 <span className="sb-field-label">
-                  {isFocusedWindow ? (isZh ? '跟随焦点' : 'Follow focus') : isWindowMode ? (isZh ? '目标窗口' : 'Target window') : isZh ? '显示器' : 'Display'}
+                  {isFocusedWindow
+                    ? isZh
+                      ? '跟随焦点'
+                      : 'Follow focus'
+                    : isWindowMode
+                      ? isZh
+                        ? '目标窗口'
+                        : 'Target window'
+                      : isZh
+                        ? '显示器'
+                        : 'Display'}
                 </span>
                 {isFocusedWindow ? (
                   <span className="sb-source-value">{isZh ? '当前聚焦窗口' : 'Focused window'}</span>
@@ -224,11 +302,17 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 )}
               </div>
               {isWindowMode && !isFocusedWindow && (
-                <button type="button" className="sb-icon-button" onClick={onRefreshWindows} aria-label={isZh ? '刷新窗口' : 'Refresh windows'}>
+                <button
+                  type="button"
+                  className="sb-icon-button"
+                  onClick={onRefreshWindows}
+                  aria-label={isZh ? '刷新窗口' : 'Refresh windows'}
+                >
                   <AppIcon name="refresh" size={16} />
                 </button>
               )}
             </div>
+
             {isFocusedWindow && (
               <p className="sb-note" style={{ marginTop: 10 }}>
                 {isZh
@@ -236,14 +320,38 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                   : 'Each capture grabs whichever window is focused at that moment.'}
               </p>
             )}
+
             <div className="sb-divider" />
+
             <div className="sb-output-row">
               <div className="sb-chip-group" role="group" aria-label={isZh ? '图像格式' : 'Image format'}>
-                <button type="button" aria-pressed={config.imageFormat === 'jpg'} onClick={() => onChange({ imageFormat: 'jpg' })}>
+                <button
+                  type="button"
+                  aria-pressed={config.imageFormat === 'jpg'}
+                  onClick={() => onChange({ imageFormat: 'jpg' })}
+                >
                   JPG
                 </button>
-                <button type="button" aria-pressed={config.imageFormat === 'png'} onClick={() => onChange({ imageFormat: 'png' })}>
+                <button
+                  type="button"
+                  aria-pressed={config.imageFormat === 'png'}
+                  onClick={() => onChange({ imageFormat: 'png' })}
+                >
                   PNG
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={config.imageFormat === 'webp'}
+                  onClick={() => onChange({ imageFormat: 'webp' })}
+                >
+                  WebP
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={config.imageFormat === 'avif'}
+                  onClick={() => onChange({ imageFormat: 'avif' })}
+                >
+                  AVIF
                 </button>
               </div>
               <BentoSelect
@@ -253,59 +361,140 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 options={[
                   { value: ScreenShotSaveWayEnum.FileOnly, label: isZh ? '仅文件' : 'File only' },
                   { value: ScreenShotSaveWayEnum.CilpboardOnly, label: isZh ? '仅剪贴板' : 'Clipboard only' },
-                  { value: ScreenShotSaveWayEnum.FileAndCilpboard, label: isZh ? '文件 + 剪贴板' : 'File + clipboard' },
+                  {
+                    value: ScreenShotSaveWayEnum.FileAndCilpboard,
+                    label: isZh ? '文件 + 剪贴板' : 'File + clipboard',
+                  },
                 ]}
-                onChange={(next) => onChange({ screenShotSaveWay: next as ScreenshotConfig['screenShotSaveWay'] })}
+                onChange={(next) =>
+                  onChange({ screenShotSaveWay: next as ScreenshotConfig['screenShotSaveWay'] })
+                }
                 ariaLabel={isZh ? '保存方式' : 'Save as'}
               />
             </div>
+
+            {config.imageFormat !== 'png' && (
+              <div className="sb-quality-row" style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span className="sb-field-label" style={{ fontSize: 12, minWidth: 70 }}>
+                  {isZh ? '图片质量' : 'Quality'}:{' '}
+                  {config.imageLossless && (config.imageFormat === 'webp' || config.imageFormat === 'avif')
+                    ? isZh
+                      ? '无损'
+                      : 'Lossless'
+                    : `${config.imageQuality ?? 90}%`}
+                </span>
+                <input
+                  className="sb-slider"
+                  type="range"
+                  min={20}
+                  max={100}
+                  step={1}
+                  disabled={Boolean(
+                    config.imageLossless && (config.imageFormat === 'webp' || config.imageFormat === 'avif'),
+                  )}
+                  value={config.imageQuality ?? 90}
+                  style={
+                    {
+                      '--sb-progress': `${config.imageQuality ?? 90}%`,
+                      flex: 1,
+                      opacity:
+                        config.imageLossless && (config.imageFormat === 'webp' || config.imageFormat === 'avif')
+                          ? 0.4
+                          : 1,
+                    } as React.CSSProperties
+                  }
+                  onChange={(e) => onChange({ imageQuality: Number(e.target.value) })}
+                  aria-label={isZh ? '图片质量' : 'Image quality'}
+                />
+                {(config.imageFormat === 'webp' || config.imageFormat === 'avif') && (
+                  <button
+                    type="button"
+                    className="sb-chip"
+                    aria-pressed={Boolean(config.imageLossless)}
+                    onClick={() => onChange({ imageLossless: !config.imageLossless })}
+                    style={{ fontSize: 11, padding: '2px 8px', height: 26 }}
+                    title={isZh ? '启用无损编码模式' : 'Enable lossless compression'}
+                  >
+                    {isZh ? '无损模式' : 'Lossless'}
+                  </button>
+                )}
+              </div>
+            )}
+
             <label className="sb-filename-field">
               <span className="sb-field-label">{isZh ? '文件名模板' : 'Filename template'}</span>
-              <input className="sb-chip-input" value={config.fileNameTemplate}
+              <input
+                className="sb-chip-input"
+                value={config.fileNameTemplate}
                 onChange={(event) => onChange({ fileNameTemplate: event.target.value })}
-                placeholder={isZh ? '文件名模板' : 'Filename template'} />
+                placeholder={isZh ? '文件名模板' : 'Filename template'}
+              />
             </label>
+
             <div className="sb-folder-row">
               <span className="sb-path-chip" title={config.path || ''}>
                 <AppIcon name="folder" size={13} />
                 <span>{config.path || (isZh ? '系统默认截图目录' : 'System default folder')}</span>
               </span>
               <button type="button" className="sb-folder-action" onClick={onSelectFolder}>
-                <AppIcon name="folder" size={16} />{isZh ? '更换目录' : 'Change folder'}
+                <AppIcon name="folder" size={16} />
+                {isZh ? '更换目录' : 'Change folder'}
               </button>
               <button type="button" className="sb-folder-action" onClick={onOpenFolder}>
-                <AppIcon name="external" size={16} />{isZh ? '打开目录' : 'Open folder'}
+                <AppIcon name="external" size={16} />
+                {isZh ? '打开目录' : 'Open folder'}
               </button>
             </div>
           </section>
 
-          <section className="sb-tile sb-combos-tile" aria-label={isZh ? '触发组合' : 'Trigger combos'}>
-            <div className="sb-tile-head">
-              <div>
-                <h3>{isZh ? '触发组合' : 'Trigger combos'}</h3>
-                <p>{isZh ? '同时按下多个按键即可触发截图。' : 'Press several buttons together to capture.'}</p>
-              </div>
-              <span className="sb-chip">{config.comboKeys.length > 0 ? `${config.comboKeys.length} 键` : '—'}</span>
-            </div>
+          {/* Trigger Combos Tile (span 5 on Desktop) */}
+          <WorkspaceTile
+            className="sb-combos-tile"
+            title={isZh ? '触发组合' : 'Trigger combos'}
+            description={isZh ? '同时按下多个按键即可触发截图。' : 'Press the buttons together to capture.'}
+            summary={comboSummary}
+            badge={<span className="sb-chip">{config.comboKeys.length} {isZh ? '键' : 'keys'}</span>}
+          >
+            <Md3eMorphShape path={session.shapes.control.svgPath} className="sb-combo-ghost" />
             <label className="sb-field" style={{ marginTop: 10 }}>
               <span className="sb-field-label">{isZh ? '目标手柄' : 'Gamepad'}</span>
               <BentoSelect
                 className="sb-gamepad-select"
                 value={String(gamepads.length > 0 ? selectedGamepadIndex : -1)}
-                options={gamepads.length > 0
-                  ? gamepads.map((gamepad) => ({ value: String(gamepad._index), label: gamepad.name }))
-                  : [{ value: '-1', label: isZh ? '未检测到手柄，按任意键唤醒' : 'No gamepad — press any button' }]}
+                options={
+                  gamepads.length > 0
+                    ? gamepads.map((gamepad) => ({ value: String(gamepad._index), label: gamepad.name }))
+                    : [
+                        {
+                          value: '-1',
+                          label: isZh ? '未检测到手柄，按任意键唤醒' : 'No gamepad — press any button',
+                        },
+                      ]
+                }
                 onChange={(next) => onSelectGamepad(Number(next))}
                 ariaLabel={isZh ? '目标手柄' : 'Gamepad'}
               />
             </label>
+
             {recordingCombo ? (
-              <div style={{ marginTop: 10, padding: 12, borderRadius: 18, background: 'var(--sb-primary-container)' }}>
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: 12,
+                  borderRadius: 18,
+                  background: 'var(--sb-primary-container)',
+                }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                   <strong style={{ fontSize: 12.5, color: 'var(--sb-on-primary-container)' }}>
                     {isZh ? '请按住想要的按键…' : 'Hold the buttons you want…'}
                   </strong>
-                  <button type="button" className="sb-secondary-button" style={{ minHeight: 28, padding: '0 9px', fontSize: 11 }} onClick={onCancelComboRecording}>
+                  <button
+                    type="button"
+                    className="sb-secondary-button"
+                    style={{ minHeight: 28, padding: '0 9px', fontSize: 11 }}
+                    onClick={onCancelComboRecording}
+                  >
                     {isZh ? '取消' : 'Cancel'}
                   </button>
                 </div>
@@ -318,9 +507,17 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                   {liveRecordingKeys.map((key) => {
                     const info = keyName(key)
                     return (
-                      <span key={key} className="sb-combo-key" style={{ background: 'var(--sb-surface-high)', borderColor: 'transparent', color: 'var(--sb-on-primary-container)' }}>
+                      <span
+                        key={key}
+                        className="sb-combo-key"
+                        style={{
+                          background: 'var(--sb-surface-high)',
+                          borderColor: 'transparent',
+                          color: 'var(--sb-on-primary-container)',
+                        }}
+                      >
                         <span className="sb-key-code">{info.code}</span>
-                        <span style={{ fontSize: 10.5, opacity: .8 }}>{info.name}</span>
+                        <span style={{ fontSize: 10.5, opacity: 0.8 }}>{info.name}</span>
                       </span>
                     )
                   })}
@@ -328,7 +525,9 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               </div>
             ) : config.comboKeys.length === 0 ? (
               <p className="sb-note" style={{ marginTop: 10 }}>
-                {isZh ? '还没有组合键。点击下方“识别组合键”或选择一个预设。' : 'No combo yet. Detect a combo or pick a preset.'}
+                {isZh
+                  ? '还没有组合键。点击下方“识别组合键”或选择一个预设。'
+                  : 'No combo yet. Detect a combo or pick a preset.'}
               </p>
             ) : (
               <div className="sb-combo-row" style={{ marginTop: 10 }}>
@@ -338,7 +537,11 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     <span key={`${key}-${index}`} className="sb-combo-key">
                       <span className="sb-key-code">{info.code}</span>
                       <span style={{ fontSize: 10.5, color: 'var(--sb-muted)' }}>{info.name}</span>
-                      <button type="button" onClick={() => onRemoveKey(index)} aria-label={isZh ? '移除此按键' : 'Remove key'}>
+                      <button
+                        type="button"
+                        onClick={() => onRemoveKey(index)}
+                        aria-label={isZh ? '移除此按键' : 'Remove key'}
+                      >
                         <AppIcon name="close" size={10} />
                       </button>
                     </span>
@@ -346,6 +549,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 })}
               </div>
             )}
+
             <div className="sb-split-wrap" ref={presetWrapRef}>
               <div className="sb-split-button">
                 <button
@@ -353,7 +557,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                   className="sb-split-main"
                   onClick={recordingCombo ? onCancelComboRecording : onStartComboRecording}
                 >
-                  <span className="sb-control-seat" aria-hidden="true"><Md3eMorphShape path={session.shapes.control.svgPath} /><AppIcon name="target" size={16} /></span>
+                  <span className="sb-control-seat" aria-hidden="true">
+                    <Md3eMorphShape path={session.shapes.control.svgPath} />
+                    <AppIcon name="target" size={16} />
+                  </span>
                   {recordingCombo ? (isZh ? '取消识别' : 'Cancel') : isZh ? '识别组合键' : 'Detect combo'}
                 </button>
                 <button
@@ -370,15 +577,26 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 </button>
               </div>
               {presetMenuOpen && (
-                <div className="sb-menu" role="menu" id="combo-presets-menu" onKeyDown={(event) => {
-                  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
-                  event.preventDefault()
-                  const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
-                  const index = items.indexOf(document.activeElement as HTMLButtonElement)
-                  const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
-                    : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
-                  items[next]?.focus()
-                }}>
+                <div
+                  className="sb-menu"
+                  role="menu"
+                  id="combo-presets-menu"
+                  onKeyDown={(event) => {
+                    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+                    event.preventDefault()
+                    const items = Array.from(
+                      event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')
+                    )
+                    const index = items.indexOf(document.activeElement as HTMLButtonElement)
+                    const next =
+                      event.key === 'Home'
+                        ? 0
+                        : event.key === 'End'
+                          ? items.length - 1
+                          : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+                    items[next]?.focus()
+                  }}
+                >
                   {COMMON_COMBO_PRESETS.map((preset, index) => (
                     <button
                       key={index}
@@ -419,6 +637,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 </div>
               )}
             </div>
+
             <div className="sb-preset-strip">
               <span className="sb-ribbon-label">{isZh ? '常用预设' : 'Quick presets'}</span>
               <div className="sb-preset-chips">
@@ -440,16 +659,20 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 })}
               </div>
             </div>
-          </section>
+          </WorkspaceTile>
 
-          <section className="sb-tile sb-listener-tile" aria-label={isZh ? '监听与自动化' : 'Listener and automation'}>
-            <div className="sb-tile-head">
-              <div>
-                <h3>{isZh ? '监听与自动化' : 'Listener & automation'}</h3>
-                <p>{isZh ? '后台监听、长按回放与自动归档。' : 'Background listening, long-press replay and auto filing.'}</p>
-              </div>
-            </div>
-            <div className="sb-toggle-group" role="group" aria-label={isZh ? '监听与自动化开关' : 'Listener and automation toggles'}>
+          {/* Listener & Automation Tile (span 7 on Desktop) */}
+          <WorkspaceTile
+            className="sb-listener-tile"
+            title={isZh ? '监听与自动化' : 'Listener & automation'}
+            description={isZh ? '后台监听、长按回放与自动归档。' : 'Background listening, replay and auto filing.'}
+            summary={listening ? (isZh ? '后台监听已激活' : 'Listener active') : isZh ? '后台监听已暂停' : 'Listener paused'}
+          >
+            <div
+              className="sb-toggle-group"
+              role="group"
+              aria-label={isZh ? '监听与自动化开关' : 'Listener and automation toggles'}
+            >
               <button
                 type="button"
                 className="sb-toggle"
@@ -493,8 +716,11 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 </span>
               </button>
             </div>
+
             <div className="sb-keyboard-row">
-              <span className="sb-toggle-icon"><AppIcon name="keyboard" size={18} /></span>
+              <span className="sb-toggle-icon">
+                <AppIcon name="keyboard" size={18} />
+              </span>
               <div className="sb-row-copy">
                 <strong>{isZh ? '键盘辅助快捷键' : 'Keyboard shortcut'}</strong>
                 <small>
@@ -526,58 +752,51 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 </span>
               </button>
             </div>
-          </section>
+          </WorkspaceTile>
 
-          <section className="sb-tile sb-tester-tile" aria-label={isZh ? '实时测试器' : 'Live tester'}>
-            <div className="sb-tile-head">
-              <div>
-                <h3>{isZh ? '实时测试器' : 'Live tester'}</h3>
-                <p>{isZh ? '按下按键或转动摇杆，实时查看信号。' : 'Press buttons or tilt sticks to inspect live input.'}</p>
+          {/* Live Tester Tile (span 5 on Desktop) */}
+          <WorkspaceTile
+            className="sb-tester-tile"
+            title={isZh ? '实时测试器' : 'Live tester'}
+            description={isZh ? '真实手柄可视化与触觉信号监控。' : 'Expressive real controller visualizer & telemetry.'}
+            summary={
+              gamepads.length
+                ? isZh
+                  ? '手柄已连接，支持御三家与国产手柄外观'
+                  : 'Gamepad connected — Xbox, PlayStation & Switch skins'
+                : isZh
+                  ? '连接手柄后查看输入信号'
+                  : 'Connect a gamepad to inspect input'
+            }
+            badge={
+              <span className="sb-chip">
+                {gamepads.length ? (isZh ? '已连接' : 'Connected') : isZh ? '未连接' : 'Disconnected'}
+              </span>
+            }
+          >
+            {gamepads.length > 0 ? (
+              <div style={{ marginTop: 12 }}>
+                <ControllerTester
+                  deviceInfo={gamepads.find((g) => g._index === selectedGamepadIndex) || gamepads[0]}
+                  buttons={buttons}
+                  axes={axes}
+                  locale={isZh ? 'zh' : 'en'}
+                  allowFamilySwitch={true}
+                  showRawInspector={false}
+                />
               </div>
-              <span className="sb-chip">{gamepads.length > 0 ? (isZh ? '已连接' : 'Connected') : (isZh ? '未连接' : 'Disconnected')}</span>
-            </div>
-            <div className="sb-test-grid" style={{ marginTop: 12 }}>
-              {gamepads.length > 0 && buttons.map((pressed, index) => {
-                const alias = BUTTON_NAME_MAP[`Button${index}`]
-                const shortName = alias ? alias.name.split('/')[0].split('(')[0].trim() : pressed ? 'ON' : 'OFF'
-                return (
-                  <div key={index} className={`sb-test-key ${pressed ? 'pressed' : ''}`}>
-                    <strong>B{index}</strong>
-                    <span>{shortName}</span>
-                  </div>
-                )
-              })}
-              {(gamepads.length === 0 || buttons.length === 0) && (
-                <div className="sb-tester-empty">
-                  <span className="sb-tester-orb" aria-hidden="true">
-                    <Md3eMorphShape path={session.shapes.metric.svgPath} />
-                    <AppIcon name="gamepad" size={20} />
-                  </span>
-                  <span className="sb-note">
-                    {isZh ? '暂无手柄信号，连接手柄并按键唤醒。' : 'No gamepad signal. Connect and press a button.'}
-                  </span>
-                </div>
-              )}
-            </div>
-            {gamepads.length > 0 && axes.length > 0 && (
-              <>
-                <div className="sb-divider" />
-                <div style={{ display: 'grid', gap: 7 }}>
-                  {axes.map((value, index) => (
-                    <div key={index} className="sb-axis-row">
-                      <span>Axis {index}</span>
-                      <span className="sb-axis-signal" data-active={Math.abs(value) > 0.03}>
-                        <span className="sb-axis-center" />
-                        <span className="sb-axis-signal-fill" style={{ left: `${Math.min(50, (value + 1) * 50)}%`, width: `${Math.abs(value) * 50}%` }} />
-                        <span className="sb-axis-marker" style={{ left: `${(value + 1) * 50}%` }} />
-                      </span>
-                      <span className="sb-readout-pill sb-axis-readout">{value.toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
+            ) : (
+              <div className="sb-tester-empty" style={{ marginTop: 12 }}>
+                <span className="sb-tester-orb" aria-hidden="true">
+                  <Md3eMorphShape path={session.shapes.metric.svgPath} />
+                  <AppIcon name="gamepad" size={20} />
+                </span>
+                <span className="sb-note">
+                  {isZh ? '暂无手柄信号，连接手柄并按键唤醒。' : 'No gamepad signal. Connect and press a button.'}
+                </span>
+              </div>
             )}
-          </section>
+          </WorkspaceTile>
         </div>
       </div>
     </div>
