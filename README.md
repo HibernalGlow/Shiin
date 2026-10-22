@@ -50,9 +50,12 @@
 
 - **触发** — 手柄组合键或轴值（±0.85 以上视为按下），组合键按设备保存；也支持全局键盘热键。
 - **目标** — 全屏（可选显示器）、指定窗口、跟随当前聚焦窗口；窗口不存在会报错，不会偷偷换一扇。
-- **保存** — 文件 / 剪贴板 / 两者；PNG / JPG；文件名模板、冲突处理与目录自动创建。
+- **保存** — 文件 / 剪贴板 / 两者；JPG、PNG、WebP、AVIF 四种出口，质量（1–100）、无损开关与 effort（0–9）都在配置里；文件名模板、冲突处理与目录自动创建照旧。
+- **元数据** — 每次触发把前台应用、触发方式、手柄与组合键、色彩空间等按 SCMP v1.0 组装：PNG / JPEG / WebP 直接内嵌 XMP，AVIF 自动降级写 `.xmp` 伴生文件；隐私项逐条可关。
 - **直播联动** — OBS WebSocket 场景截图；长按组合键保存回放缓存。
-- **反馈** — 透明覆层通知（带截图缩略图）与快门声，桌面、TUI、CLI 共用同一份。
+- **反馈** — 透明覆层通知（带截图缩略图）与快门声，桌面、TUI、CLI 共用同一份；落点可在设置里选屏幕四角（配置键 `overlayNotifyPosition`），旧的 left / right 自动归到上角。
+- **捕获中枢（进行中）** — 场景配置、收件箱状态机、会话聚类、自动化规则与统计仪表盘已经落在 `src/core` 并有单测；界面入口是设置里的「捕获中枢」开关，默认关闭，收件箱目前喂的是演示样例，还没接真实截图流。
+- **手柄可视化** — `@hibernalglow/gamepad-expressive` 提供 Xbox / PlayStation / Switch / 通用四类控制器的 Expressive 形状、按键图标与摇杆坐标图，并把 SDL_GameControllerDB 映射标准化成同一套按键名；设备识别带 guid、vendorId、productId 与控制器家族。
 - **入口** — Electron 桌面端、OpenTUI 终端、本地 Web 控制台，以及可脚本化的 CLI。
 - **插件宿主** — 同一内核也可打包为 Xaihi 插件（`pnpm build:plugin`，输出 `lib/`、`dist/remoteEntry.js` 与 `cordis.patch.yml`）。
 - **macOS 权限中心** — 屏幕录制、辅助功能、输入监控逐项检测；能主动发起系统授权，也能实际抓一帧验证。
@@ -73,17 +76,43 @@
 >
 > - 全屏 TUI 需要 Node ≥ 26 的 `node:ffi` 或 bun；Node 22 且装了 bun 会显式接力，两者都没有则明确提示改用 `shiin gd`。
 > - Web 模式不提供托盘、透明覆层和自动更新；这些壳能力只在 Electron 里。
-> - 浏览器里的 Gamepad API 不作为触发真源；监听始终留在 Node 侧。
+> - 浏览器里的 Gamepad API 只在 Node 侧没有打开物理手柄时，才通过 `POST /api/gamepad/sync` 把状态注入内核当输入；本地 SDL 一旦拿到真手柄，注入直接被忽略，触发真源回到原生监听。
 
 细节见 [ADR-0008：本地 Web 宿主与共享 ScreenshotManager](docs/adr/0008-web-host-and-shared-screenshot-manager.md)。
 
 ---
 
-## 03 / 终端与 Web
+## 03 / 从一张截图到一份资产
+
+<p align="center">
+  <img src="readme/assets/capture-pipeline.svg" width="100%" alt="捕获管线：捕获阶段取无损 PNG，编码为 JPG / PNG / WebP / AVIF，按 SCMP v1.0 内嵌元数据或写 .xmp 伴生文件，最后落到文件、剪贴板、OBS 与四角覆层。">
+</p>
+
+捕获现在只有一种口径：**先取无损 PNG**（macOS 走 `screencapture -x -t png`，Windows 走 `node-screenshots`，OBS 取 PNG 源），再由 `sharp` 按 `imageFormat` / `imageQuality` / `imageLossless` / `imageEffort` 编成目标格式（`encodeImageBuffer()`，见 `src/core/screenshot.ts`）。编码失败会带着格式名报错，不会静默落一张坏文件；剪贴板写入先嗅探 PNG 魔数，所以 WebP / AVIF 输出在 macOS 上也能正常贴进去。
+
+元数据按 SCMP v1.0（XMP + IPTC + Dublin Core）组装，`metadataStorageMode` 决定它内嵌、只写伴生、两者都要还是只入库：PNG / JPEG / WebP 支持内嵌，AVIF 在 `embedIfSupported` 下自动降级成 `.xmp`。伴生文件命名可选 `basename.ext.xmp` 或 `basename.xmp`，窗口标题、应用标识这些隐私项逐条可关。规范与取舍见 [ADR-0011](docs/adr/0011-shiin-capture-metadata-profile-and-indexed-library.md)。
+
+<p align="center">
+  <img src="readme/assets/capture-hub.svg" width="100%" alt="捕获中枢：场景配置、收件箱状态机、规则与会话、统计与体检四块，底部用虚线标出当前边界。">
+</p>
+
+中枢分四层：**场景配置**按匹配 / 隐私 / 元数据 / 管线四个正交维度定义预设，内置 Gaming、Development、Research、Design 与自定义；**收件箱**维护 inbox / starred / archived / trashed 四种状态和批量操作；**规则引擎**把应用名、窗口标题、尺寸、格式、标签等条件映射到打标签、收藏、归档、移动目录等动作，支持 dry-run 预览与 undo 回滚，不执行任何动态代码；**统计与体检**记录截图、监听与手柄按键事件、连续拍摄、dHash 相似分组与多卷存储健康。
+
+> **现在的真实边界**
+>
+> - 上面这些引擎在 `src/core` 里，都有单测；界面上能点到的只有设置里的「捕获中枢」开关（默认关闭）和它后面的收件箱 / 工作流面板。
+> - 收件箱读的还是演示样例，截图流没有写进去；索引式多来源图库只有核心层，没有按钮。
+> - 统计页会累计真实的截图、监听与按键事件，但首次进入带一份种子样例，可以一键清零。
+>
+> 见 [ADR-0012](docs/adr/0012-universal-capture-hub-inbox-and-workflow-engine.md)。
+
+---
+
+## 04 / 终端与 Web
 
 ```bash
 shiin                       # 全屏 TUI 工作台
-shiin capture --format png  # 立即截一张
+shiin capture --format webp --quality 82  # 立即截一张（jpg | png | webp | avif）
 shiin serve                 # 本地 Web 控制台（默认 127.0.0.1:3800）
 shiin doctor                # 运行时 / FFI / SDL / OBS / 目录自检
 ```
@@ -92,7 +121,7 @@ TUI 和 `capture` / `replay` 会弹出与桌面端同一份覆层通知；TUI �
 
 ---
 
-## 04 / 开始使用
+## 05 / 开始使用
 
 ### 桌面端（从源码）
 
@@ -146,7 +175,7 @@ node lib/cli.mjs --help
 
 ---
 
-## 05 / 印象色
+## 06 / 印象色
 
 <p align="center">
   <img src="readme/assets/palette.svg" width="100%" alt="Shiin 的印象色板：暗房墨黑、银白、荧光黄绿、苔绿、领带绯红与木槿淡粉。">
@@ -172,7 +201,8 @@ node lib/cli.mjs --help
 ## Credits
 
 - 桌面端源自 [AmagiSakuya/GamePad-ScreenShot-Windows](https://github.com/AmagiSakuya/GamePad-ScreenShot-Windows) 的持续演化。
-- 界面截图拍自当前 2.0 Web 控制台；README 的 hero、架构图与色板为纯 SVG 手绘。
+- 界面截图拍自当前 2.0 Web 控制台；README 的 hero、架构图、管线图、中枢图与色板为纯 SVG 手绘。
+- 手柄映射来自 [SDL_GameControllerDB](https://github.com/mdqinc/SDL_GameControllerDB)（Zlib），线稿来自 [Gamepad Line Art Pack](https://gidedin.itch.io/gamepad-line-art-pack)（CC0 1.0），两者随 `packages/gamepad-expressive` 一起分发并保留各自的许可证文件。
 - 主题印象参考《明日方舟》稀音（Scene, R162）。
 
 ## License

@@ -50,9 +50,12 @@
 
 - **Trigger** — Gamepad combos or axes (±0.85 counts as pressed), saved per device; global keyboard hotkeys are also supported.
 - **Target** — Full screen (choose a monitor), a specified window, or the currently focused window. A missing window errors out instead of silently picking another.
-- **Save** — File / clipboard / both; PNG / JPG; filename templates, conflict handling and automatic folder creation.
+- **Save** — File / clipboard / both; JPG, PNG, WebP and AVIF, with quality (1–100), a lossless switch and effort (0–9) in the config; filename templates, conflict handling and automatic folder creation stay as before.
+- **Metadata** — Every trigger assembles SCMP v1.0 context (foreground app, trigger way, controller, combo, colour space): XMP is embedded in PNG / JPEG / WebP, and AVIF falls back to a `.xmp` sidecar. Privacy fields are toggled one by one.
 - **Live production** — OBS WebSocket scene capture; long-press a combo to save the replay buffer.
-- **Feedback** — Transparent overlay notification with a thumbnail, plus shutter sounds — shared by desktop, TUI and CLI.
+- **Feedback** — Transparent overlay notification with a thumbnail, plus shutter sounds — shared by desktop, TUI and CLI; the corner is picked in settings (`overlayNotifyPosition`), and the legacy left / right values normalise to the top corners.
+- **Capture hub (in progress)** — Profiles, the inbox state machine, session clustering, the automation rule engine and the analytics dashboard already live in `src/core` with unit tests. The only UI entry is the Capture Hub toggle in settings (off by default), and the inbox still renders demo items rather than the real capture stream.
+- **Controller visuals** — `@hibernalglow/gamepad-expressive` ships Expressive shapes, button icons and a stick plot for Xbox / PlayStation / Switch / generic pads, and standardises SDL_GameControllerDB mappings onto one button vocabulary; device identity carries guid, vendorId, productId and controller family.
 - **Surfaces** — Electron desktop, OpenTUI terminal, local web console and a scriptable CLI.
 - **Plugin host** — the same core can be packaged as a plugin for Xaihi (`pnpm build:plugin`, producing `lib/`, `dist/remoteEntry.js` and `cordis.patch.yml`).
 - **macOS permissions center** — checks screen recording, accessibility and input monitoring; can request access and run a real capture probe.
@@ -73,17 +76,43 @@ Desktop, TUI, web and CLI are not four implementations: they all get the same `S
 >
 > - The full-screen TUI needs Node ≥ 26 with `node:ffi`, or bun. On Node 22 with bun installed, Shiin re-executes explicitly under bun; with neither, it points you to `shiin gd`.
 > - Web mode has no tray, transparent overlay or auto-update; those shell features live in Electron only.
-> - The browser Gamepad API is never the trigger source of truth; listening stays on the Node side.
+> - The browser Gamepad API only feeds the core through `POST /api/gamepad/sync` when Node has no physical controller open; as soon as SDL holds a real device, injected state is dropped and triggering goes back to native listening.
 
 See [ADR-0008: local web host and shared ScreenshotManager](../docs/adr/0008-web-host-and-shared-screenshot-manager.md).
 
 ---
 
-## 03 / Terminal and web
+## 03 / From one shot to one asset
+
+<p align="center">
+  <img src="assets/capture-pipeline-en.svg" width="100%" alt="Capture pipeline: lossless PNG grab, encoding to JPG / PNG / WebP / AVIF, SCMP v1.0 metadata embedded or written as an .xmp sidecar, then file, clipboard, OBS and the corner overlay.">
+</p>
+
+There is now exactly one capture path: **grab a lossless PNG first** (`screencapture -x -t png` on macOS, `node-screenshots` on Windows, a PNG source from OBS), then let `sharp` encode it according to `imageFormat` / `imageQuality` / `imageLossless` / `imageEffort` in `encodeImageBuffer()` (`src/core/screenshot.ts`). An encoding failure is reported with the format name instead of quietly writing a broken file, and the clipboard writer sniffs the PNG magic so WebP / AVIF output still pastes correctly on macOS.
+
+Metadata follows SCMP v1.0 (XMP + IPTC + Dublin Core) and `metadataStorageMode` decides whether it is embedded, sidecar-only, both, or database-only: PNG / JPEG / WebP can carry XMP inline, while AVIF under `embedIfSupported` automatically degrades to a `.xmp` file. Sidecars are named `basename.ext.xmp` or `basename.xmp`, and window title / app identity are separate privacy switches. Rationale in [ADR-0011](../docs/adr/0011-shiin-capture-metadata-profile-and-indexed-library.md).
+
+<p align="center">
+  <img src="assets/capture-hub-en.svg" width="100%" alt="Capture hub: profiles, inbox state machine, rules and sessions, insights and vault health, with the current boundary marked in a dashed strip.">
+</p>
+
+The hub has four layers. **Profiles** are defined along four orthogonal axes — matching, privacy, metadata and pipeline — with Gaming, Development, Research, Design and custom presets built in. **Inbox** tracks inbox / starred / archived / trashed plus batch operations. The **rule engine** maps conditions on app name, window title, dimensions, format and tags to actions such as tagging, starring, archiving or moving to a folder, with dry-run preview and undo rollback, and no dynamic code execution. **Insights and health** record screenshot, listening and controller button events, shooting streaks, dHash duplicate groups and multi-vault storage health.
+
+> **What is actually wired today**
+>
+> - The engines above are in `src/core` and covered by unit tests; the only clickable surface is the Capture Hub toggle in settings (off by default) with the inbox and workflows panels behind it.
+> - The inbox still reads demo fixtures — the capture stream is not written into it — and the indexed multi-source library is core-only, with no button yet.
+> - The analytics page accumulates real screenshot, listening and button events, but it starts from a seeded sample and can be cleared to zero.
+>
+> See [ADR-0012](../docs/adr/0012-universal-capture-hub-inbox-and-workflow-engine.md).
+
+---
+
+## 04 / Terminal and web
 
 ```bash
 shiin                       # full-screen TUI
-shiin capture --format png  # capture once
+shiin capture --format webp --quality 82  # capture once (jpg | png | webp | avif)
 shiin serve                 # local web console (default 127.0.0.1:3800)
 shiin doctor                # runtime / FFI / SDL / OBS / folder self-check
 ```
@@ -92,7 +121,7 @@ TUI, `capture` and `replay` show the same overlay notification as the desktop ap
 
 ---
 
-## 04 / Get started
+## 05 / Get started
 
 ### Desktop (from source)
 
@@ -146,7 +175,7 @@ Global install steps for `shiin` / `shiin-cli` / `shiin-tui` are in [docs/cli.md
 
 ---
 
-## 05 / Impression palette
+## 06 / Impression palette
 
 <p align="center">
   <img src="assets/palette-en.svg" width="100%" alt="Shiin impression palette: darkroom ink, silver, signal lime, moss, tie crimson and pale blossom.">
@@ -172,7 +201,8 @@ Sources: [PRTS · 稀音](https://prts.wiki/w/%E7%A8%80%E9%9F%B3) · [Moegirlped
 ## Credits
 
 - The desktop app evolves from [AmagiSakuya/GamePad-ScreenShot-Windows](https://github.com/AmagiSakuya/GamePad-ScreenShot-Windows).
-- Interface screenshots were taken from the current 2.0 web console. The hero, architecture diagram and palette are hand-authored SVG.
+- Interface screenshots were taken from the current 2.0 web console. The hero, architecture diagram, pipeline diagram, hub diagram and palette are hand-authored SVG.
+- Controller mappings come from [SDL_GameControllerDB](https://github.com/mdqinc/SDL_GameControllerDB) (Zlib) and the line art from the [Gamepad Line Art Pack](https://gidedin.itch.io/gamepad-line-art-pack) (CC0 1.0); both ship inside `packages/gamepad-expressive` with their own license files.
 - The visual theme references Arknights Scene (稀音, R162).
 
 ## License

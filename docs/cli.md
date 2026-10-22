@@ -76,7 +76,7 @@ shiin listen               # 前台监听手柄组合键与快捷键（Ctrl+C �
 shiin serve [flags]        # 启动本地 Web 控制台（--port 3800 --host 127.0.0.1 --no-open）
 shiin devices              # 手柄 / 显示器 / 窗口清单
 shiin config               # 查看配置（--json 可机读）
-shiin config set <k> <v>   # 写配置，例如：shiin config set imageFormat png
+shiin config set <k> <v>   # 写配置，例如：shiin config set imageFormat webp（另有 imageQuality / imageLossless / imageEffort）
 shiin config get <k>       # 读单个键
 shiin doctor               # 环境自检：运行时 / FFI / SDL / OBS / 目录
 ```
@@ -94,7 +94,7 @@ shiin combo --json                       # 只读当前值
 录制时按下的键会逐条打印（`+ Button0`）；Ctrl+C 取消，30 秒没有任何输入则超时退出。
 组合键**按设备保存**（存储键就是手柄名），换一只手柄要重录——不同手柄的按键编号本来就不一样。
 
-`capture` 的旗标：`--target screen|window`、`--screen <id>` / `--window <id|focused>`（直接指定源，id 来自 `shiin devices`）、`--window-mode specified|focused`、`--save file|clipboard|both`、`--format jpg|png`、`--path <dir>`、`--json`、`--no-notify`（本次不弹覆层）。
+`capture` 的旗标：`--target screen|window`、`--screen <id>` / `--window <id|focused>`（直接指定源，id 来自 `shiin devices`）、`--window-mode specified|focused`、`--save file|clipboard|both`、`--format jpg|png|webp|avif`、`--quality 1-100`、`--lossless`（WebP / AVIF 无损）、`--path <dir>`、`--json`、`--no-notify`（本次不弹覆层）。
 
 ## 窗口目标：指定窗口 vs 聚焦窗口
 
@@ -127,7 +127,7 @@ TUI 的设置页在「截图目标 → 窗口」下可切换「聚焦窗口 / �
 
 `capture`、`replay`、`listen` 以及 TUI 里的截图/回放，都会弹出和桌面端**同一份** `screenshot-notification.html`
 （TUI 里也可以按 `N` 单独测一条）：
-透明圆角卡片、左上/右上进入、跨工作区置顶、不抢焦点，截图成功时带 64×64 缩略图。位置和尺寸读配置里的
+透明圆角卡片、四角任选（`top-left` / `top-right` / `bottom-left` / `bottom-right`，旧的 `left` / `right` 归到对应上角）、跨工作区置顶、不抢焦点，截图成功时带 64×64 缩略图。位置和尺寸读配置里的
 `overlayNotifyPosition` / `overlayNotifySize`，时长默认 4.5 秒。
 
 实现上由 `src/app/electron/overlay.ts` 起一个 Electron 辅助进程，CLI 通过 `SHIIN_OVERLAY_PAYLOAD`
@@ -151,7 +151,8 @@ shiin notify --title "只弹文字" --type text
 ```
 
 `notify` 旗标：`--img <file>`、`--title <text>`、`--desc <text>`、`--type video|text`、
-`--position left|right`、`--size 0.6-2`、`--duration <ms>`、`--json`。
+`--position left|right`、`--size 0.6-2`、`--duration <ms>`、`--json`。`notify` 与 `/api/notify` 的
+`--position` 目前仍只收旧的两个值；屏幕四角走配置键 `overlayNotifyPosition`（设置页有四角选择器）。
 
 ## 退出码
 
