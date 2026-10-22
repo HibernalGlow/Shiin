@@ -1,8 +1,66 @@
 <!DOCTYPE html>
-<html lang="zh-cn"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-
-  <title>截图通知</title>
+<html lang="zh-cn">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>Shiin 截图通知</title>
   <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-card: rgba(22, 25, 18, 0.94);
+      --border-card: rgba(255, 255, 255, 0.12);
+      --shadow-card: 0 16px 40px rgba(0, 0, 0, 0.52), 0 0 0 1px rgba(255, 255, 255, 0.06);
+      --color-text: #eef1e5;
+      --color-title: #f3f6ea;
+      --color-desc: #aeb6a1;
+      --bg-preview: #141710;
+      --border-preview: rgba(255, 255, 255, 0.12);
+      --color-accent: #c9f56d;
+      --color-accent-ink: #172403;
+      --badge-bg: rgba(201, 245, 109, 0.18);
+      --badge-border: rgba(201, 245, 109, 0.28);
+      --progress-track: rgba(255, 255, 255, 0.06);
+      --progress-fill: #c9f56d;
+    }
+
+    html.light-theme {
+      --bg-card: rgba(255, 255, 255, 0.94);
+      --border-card: #d5d7c8;
+      --shadow-card: 0 16px 40px rgba(52, 56, 49, 0.14), 0 2px 8px rgba(52, 56, 49, 0.06);
+      --color-text: #343831;
+      --color-title: #20241d;
+      --color-desc: #606657;
+      --bg-preview: #edece4;
+      --border-preview: #d5d7c8;
+      --color-accent: #536644;
+      --color-accent-ink: #ffffff;
+      --badge-bg: rgba(158, 200, 0, 0.22);
+      --badge-border: rgba(158, 200, 0, 0.35);
+      --progress-track: rgba(52, 56, 49, 0.08);
+      --progress-fill: #536644;
+    }
+
+    @media (prefers-color-scheme: light) {
+      html:not(.dark-theme) {
+        --bg-card: rgba(255, 255, 255, 0.94);
+        --border-card: #d5d7c8;
+        --shadow-card: 0 16px 40px rgba(52, 56, 49, 0.14), 0 2px 8px rgba(52, 56, 49, 0.06);
+        --color-text: #343831;
+        --color-title: #20241d;
+        --color-desc: #606657;
+        --bg-preview: #edece4;
+        --border-preview: #d5d7c8;
+        --color-accent: #536644;
+        --color-accent-ink: #ffffff;
+        --badge-bg: rgba(158, 200, 0, 0.22);
+        --badge-border: rgba(158, 200, 0, 0.35);
+        --progress-track: rgba(52, 56, 49, 0.08);
+        --progress-fill: #536644;
+      }
+    }
+
     body {
       margin: 0;
       padding: 0;
@@ -11,160 +69,431 @@
       width: 100vw;
       height: 100vh;
       pointer-events: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
-    /* 外层：只负责定位 + 进出场动画，本身不缩放 */
+
+    /* 外层舞台：负责角落定位与进出场位移动画 */
     .stage {
       position: fixed;
-      left: 18px;
-      top: 18px;
+      pointer-events: auto;
       opacity: 0;
-      transform: translateX(-60%) scale(0.98);
-      animation: fadeInRight 0.4s cubic-bezier(.4,1.7,.6,1) forwards;
+      transition: opacity 0.25s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    /* 右上角显示：从右侧进入/退出 */
+
+    /* 四角定位与出入场动效 */
+    /* 1. 右上角 (默认) */
+    .stage.pos-top-right,
     .stage.pos-right {
+      top: 24px;
+      right: 24px;
       left: auto;
-      right: 18px;
-      transform: translateX(60%) scale(0.98);
-      animation-name: fadeInLeft;
+      bottom: auto;
+      transform: translateX(48px) scale(0.96);
+      animation: enterFromRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
-    /* 内层卡片：负责外观，并通过 CSS zoom 做整体等比缩放（小/中/大） */
+    .stage.pos-top-right.fade-out,
+    .stage.pos-right.fade-out {
+      animation: exitToRight 0.28s cubic-bezier(0.4, 0, 1, 1) forwards;
+    }
+
+    /* 2. 左上角 */
+    .stage.pos-top-left,
+    .stage.pos-left {
+      top: 24px;
+      left: 24px;
+      right: auto;
+      bottom: auto;
+      transform: translateX(-48px) scale(0.96);
+      animation: enterFromLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .stage.pos-top-left.fade-out,
+    .stage.pos-left.fade-out {
+      animation: exitToLeft 0.28s cubic-bezier(0.4, 0, 1, 1) forwards;
+    }
+
+    /* 3. 右下角 */
+    .stage.pos-bottom-right {
+      bottom: 24px;
+      right: 24px;
+      left: auto;
+      top: auto;
+      transform: translate(48px, 16px) scale(0.96);
+      animation: enterFromBottomRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .stage.pos-bottom-right.fade-out {
+      animation: exitToBottomRight 0.28s cubic-bezier(0.4, 0, 1, 1) forwards;
+    }
+
+    /* 4. 左下角 */
+    .stage.pos-bottom-left {
+      bottom: 24px;
+      left: 24px;
+      right: auto;
+      top: auto;
+      transform: translate(-48px, 16px) scale(0.96);
+      animation: enterFromBottomLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .stage.pos-bottom-left.fade-out {
+      animation: exitToBottomLeft 0.28s cubic-bezier(0.4, 0, 1, 1) forwards;
+    }
+
+    /* MD3 Expressive 悬浮通知卡片 */
     .card {
-      min-width: 320px;
-      max-width: 400px;
-      min-height: 80px;
-      background: rgba(25, 28, 20, 0.94);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      border: 1px solid rgba(238, 241, 229, 0.10);
+      position: relative;
+      min-width: 330px;
+      max-width: 440px;
+      min-height: 84px;
+      background: var(--bg-card);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid var(--border-card);
       border-radius: 24px;
       display: flex;
       align-items: center;
       gap: 16px;
-      padding: 16px 22px;
-      color: #eef1e5;
-      font-family: "Helvetica Neue", "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+      padding: 14px 18px;
+      color: var(--color-text);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      cursor: default;
+      user-select: none;
+      transform-origin: center center;
     }
-    .preview {
-      width: 64px;
-      height: 64px;
+
+    /* 预览图容器 */
+    .preview-box {
+      width: 62px;
+      height: 62px;
       border-radius: 16px;
-      background: #141710;
-      object-fit: cover;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-      border: 2px solid #55604a;
-    }
-    .video-icon {
-      display: none;
-      width: 64px;
-      height: 64px;
-      border-radius: 16px;
-      background: #c9f56d;
-      color: #1c2a05;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: var(--bg-preview);
+      border: 1.5px solid var(--border-preview);
+      display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 2px 8px rgba(80, 50, 38, 0.12);
-      border: 2px solid #c9f56d;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
-    .video-icon svg { width: 24px; height: 24px; fill: currentColor; }
-    .stage.video .preview { display: none; }
-    .stage.video .video-icon { display: flex; }
-    .stage.text .preview,
-    .stage.text .video-icon { display: none; }
+
+    .preview {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+
+    .camera-fallback {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      color: var(--color-accent);
+    }
+    .camera-fallback svg {
+      width: 28px;
+      height: 28px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+    }
+
+    .video-icon {
+      display: none;
+      width: 100%;
+      height: 100%;
+      background: var(--color-accent);
+      color: var(--color-accent-ink);
+      align-items: center;
+      justify-content: center;
+    }
+    .video-icon svg {
+      width: 24px;
+      height: 24px;
+      fill: currentColor;
+    }
+
+    .stage.video .preview { display: none !important; }
+    .stage.video .camera-fallback { display: none !important; }
+    .stage.video .video-icon { display: flex !important; }
+
+    .stage.text .preview-box { display: none !important; }
+
+    /* 信息区域 */
     .info {
+      flex: 1;
+      min-width: 0;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 6px;
+      gap: 5px;
     }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     .title {
-      font-size: 18px;
-      font-weight: bold;
-      margin-bottom: 2px;
+      font-size: 16px;
+      font-weight: 750;
+      letter-spacing: -0.2px;
+      color: var(--color-title);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 7px;
+      border-radius: 999px;
+      font-size: 10.5px;
+      font-weight: 750;
+      letter-spacing: 0.05em;
+      background: var(--badge-bg);
+      color: var(--color-accent);
+      border: 1px solid var(--badge-border);
+    }
+
     .desc {
-      font-size: 14px;
-      color: #aeb6a1;
+      font-size: 13px;
+      color: var(--color-desc);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.35;
     }
-    @keyframes fadeInRight {
+
+    /* 底部细进度条 */
+    .progress-bar-track {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--progress-track);
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 100%;
+      background: var(--progress-fill);
+      transform-origin: left center;
+      animation: progressCountdown linear forwards;
+    }
+
+    /* 悬停暂停倒计时 */
+    .card:hover .progress-bar-fill {
+      animation-play-state: paused !important;
+    }
+
+    @keyframes progressCountdown {
+      from { transform: scaleX(1); }
+      to { transform: scaleX(0); }
+    }
+
+    /* 关键帧动画 */
+    @keyframes enterFromRight {
       to {
         opacity: 1;
         transform: translateX(0) scale(1);
       }
     }
-    @keyframes fadeInLeft {
+    @keyframes exitToRight {
+      to {
+        opacity: 0;
+        transform: translateX(48px) scale(0.96);
+      }
+    }
+
+    @keyframes enterFromLeft {
       to {
         opacity: 1;
         transform: translateX(0) scale(1);
       }
     }
-    @keyframes fadeOutRight {
+    @keyframes exitToLeft {
       to {
         opacity: 0;
-        transform: translateX(-60%) scale(0.98);
+        transform: translateX(-48px) scale(0.96);
       }
     }
-    @keyframes fadeOutLeft {
+
+    @keyframes enterFromBottomRight {
+      to {
+        opacity: 1;
+        transform: translate(0, 0) scale(1);
+      }
+    }
+    @keyframes exitToBottomRight {
       to {
         opacity: 0;
-        transform: translateX(60%) scale(0.98);
+        transform: translate(48px, 16px) scale(0.96);
       }
     }
-    .stage.fade-out {
-      animation: fadeOutRight 0.3s forwards;
+
+    @keyframes enterFromBottomLeft {
+      to {
+        opacity: 1;
+        transform: translate(0, 0) scale(1);
+      }
     }
-    .stage.pos-right.fade-out {
-      animation-name: fadeOutLeft;
+    @keyframes exitToBottomLeft {
+      to {
+        opacity: 0;
+        transform: translate(-48px, 16px) scale(0.96);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .stage, .stage.pos-top-right, .stage.pos-top-left, .stage.pos-bottom-right, .stage.pos-bottom-left {
+        transform: none !important;
+        animation: none !important;
+        opacity: 1 !important;
+      }
+      .progress-bar-fill {
+        animation: none !important;
+      }
     }
   </style>
 </head>
 <body>
   <div class="stage" id="notification">
     <div class="card" id="zoomer">
-      <img class="preview" id="preview" src="" alt="截图预览" style="display: none;">
-      <div class="video-icon" id="video-icon" aria-label="录像"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 4 13 8-13 8Z"/></svg></div>
+      <div class="preview-box" id="preview-box">
+        <img class="preview" id="preview" src="" alt="截图预览">
+        <div class="camera-fallback" id="camera-fallback" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        </div>
+        <div class="video-icon" id="video-icon" aria-label="录像">
+          <svg viewBox="0 0 24 24"><path d="m7 4 13 8-13 8Z"/></svg>
+        </div>
+      </div>
+
       <div class="info">
-        <div class="title" id="title">截图成功</div>
+        <div class="header-row">
+          <div class="title" id="title">截图成功</div>
+          <span class="badge" id="badge">SHIIN</span>
+        </div>
         <div class="desc" id="desc">已保存到本地</div>
+      </div>
+
+      <div class="progress-bar-track" aria-hidden="true">
+        <div class="progress-bar-fill" id="progress-fill"></div>
       </div>
     </div>
   </div>
+
   <script>
-    // 支持直接通过 query 传参
     const params = new URLSearchParams(location.search);
+    const stageEl = document.getElementById('notification');
     const imgEl = document.getElementById('preview');
+    const cameraFallback = document.getElementById('camera-fallback');
+    const titleEl = document.getElementById('title');
+    const descEl = document.getElementById('desc');
+    const badgeEl = document.getElementById('badge');
+    const zoomerEl = document.getElementById('zoomer');
+    const progressFill = document.getElementById('progress-fill');
+
+    // 图片处理
     if (params.has('img') && params.get('img')) {
       imgEl.src = params.get('img');
       imgEl.style.display = 'block';
-      imgEl.onerror = () => { imgEl.style.display = 'none'; };
+      cameraFallback.style.display = 'none';
+      imgEl.onerror = () => {
+        imgEl.style.display = 'none';
+        cameraFallback.style.display = 'flex';
+      };
     } else {
       imgEl.style.display = 'none';
+      cameraFallback.style.display = 'flex';
     }
+
     if (params.has('title')) {
-      document.getElementById('title').textContent = params.get('title');
+      titleEl.textContent = params.get('title');
     }
     if (params.has('desc')) {
-      document.getElementById('desc').textContent = params.get('desc');
+      descEl.textContent = params.get('desc');
     }
-    // 通知大小：整体等比缩放（小/中/大），无效或未传时按 1 处理
+
+    // 深浅主题识别
+    const themeParam = params.get('theme');
+    if (themeParam === 'light') {
+      document.documentElement.classList.add('light-theme');
+    } else if (themeParam === 'dark') {
+      document.documentElement.classList.add('dark-theme');
+    }
+
+    // 类型：video / text
+    const typeParam = params.get('type');
+    if (typeParam === 'video' || typeParam === 'text') {
+      stageEl.classList.add(typeParam);
+      if (typeParam === 'video') {
+        badgeEl.textContent = 'OBS';
+      }
+    }
+
+    // 缩放
     const scaleParam = parseFloat(params.get('scale'));
     if (isFinite(scaleParam) && scaleParam > 0) {
-      document.getElementById('zoomer').style.zoom = scaleParam;
+      zoomerEl.style.zoom = scaleParam;
     }
-    if (params.get('type') === 'video' || params.get('type') === 'text') {
-      document.getElementById('notification').classList.add(params.get('type'));
+
+    // 位置：top-right, top-left, bottom-right, bottom-left, right, left
+    const posParam = params.get('pos') || 'top-right';
+    if (posParam === 'top-left' || posParam === 'left') {
+      stageEl.classList.add('pos-top-left');
+    } else if (posParam === 'bottom-left') {
+      stageEl.classList.add('pos-bottom-left');
+    } else if (posParam === 'bottom-right') {
+      stageEl.classList.add('pos-bottom-right');
+    } else {
+      stageEl.classList.add('pos-top-right');
     }
-    // 通知位置：right 时从右上角进入，left（默认）从左上角进入
-    if (params.get('pos') === 'right') {
-      document.getElementById('notification').classList.add('pos-right');
+
+    // 时长与倒计时动画
+    const durationParam = parseInt(params.get('duration'), 10);
+    const duration = (isFinite(durationParam) && durationParam >= 500) ? durationParam : 4500;
+    progressFill.style.animationDuration = duration + 'ms';
+
+    // 悬停暂停支持
+    let remainingTime = duration;
+    let timerStart = Date.now();
+    let isPaused = false;
+    let closeTimeout = null;
+
+    function scheduleClose(ms) {
+      closeTimeout = setTimeout(() => {
+        stageEl.classList.add('fade-out');
+        setTimeout(() => {
+          try { window.close(); } catch (e) {}
+        }, 300);
+      }, ms);
     }
-    // 5秒后淡出
-    setTimeout(() => {
-      document.getElementById('notification').classList.add('fade-out');
-      setTimeout(() => window.close(), 300);
-    }, 5000);
+
+    scheduleClose(duration);
+
+    zoomerEl.addEventListener('mouseenter', () => {
+      if (closeTimeout) {
+        clearTimeout(closeTimeout);
+        closeTimeout = null;
+      }
+      const elapsed = Date.now() - timerStart;
+      remainingTime = Math.max(500, remainingTime - elapsed);
+      isPaused = true;
+    });
+
+    zoomerEl.addEventListener('mouseleave', () => {
+      if (isPaused) {
+        isPaused = false;
+        timerStart = Date.now();
+        scheduleClose(remainingTime);
+      }
+    });
   </script>
-
-
-</body></html>
+</body>
+</html>

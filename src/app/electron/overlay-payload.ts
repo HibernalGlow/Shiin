@@ -36,7 +36,14 @@ export function parseOverlayPayload(raw: unknown): ScreenshotNotificationOptions
   const duration = asFiniteNumber(source.duration)
   const scale = asFiniteNumber(source.scale)
   const type = source.type === 'video' || source.type === 'text' ? source.type : undefined
-  const position = source.position === 'left' || source.position === 'right' ? source.position : undefined
+  const ALLOWED_POSITIONS = new Set(['left', 'right', 'top-left', 'top-right', 'bottom-left', 'bottom-right'])
+  const position = typeof source.position === 'string' && ALLOWED_POSITIONS.has(source.position)
+    ? (source.position as ScreenshotNotificationOptions['position'])
+    : undefined
+
+  const theme = source.theme === 'light' || source.theme === 'dark' || source.theme === 'auto'
+    ? (source.theme as ScreenshotNotificationOptions['theme'])
+    : undefined
 
   return {
     img: asString(source.img),
@@ -46,5 +53,6 @@ export function parseOverlayPayload(raw: unknown): ScreenshotNotificationOptions
     duration: duration === undefined ? undefined : Math.min(MAX_DURATION_MS, Math.max(MIN_DURATION_MS, duration)),
     position,
     scale,
+    theme,
   }
 }

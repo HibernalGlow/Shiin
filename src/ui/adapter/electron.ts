@@ -232,21 +232,31 @@ export class ElectronHostBridge implements IHostBridge {
 
   public async getCurrentButtons(): Promise<boolean[]> {
     const state = await this.fetchGamepadState()
-    if (state) return state.buttons
+    if (state && state.buttons.some(Boolean)) return state.buttons
 
     const raw = this.browserGamepads()
     if (raw.length > 0) {
       return raw[0].buttons.map((b) => b.pressed)
     }
-    return []
+    return state ? state.buttons : []
   }
 
   public async getCurrentAxes(): Promise<number[]> {
     const state = await this.fetchGamepadState()
-    if (state) return state.axes
+    if (state && state.axes.some((val) => Math.abs(val) > 0.15)) return state.axes
 
     const raw = this.browserGamepads()
-    return raw.length > 0 ? raw[0].axes.slice() : []
+    return raw.length > 0 ? raw[0].axes.slice() : (state ? state.axes : [])
+  }
+
+  public async syncWebGamepad(devices: GamepadDeviceInfo[], buttons: boolean[], axes: number[]): Promise<void> {
+    if (this.api.syncWebGamepad) {
+      try {
+        await this.api.syncWebGamepad(devices, buttons, axes)
+        return
+      } catch {}
+    }
+    await fetchLocalApi('/api/gamepad/sync', { devices, buttons, axes })
   }
 
   public async getScreenSources(): Promise<CaptureDisplayInfo[]> {
@@ -366,14 +376,40 @@ export class ElectronHostBridge implements IHostBridge {
     return scale
   }
 
-  public showNotification(title: string, body: string, img?: string): void {
-    if (this.api.showScreenshotNotification) {
-      this.api.showScreenshotNotification({ title, desc: body, img })
-    } else if (typeof Notification !== 'undefined') {
-      try {
-        new Notification(title, { body })
-      } catch {}
+  public showNotification(
+    title: string,
+    body: string,
+    img?: string,
+    options?: { force?: boolean; duration?: number; type?: 'video' | 'text' }
+  ): void {
+    if (!options?.force && typeof document !== 'undefined' && document.visibilityState === 'visible' && !document.hidden) {
+      // WebUI 前台处于激活状态时，由内部反馈层负责通知，避免双重弹窗干扰用户
+      return
     }
+    if (this.api.showScreenshotNotification) {
+      this.api.showScreenshotNotification({
+        title,
+        desc: body,
+        img,
+        type: options?.type || (img ? undefined : 'text'),
+        duration: options?.duration,
+      })
+      return
+    }
+    void fetchLocalApi<{ ok: boolean }>('/api/notify', {
+      title,
+      desc: body,
+      img: img || undefined,
+      type: options?.type || (img ? undefined : 'text'),
+      duration: options?.duration,
+      force: options?.force,
+    }).catch(() => {
+      if (typeof Notification !== 'undefined') {
+        try {
+          new Notification(title, { body })
+        } catch {}
+      }
+    })
   }
 
   public async saveOBSReplay(): Promise<{ ok: boolean; error?: string }> {
@@ -400,8 +436,31 @@ export class ElectronHostBridge implements IHostBridge {
     return { ok: true, removed: 0 }
   }
 
+  public get isWeb(): boolean {
+    return !this.hasElectronApi
+  }
+
+  public get isDesktop(): boolean {
+    return this.hasElectronApi
+  }
+
+  public get platform(): string {
+    if (this.hasElectronApi && this.api.platform) {
+      return this.api.platform
+    }
+    if (typeof navigator !== 'undefined') {
+      if (/Macintosh|Mac OS X/i.test(navigator.userAgent)) return 'darwin'
+      if (/Windows/i.test(navigator.userAgent)) return 'win32'
+      if (/Linux/i.test(navigator.userAgent)) return 'linux'
+    }
+    return 'unknown'
+  }
+
   public get isMac(): boolean {
-    return this.api.platform === 'darwin' || (typeof navigator !== 'undefined' && /Macintosh|Mac OS X/i.test(navigator.userAgent))
+    if (this.hasElectronApi && this.api.platform) {
+      return this.api.platform === 'darwin'
+    }
+    return typeof navigator !== 'undefined' && /Macintosh|Mac OS X/i.test(navigator.userAgent)
   }
 
   public async getMacOSPermissions(options?: { activeProbe?: boolean }): Promise<MacOSPermissionsStatus> {

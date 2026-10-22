@@ -31,6 +31,9 @@ describe('overlay payload', () => {
       position: 'right',
       scale: 0.8,
     })
+    // 4-corner positions
+    expect(buildOverlayPayload({ img: '/tmp/a.png', position: 'top-left' }, config)).toMatchObject({ position: 'top-left' })
+    expect(buildOverlayPayload({ img: '/tmp/a.png', position: 'bottom-right' }, config)).toMatchObject({ position: 'bottom-right' })
   })
 
   it('drops unknown fields and clamps out-of-range durations', () => {
@@ -40,6 +43,8 @@ describe('overlay payload', () => {
       position: undefined,
       duration: 500,
     })
+    expect(parseOverlayPayload({ position: 'bottom-left' })).toMatchObject({ position: 'bottom-left' })
+    expect(parseOverlayPayload({ position: 'top-right' })).toMatchObject({ position: 'top-right' })
     expect(parseOverlayPayload({ duration: 999_999 }).duration).toBe(30_000)
     expect(parseOverlayPayload(null)).toEqual({})
   })

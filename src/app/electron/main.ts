@@ -303,6 +303,24 @@ function syncWithServiceEvents(serverUrl: string): void {
                 typeof event.data?.listening === 'boolean'
               ) {
                 updateTrayMenu(event.data.listening)
+              } else if (isLightweightMode && event.type === 'screenshot') {
+                const res = event.data
+                if (res && res.ok) {
+                  showScreenshotNotification({
+                    img: res.filePath || '',
+                    title: getI18nText('overlayNotify.screenshotSuccess', '截图成功'),
+                    desc: res.filePath ? path.basename(res.filePath) : getI18nText('overlayNotify.screenshotSaved', '已成功写入系统剪贴板'),
+                  })
+                }
+              } else if (isLightweightMode && event.type === 'replayBuffer') {
+                const res = event.data
+                if (res && res.ok) {
+                  showScreenshotNotification({
+                    title: getI18nText('overlayNotify.replayBufferSaved', 'OBS 精彩瞬间已保存'),
+                    desc: getI18nText('overlayNotify.replayBufferSavedDesc', '回放缓存已成功导出'),
+                    type: 'video',
+                  })
+                }
               }
             } catch {}
           }

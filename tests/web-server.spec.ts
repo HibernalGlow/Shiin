@@ -242,6 +242,19 @@ describe('Shiin web host', () => {
     expect(backgroundEvents[0].data).toMatchObject({ filePath: '/tmp/a.png' })
   })
 
+  it('accepts notification requests via /api/notify', async () => {
+    const notifyRes = await (
+      await fetch(`${handle.url}/api/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Test Toast', desc: 'Message body', type: 'text' }),
+      })
+    ).json()
+    expect(notifyRes.ok).toBe(true)
+    expect(notifyRes).toHaveProperty('shown')
+    expect(notifyRes).toHaveProperty('backend')
+  })
+
   it('rejects cross-origin page requests', async () => {
     const response = await fetch(`${handle.url}/api/state`, {
       headers: { Origin: 'https://evil.example' },

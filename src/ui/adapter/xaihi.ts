@@ -13,6 +13,10 @@ export interface XaihiHostApi {
 
 export class XaihiHostBridge implements IHostBridge {
   public readonly hostType = 'xaihi'
+  public readonly isWeb = true
+  public readonly isDesktop = false
+  public readonly isMac = typeof navigator !== 'undefined' && /Macintosh|Mac OS X/i.test(navigator.userAgent)
+  public readonly platform = 'web'
   private host: XaihiHostApi
   private isListening = false
   private listenerCallbacks = new Set<(state: boolean) => void>()

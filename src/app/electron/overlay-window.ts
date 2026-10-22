@@ -11,9 +11,12 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { normalizeOverlayScale, toImageUrl } from './overlay-payload.js'
 
+export type OverlayCornerPosition = 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
+export type OverlayNotifyPosition = OverlayCornerPosition | 'left' | 'right'
+
 export interface OverlayNotifyConfig {
   overlayNotify?: 'show' | 'hide'
-  overlayNotifyPosition?: 'left' | 'right'
+  overlayNotifyPosition?: OverlayNotifyPosition
   overlayNotifySize?: number | string
 }
 
@@ -24,8 +27,16 @@ export interface ScreenshotNotificationOptions {
   type?: 'video' | 'text'
   /** 毫秒；不传时沿用桌面端历史的 4500ms。 */
   duration?: number
-  position?: 'left' | 'right'
+  position?: OverlayNotifyPosition
   scale?: number
+  theme?: 'light' | 'dark' | 'auto'
+}
+
+export function normalizeOverlayPosition(pos?: string): OverlayCornerPosition {
+  if (pos === 'top-left' || pos === 'left') return 'top-left'
+  if (pos === 'bottom-left') return 'bottom-left'
+  if (pos === 'bottom-right') return 'bottom-right'
+  return 'top-right'
 }
 
 const DEFAULT_DURATION = 4500
@@ -79,9 +90,12 @@ export function showScreenshotNotification(
   const overlayWidth = Math.round(BASE_WIDTH * scale)
   const overlayHeight = Math.round(BASE_HEIGHT * scale)
 
-  const pos = options.position ?? (config.overlayNotifyPosition === 'left' ? 'left' : 'right')
-  const x = pos === 'right' ? Math.max(0, primaryDisplay.bounds.width - overlayWidth - 24) : 24
-  const y = 32
+  const corner = normalizeOverlayPosition(options.position ?? config.overlayNotifyPosition)
+  const isRight = corner === 'top-right' || corner === 'bottom-right'
+  const isBottom = corner === 'bottom-left' || corner === 'bottom-right'
+
+  const x = isRight ? Math.max(0, primaryDisplay.bounds.width - overlayWidth - 24) : 24
+  const y = isBottom ? Math.max(0, primaryDisplay.bounds.height - overlayHeight - 32) : 32
 
   overlayWindow = new BrowserWindow({
     width: overlayWidth,
@@ -112,8 +126,10 @@ export function showScreenshotNotification(
       title,
       desc,
       type: type || (img ? '' : 'text'),
-      pos,
+      pos: corner,
       scale: String(scale),
+      duration: String(duration),
+      theme: options.theme || '',
     },
   })
 
@@ -136,7 +152,7 @@ export function showScreenshotNotification(
       } catch {}
       overlayWindow = null
     }
-  }, duration)
+  }, duration + 350)
 
   return overlayWindow
 }

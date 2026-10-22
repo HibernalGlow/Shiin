@@ -16,7 +16,7 @@ import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
-import type { ScreenshotResult } from '../../core/types.js'
+import type { OverlayNotifyPosition, ScreenshotResult } from '../../core/types.js'
 import type { Translator } from './i18n.js'
 
 export type OverlayBackend = 'electron' | 'system' | 'none'
@@ -28,7 +28,7 @@ export interface OverlayRequest {
   type?: 'video' | 'text'
   /** 毫秒，覆盖默认 4500ms。 */
   duration?: number
-  position?: 'left' | 'right'
+  position?: OverlayNotifyPosition
   /** 整体缩放，桌面端同款 0.6–2。 */
   scale?: number
 }
@@ -41,7 +41,7 @@ export interface OverlayShowResult {
 
 export interface OverlayConfig {
   overlayNotify?: 'show' | 'hide'
-  overlayNotifyPosition?: 'left' | 'right'
+  overlayNotifyPosition?: OverlayNotifyPosition
   overlayNotifySize?: number | string
 }
 
@@ -97,7 +97,7 @@ export function buildOverlayPayload(
     desc: request.desc ?? '',
     type: request.type,
     duration: request.duration ?? DEFAULT_DURATION,
-    position: request.position ?? (config.overlayNotifyPosition === 'left' ? 'left' : 'right'),
+    position: request.position ?? (config.overlayNotifyPosition ?? 'right'),
     scale: request.scale ?? config.overlayNotifySize ?? 1,
   }
 }

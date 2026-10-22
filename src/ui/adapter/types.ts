@@ -40,6 +40,7 @@ export interface IHostBridge {
   closeGamepad(): Promise<void>
   getCurrentButtons(): Promise<boolean[]>
   getCurrentAxes(): Promise<number[]>
+  syncWebGamepad?(devices: GamepadDeviceInfo[], buttons: boolean[], axes: number[]): Promise<void>
   onGamepadDevicesChanged?(cb: (devices: GamepadDeviceInfo[]) => void): () => void
 
   // 截屏动作与环境查询
@@ -66,7 +67,12 @@ export interface IHostBridge {
   exitLightweightMode?(): Promise<{ ok: boolean; lightweight: boolean }>
   onLightweightModeChanged?(cb: (lightweight: boolean) => void): () => void
   setUiScale?(scale: number): Promise<number>
-  showNotification?(title: string, body: string, img?: string): void
+  showNotification?(
+    title: string,
+    body: string,
+    img?: string,
+    options?: { force?: boolean; duration?: number; type?: 'video' | 'text' }
+  ): void
 
   // OBS 联动
   connectOBS?(ip: string, port: number, password?: string): Promise<{ ok: boolean; error?: string }>
@@ -79,6 +85,9 @@ export interface IHostBridge {
 
   // 平台特性与系统权限（macOS 专用适配与全平台自检）
   readonly isMac?: boolean
+  readonly isWeb?: boolean
+  readonly isDesktop?: boolean
+  readonly platform?: string
   getMacOSPermissions?(options?: { activeProbe?: boolean }): Promise<MacOSPermissionsStatus>
   requestMacOSPermission?(
     target: PermissionTargetType,

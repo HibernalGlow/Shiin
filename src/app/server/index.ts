@@ -33,6 +33,7 @@ import {
   type ScreenshotManager,
 } from '../../core/index.js'
 import { clipboardImageSupported, createClipboardWriter } from '../cli/clipboard.js'
+import { showOverlayNotification, type OverlayRequest } from '../cli/overlay.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -50,6 +51,7 @@ const MIME_TYPES: Record<string, string> = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
+  '.avif': 'image/avif',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
@@ -67,6 +69,7 @@ export interface WebHostManager {
     getCurrentAxes(): number[]
     openDevice(index: number): boolean
     closeDevice(): void
+    injectWebGamepadState?(devices: GamepadDeviceInfo[], buttons: boolean[], axes: number[]): void
   }
   startListening(deviceIndex?: number): Promise<{ ok: boolean; reason?: string }>
   stopListening(): void
@@ -384,7 +387,14 @@ function resultPreview(result: ScreenshotResult): { previewDataUrl?: string; lat
   if (!result.ok || !result.filePath || !fs.existsSync(result.filePath)) return {}
   try {
     const buffer = fs.readFileSync(result.filePath)
-    const mime = result.format === 'png' ? 'image/png' : 'image/jpeg'
+    const mimeMap: Record<string, string> = {
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      webp: 'image/webp',
+      avif: 'image/avif',
+    }
+    const mime = mimeMap[result.format] || 'image/jpeg'
     return { previewDataUrl: `data:${mime};base64,${buffer.toString('base64')}` }
   } catch {
     return {}
@@ -549,6 +559,18 @@ export async function startWebServer(options: WebServerOptions): Promise<WebServ
         return
       }
 
+      case 'POST /api/gamepad/sync': {
+        const body = await readJsonBody(req)
+        const devices = Array.isArray(body.devices) ? (body.devices as GamepadDeviceInfo[]) : []
+        const buttons = Array.isArray(body.buttons) ? (body.buttons as boolean[]).map(Boolean) : []
+        const axes = Array.isArray(body.axes) ? (body.axes as number[]).map((a) => Number(a) || 0) : []
+        if (typeof (manager.gamepad as any).injectWebGamepadState === 'function') {
+          (manager.gamepad as any).injectWebGamepadState(devices, buttons, axes)
+        }
+        sendJson(res, 200, { ok: true })
+        return
+      }
+
       case 'POST /api/listen/start': {
         const body = await readJsonBody(req)
         if (body.config && typeof body.config === 'object') {
@@ -699,6 +721,24 @@ export async function startWebServer(options: WebServerOptions): Promise<WebServ
 
       case 'POST /api/obs/save-replay': {
         sendJson(res, 200, await manager.saveOBSReplay())
+        return
+      }
+
+      case 'POST /api/notify': {
+        const body = ((await readJsonBody(req)) || {}) as Record<string, unknown>
+        const request: OverlayRequest = {
+          title: typeof body.title === 'string' ? body.title : undefined,
+          desc: typeof body.desc === 'string' ? body.desc : undefined,
+          img: typeof body.img === 'string' ? body.img : undefined,
+          type: body.type === 'video' || body.type === 'text' ? body.type : undefined,
+          duration: typeof body.duration === 'number' ? body.duration : undefined,
+          position: body.position === 'left' || body.position === 'right' ? body.position : undefined,
+          scale: typeof body.scale === 'number' ? body.scale : undefined,
+        }
+        const force = Boolean(body.force)
+        const notifyConfig = force ? { ...manager.config, overlayNotify: 'show' as const } : manager.config
+        const result = showOverlayNotification(request, notifyConfig)
+        sendJson(res, 200, { ok: true, ...result })
         return
       }
 
