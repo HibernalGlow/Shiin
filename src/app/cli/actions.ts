@@ -92,7 +92,7 @@ export async function executeCapture(
   })
 
   onEvent({ type: 'progress', progress: 100, message: t('done') })
-  notifyCaptureResult(manager, result, t, options.notify !== false)
+  await notifyCaptureResult(manager, result, t, options.notify !== false)
 
   if (!result.ok) {
     return { success: false, message: t('captureFailed'), lines: [result.error ?? t('error')] }
@@ -112,7 +112,7 @@ export async function executeReplay(
   options: ActionOptions = {},
 ): Promise<ShiinActionResult> {
   const result = await manager.saveOBSReplay()
-  notifyReplayResult(manager, result, t, options.notify !== false)
+  await notifyReplayResult(manager, result, t, options.notify !== false)
   return result.ok
     ? { success: true, message: t('replayDone') }
     : { success: false, message: t('replayFailed'), lines: [result.error ?? t('error')] }

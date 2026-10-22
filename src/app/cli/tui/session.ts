@@ -228,9 +228,9 @@ export function useShiinSession(manager: ScreenshotManager, t: Translator): Shii
     await runGuarded(() => executeReplay(manager, translatorRef.current))
   }, [manager, runGuarded])
 
-  const testNotification = useCallback(() => {
+  const testNotification = useCallback(async () => {
     const t = translatorRef.current
-    const result = showOverlayNotification(
+    const result = await showOverlayNotification(
       { title: t('overlayTestTitle'), desc: t('overlayTestDesc'), type: 'text' },
       manager.config,
     )

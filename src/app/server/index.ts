@@ -33,7 +33,9 @@ import {
   type ScreenshotManager,
 } from '../../core/index.js'
 import { clipboardImageSupported, createClipboardWriter } from '../cli/clipboard.js'
-import { showOverlayNotification, type OverlayRequest } from '../cli/overlay.js'
+import { captureOverlayRequest, replayOverlayRequest, showOverlayNotification, warmOverlayHost, type OverlayRequest } from '../cli/overlay.js'
+import { createTranslator, resolveLanguage } from '../cli/i18n.js'
+import { parseOverlayPayload } from '../electron/overlay-payload.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -86,7 +88,7 @@ export interface WebServerOptions {
   root: string
   host?: string
   port?: number
-  /** 只在没有页面通过 SSE 连接时触发，用于后台快门声/系统通知。 */
+  /** 只在没有页面通过 SSE 连接时触发，用于后台快门声。 */
   onBackgroundEvent?: (event: { type: string; data?: unknown }) => void
 }
 
@@ -421,10 +423,24 @@ export async function startWebServer(options: WebServerOptions): Promise<WebServ
   const manager = options.manager
   const sseClients = new Set<ServerResponse>()
 
+  // 桌面悬浮通知由服务端统一派发，与浏览器是否连接、是否在前台无关。
+  const notify = (request: OverlayRequest) => {
+    if (manager.config.overlayNotify === 'hide') return
+    void showOverlayNotification(request, manager.config).then((result) => {
+      if (!result.shown && result.reason !== 'disabled') console.warn('[WebHost] overlay failed:', result.reason)
+    }).catch((error) => console.warn('[WebHost] overlay failed:', error))
+  }
+  const translator = () => createTranslator(resolveLanguage(manager.config.locale, process.env))
+
   const initialDevice = manager.gamepad.getConnectedDevices()[0]
   if (initialDevice) manager.gamepad.openDevice(initialDevice._index)
 
   const unsubscribe = manager.subscribe((event) => {
+    if (event.type === 'screenshot' && event.data) {
+      notify(captureOverlayRequest(event.data as ScreenshotResult, translator()))
+    } else if (event.type === 'replayBuffer' && event.data) {
+      notify(replayOverlayRequest(event.data as { ok?: boolean; error?: string }, translator()))
+    }
     if (event.type === 'deviceChanged') {
       const devices = Array.isArray(event.data) ? (event.data as GamepadDeviceInfo[]) : []
       if (devices.length > 0) manager.gamepad.openDevice(devices[0]._index)
@@ -645,6 +661,7 @@ export async function startWebServer(options: WebServerOptions): Promise<WebServ
           return
         }
         result = await captureWithClipboard(manager)
+        notify(captureOverlayRequest(result, translator()))
         sendJson(res, 200, { ...result, latencyMs: Date.now() - startedAt })
         return
       }
@@ -726,19 +743,11 @@ export async function startWebServer(options: WebServerOptions): Promise<WebServ
 
       case 'POST /api/notify': {
         const body = ((await readJsonBody(req)) || {}) as Record<string, unknown>
-        const request: OverlayRequest = {
-          title: typeof body.title === 'string' ? body.title : undefined,
-          desc: typeof body.desc === 'string' ? body.desc : undefined,
-          img: typeof body.img === 'string' ? body.img : undefined,
-          type: body.type === 'video' || body.type === 'text' ? body.type : undefined,
-          duration: typeof body.duration === 'number' ? body.duration : undefined,
-          position: body.position === 'left' || body.position === 'right' ? body.position : undefined,
-          scale: typeof body.scale === 'number' ? body.scale : undefined,
-        }
+        const request: OverlayRequest = parseOverlayPayload(body)
         const force = Boolean(body.force)
         const notifyConfig = force ? { ...manager.config, overlayNotify: 'show' as const } : manager.config
-        const result = showOverlayNotification(request, notifyConfig)
-        sendJson(res, 200, { ok: true, ...result })
+        const result = await showOverlayNotification(request, notifyConfig)
+        sendJson(res, 200, { ok: result.shown, ...result })
         return
       }
 
@@ -813,6 +822,7 @@ export async function startWebServer(options: WebServerOptions): Promise<WebServ
   })
 
   const address = server.address()
+  void warmOverlayHost(manager.config).catch((error) => console.warn('[WebHost] overlay warmup failed:', error))
   const actualPort = typeof address === 'object' && address ? address.port : (options.port ?? 3800)
   const urlHost = host === '0.0.0.0' || host === '::' ? '127.0.0.1' : host
   const displayHost = urlHost.includes(':') && !urlHost.startsWith('[') ? `[${urlHost}]` : urlHost

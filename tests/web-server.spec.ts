@@ -1,7 +1,14 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { showOverlayNotification } from '../src/app/cli/overlay.js'
+vi.mock('../src/app/cli/overlay.js', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../src/app/cli/overlay.js')>(),
+  showOverlayNotification: vi.fn(),
+  warmOverlayHost: vi.fn().mockResolvedValue(undefined),
+}))
 
 import { startWebServer, type WebHostManager, type WebServerHandle } from '../src/app/server/index.js'
 import { DEFAULT_CONFIG, type ScreenshotConfig } from '../src/core/types.js'
@@ -93,6 +100,7 @@ describe('Shiin web host', () => {
   let backgroundEvents: Array<{ type: string; data?: unknown }>
 
   beforeEach(async () => {
+    vi.mocked(showOverlayNotification).mockReset().mockResolvedValue({ shown: true, backend: 'electron' })
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'shiin-web-'))
     fs.writeFileSync(path.join(root, 'index.html'), '<!doctype html><meta charset="utf-8"><div id="app"></div>')
     stub = createStubManager()
@@ -230,6 +238,8 @@ describe('Shiin web host', () => {
     const streamed = await readUntil('event: screenshot')
     expect(streamed).toContain('"/tmp/a.png"')
     expect(backgroundEvents).toHaveLength(0)
+    expect(showOverlayNotification).toHaveBeenCalledTimes(1)
+    expect(showOverlayNotification).toHaveBeenCalledWith(expect.objectContaining({ img: '/tmp/a.png' }), stub.manager.config)
 
     controller.abort()
     await reader!.cancel().catch(() => undefined)
@@ -240,6 +250,44 @@ describe('Shiin web host', () => {
     expect(backgroundEvents).toHaveLength(1)
     expect(backgroundEvents[0].type).toBe('screenshot')
     expect(backgroundEvents[0].data).toMatchObject({ filePath: '/tmp/a.png' })
+    expect(showOverlayNotification).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows one desktop overlay for a manual capture while a page is connected', async () => {
+    const controller = new AbortController()
+    const stream = await fetch(`${handle.url}/api/events`, { signal: controller.signal })
+    try {
+      const response = await fetch(`${handle.url}/api/capture`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      })
+      expect((await response.json()).ok).toBe(true)
+      expect(backgroundEvents).toHaveLength(0)
+      expect(showOverlayNotification).toHaveBeenCalledTimes(1)
+    } finally {
+      controller.abort()
+      await stream.body?.cancel().catch(() => undefined)
+    }
+  })
+
+  it('honours disabled overlays for capture events and manual captures', async () => {
+    stub.manager.config.overlayNotify = 'hide'
+    stub.emit({ type: 'screenshot', data: { ok: true, filePath: '/tmp/a.png', timestamp: 1, format: 'png' } })
+    await fetch(`${handle.url}/api/capture`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    })
+    expect(showOverlayNotification).not.toHaveBeenCalled()
+  })
+
+  it('shows replay overlays even when a page is connected', async () => {
+    const controller = new AbortController()
+    const stream = await fetch(`${handle.url}/api/events`, { signal: controller.signal })
+    try {
+      stub.emit({ type: 'replayBuffer', data: { ok: true } })
+      expect(showOverlayNotification).toHaveBeenCalledWith(expect.objectContaining({ type: 'video' }), stub.manager.config)
+    } finally {
+      controller.abort()
+      await stream.body?.cancel().catch(() => undefined)
+    }
   })
 
   it('accepts notification requests via /api/notify', async () => {
@@ -253,6 +301,31 @@ describe('Shiin web host', () => {
     expect(notifyRes.ok).toBe(true)
     expect(notifyRes).toHaveProperty('shown')
     expect(notifyRes).toHaveProperty('backend')
+  })
+
+  it.each(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const)('preserves %s and the theme in notification requests', async (position) => {
+    await fetch(`${handle.url}/api/notify`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Position test', position, theme: 'dark', force: true }),
+    })
+    expect(showOverlayNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ position, theme: 'dark' }),
+      expect.objectContaining({ overlayNotify: 'show' }),
+    )
+  })
+
+  it('reports failed overlay startup through /api/notify', async () => {
+    vi.mocked(showOverlayNotification).mockResolvedValue({
+      shown: false, backend: 'electron', reason: 'Incomplete Electron runtime',
+    })
+    const response = await fetch(`${handle.url}/api/notify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Test Toast' }),
+    })
+    expect(await response.json()).toEqual({
+      ok: false, shown: false, backend: 'electron', reason: 'Incomplete Electron runtime',
+    })
   })
 
   it('rejects cross-origin page requests', async () => {

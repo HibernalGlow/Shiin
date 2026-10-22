@@ -43,10 +43,6 @@ import {
   notifyCaptureResult,
   notifyReplayResult,
   showOverlayNotification,
-  captureOverlayRequest,
-  replayOverlayRequest,
-  showSystemNotification,
-  overlayDisabledByEnv,
 } from './overlay.js'
 import { resolveCliPaths } from './paths.js'
 import { findBun, probeTerminalRuntime, terminalRuntimeHint } from './runtime.js'
@@ -367,7 +363,7 @@ async function runNotify(host: CliHost, rest: string[], language: Language): Pro
   const img = imgFlag ? (imgFlag.startsWith('data:') ? imgFlag : path.resolve(imgFlag)) : ''
   const title = stringFlag(parsed.flags, 'title') ?? t('overlayScreenshotSuccess')
   const desc = stringFlag(parsed.flags, 'desc') ?? (img ? path.basename(img) : t('overlayScreenshotSaved'))
-  const result = showOverlayNotification(
+  const result = await showOverlayNotification(
     {
       img,
       title,
@@ -520,26 +516,11 @@ async function runServe(host: CliHost, rest: string[], language: Language): Prom
       host: bindHost,
       port,
       onBackgroundEvent: (event) => {
-        // 页面开着时由前端播放声音/显示提示；这里只补“浏览器已关闭”的那一段。
+        // 悬浮通知统一由服务端派发；这里只补页面关闭后的快门声。
         if (event.type === 'screenshot') {
           const result = event.data as ScreenshotResult | undefined
           if (!result || typeof result !== 'object') return
           if (result.ok) void playBackgroundShutterSound(manager.config.sound, manager.config.soundPower)
-          if (!overlayDisabledByEnv() && manager.config.overlayNotify !== 'hide') {
-            showOverlayNotification(
-              captureOverlayRequest(result, createTranslator(resolveLanguage(manager.config.locale, process.env))),
-              manager.config,
-            )
-          }
-        } else if (event.type === 'replayBuffer') {
-          const result = event.data as { ok?: boolean; error?: string } | undefined
-          if (!result?.ok) return
-          if (!overlayDisabledByEnv() && manager.config.overlayNotify !== 'hide') {
-            showOverlayNotification(
-              replayOverlayRequest(result, createTranslator(resolveLanguage(manager.config.locale, process.env))),
-              manager.config,
-            )
-          }
         }
       },
     })
