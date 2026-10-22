@@ -15,7 +15,7 @@ Shiin 目前的桌面端和 Xaihi 面板仍以早期 MD3 / MD3 Expressive 壳层
 - 壳层、标题栏、侧栏、节点面板和按钮共享 `src/ui/md3e.tsx` 的旧 token 与组件语法；
 - 默认的深色青柠配色、标准卡片边界和统一圆角已经成为视觉主角，无法体现 Shiin 的截图、手柄和摄影器材语境；
 - 当前实现把“Expressive”理解成换色、随机形状和圆角变化，页面构图仍接近后台模板；
-- [ADR-0002](./0002-frontend-react-migration-and-md3-expressive.md)、[ADR-0007](./0007-expressive-controls-and-selects.md)、[ADR-0008](./0008-tonal-palette-from-single-seed.md) 中关于 MD3 的视觉约束需要重新评估。业务功能、React 技术栈、Xaihi 节点契约和共享核心不因本 ADR 改变。
+- [ADR-0002](./0002-frontend-react-migration-and-md3-expressive.md)、[ADR-0007](./0007-expressive-controls-and-selects.md)、[ADR-0013](./0013-tonal-palette-from-single-seed.md) 中关于 MD3 的视觉约束需要重新评估。业务功能、React 技术栈、Xaihi 节点契约和共享核心不因本 ADR 改变。
 
 用户要求彻底重写 UI，旧 MD3 视觉不得继续作为默认外观。用户指定使用 Oil UI 的方向探索流程，先比较三套首屏方向，再选定一套进入完整实现。
 
