@@ -98,23 +98,23 @@ export function CaptureDock({
                 aria-selected={active}
                 aria-controls="shiin-main-panel"
                 tabIndex={active ? 0 : -1}
+                title={item.label}
+                aria-label={item.label}
                 onClick={() => onNavigate(item.id)}
                 onKeyDown={(event) => {
                   if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return
                   event.preventDefault()
-                  const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index
+                  const next =
+                    event.key === 'Home'
+                      ? 0
+                      : event.key === 'End'
+                        ? items.length - 1
+                        : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
                   onNavigate(items[next].id)
                   document.getElementById(`rail-tab-${items[next].id}`)?.focus()
                 }}
               >
                 <span className="shiin-tablet-rail__indicator">
-                  {active && (
-                    <motion.span
-                      className="shiin-tablet-rail__pill"
-                      layoutId="tablet-nav-pill"
-                      transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-                    />
-                  )}
                   <AppIcon name={item.icon} size={20} />
                 </span>
                 <span className="shiin-tablet-rail__label">{item.label}</span>
@@ -164,36 +164,42 @@ export function CaptureDock({
           transition={{ type: 'spring', stiffness: 350, damping: 30 }}
         >
           <nav className="shiin-dock-navigation" role="tablist" aria-label={isZh ? '主导航' : 'Main navigation'}>
-            {items.map((item, index) => (
-              <motion.button
-                key={item.id}
-                id={`dock-tab-${item.id}`}
-                type="button"
-                role="tab"
-                aria-selected={destination === item.id}
-                aria-controls="shiin-main-panel"
-                tabIndex={destination === item.id ? 0 : -1}
-                onClick={() => onNavigate(item.id)}
-                whileTap={reduced ? undefined : { scale: 0.96 }}
-                onKeyDown={(event) => {
-                  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
-                  event.preventDefault()
-                  const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index
-                  onNavigate(items[next].id)
-                  document.getElementById(`dock-tab-${items[next].id}`)?.focus()
-                }}
-              >
-                {destination === item.id && (
-                  <motion.span
-                    className="shiin-dock-selection"
-                    layoutId="dock-selection"
-                    transition={{ type: 'spring', stiffness: 440, damping: 32 }}
-                  />
-                )}
-                <AppIcon name={item.icon} size={20} />
-                <span>{item.label}</span>
-              </motion.button>
-            ))}
+            {items.map((item, index) => {
+              const active = destination === item.id
+              return (
+                <button
+                  key={item.id}
+                  id={`dock-tab-${item.id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  aria-controls="shiin-main-panel"
+                  tabIndex={active ? 0 : -1}
+                  title={item.label}
+                  aria-label={item.label}
+                  onClick={() => onNavigate(item.id)}
+                  onKeyDown={(event) => {
+                    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+                    event.preventDefault()
+                    const next =
+                      event.key === 'Home'
+                        ? 0
+                        : event.key === 'End'
+                          ? items.length - 1
+                          : (index + (event.key === 'ArrowRight' ? 1 : -1) + items.length) % items.length
+                    onNavigate(items[next].id)
+                    document.getElementById(`dock-tab-${items[next].id}`)?.focus()
+                  }}
+                >
+                  <span className="shiin-dock-navigation__icon">
+                    <AppIcon name={item.icon} size={18} />
+                  </span>
+                  <span className="shiin-dock-navigation__label" aria-hidden="true">
+                    <span className="shiin-dock-navigation__label-inner">{item.label}</span>
+                  </span>
+                </button>
+              )
+            })}
           </nav>
 
           <motion.button

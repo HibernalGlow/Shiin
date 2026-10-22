@@ -2,7 +2,6 @@ import * as React from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { AppIcon } from './AppIcon.js'
 import { LANGUAGES, getLanguage } from '../i18n.js'
-import type { MacOSPermissionsStatus } from '../adapter/types.js'
 import type { WorkspaceDestination } from './CaptureDock.js'
 
 export interface TitleBarProps {
@@ -25,10 +24,11 @@ export interface TitleBarProps {
   customControls?: boolean
   onOpenUpdate?: () => void
   hasUpdate?: boolean
-  permissions?: MacOSPermissionsStatus | null
-  onOpenPermissions?: () => void
   destination?: WorkspaceDestination
   onNavigate?: (next: WorkspaceDestination) => void
+  /** Workbench layout editing, toggled from the pencil in the action cluster. */
+  layoutEditing?: boolean
+  onToggleLayoutEdit?: () => void
   onCapture?: () => void
   capturePending?: boolean
 }
@@ -61,10 +61,10 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   customControls = false,
   onOpenUpdate,
   hasUpdate = false,
-  permissions,
-  onOpenPermissions,
   destination = 'workspace',
   onNavigate,
+  layoutEditing = false,
+  onToggleLayoutEdit,
   onCapture,
   capturePending = false,
 }) => {
@@ -105,7 +105,6 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   const [menu, setMenu] = React.useState<'scale' | 'language' | null>(null)
   const menuRef = React.useRef<HTMLDivElement>(null)
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
-  const missing = Boolean(permissions?.isMac && !permissions.allGranted)
 
   React.useEffect(() => {
     if (!menu) return
@@ -126,11 +125,11 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     }
   }, [menu])
 
-  const navItems: { id: WorkspaceDestination; label: string; icon: string }[] = [
+  const navItems = React.useMemo<{ id: WorkspaceDestination; label: string; icon: string }[]>(() => [
     { id: 'workspace', label: isZh ? '工作台' : 'Workspace', icon: 'monitor' },
     { id: 'analytics', label: isZh ? '统计' : 'Analytics', icon: 'barChart' },
     { id: 'settings', label: isZh ? '设置' : 'Settings', icon: 'settings' },
-  ]
+  ], [isZh])
 
   return (
     <header
@@ -185,7 +184,11 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       </div>
 
       {onNavigate && (
-        <nav className="shiin-desktop-nav" role="tablist" aria-label={isZh ? '桌面主导航' : 'Desktop navigation'}>
+        <nav
+          className="shiin-desktop-nav"
+          role="tablist"
+          aria-label={isZh ? '桌面主导航' : 'Desktop navigation'}
+        >
           {navItems.map((item, index) => {
             const active = destination === item.id
             return (
@@ -197,24 +200,28 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 aria-selected={active}
                 aria-controls="shiin-main-panel"
                 tabIndex={active ? 0 : -1}
+                title={item.label}
+                aria-label={item.label}
                 onClick={() => onNavigate(item.id)}
                 onKeyDown={(event) => {
                   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
                   event.preventDefault()
-                  const next = event.key === 'Home' ? 0 : event.key === 'End' ? navItems.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + navItems.length) % navItems.length
+                  const next =
+                    event.key === 'Home'
+                      ? 0
+                      : event.key === 'End'
+                        ? navItems.length - 1
+                        : (index + (event.key === 'ArrowRight' ? 1 : -1) + navItems.length) % navItems.length
                   onNavigate(navItems[next].id)
                   document.getElementById(`desktop-tab-${navItems[next].id}`)?.focus()
                 }}
               >
-                {active && (
-                  <motion.span
-                    className="shiin-desktop-nav__pill"
-                    layoutId="desktop-nav-pill"
-                    transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-                  />
-                )}
-                <AppIcon name={item.icon} size={15} />
-                <span>{item.label}</span>
+                <span className="shiin-desktop-nav__icon">
+                  <AppIcon name={item.icon} size={15} />
+                </span>
+                <span className="shiin-desktop-nav__label" aria-hidden="true">
+                  <span className="shiin-desktop-nav__label-inner">{item.label}</span>
+                </span>
               </button>
             )
           })}
@@ -248,25 +255,33 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       </div>
 
       <div className="shiin-titlebar__actions" ref={menuRef}>
-        {onOpenPermissions && (
+        {onToggleLayoutEdit && destination === 'workspace' && (
           <button
             type="button"
             className="shiin-titlebar-button"
-            data-tone={missing ? 'danger' : 'default'}
-            onClick={onOpenPermissions}
-            aria-label={isZh ? '权限自检' : 'Permission diagnostics'}
-            title={
-              missing
+            data-tone={layoutEditing ? 'accent' : undefined}
+            aria-pressed={layoutEditing}
+            aria-label={
+              layoutEditing
                 ? isZh
-                  ? '有权限待处理'
-                  : 'Permissions need attention'
+                  ? '完成布局调整'
+                  : 'Done adjusting the layout'
                 : isZh
-                  ? '权限自检'
-                  : 'Permission diagnostics'
+                  ? '调整工作台布局'
+                  : 'Adjust the workbench layout'
             }
+            title={
+              layoutEditing
+                ? isZh
+                  ? '完成布局调整'
+                  : 'Done adjusting the layout'
+                : isZh
+                  ? '调整工作台布局'
+                  : 'Adjust the workbench layout'
+            }
+            onClick={onToggleLayoutEdit}
           >
-            <AppIcon name="shield" size={16} />
-            {missing && <i className="shiin-alert-dot" />}
+            <AppIcon name={layoutEditing ? 'check' : 'edit'} size={16} />
           </button>
         )}
         <div className="shiin-titlebar-menu">

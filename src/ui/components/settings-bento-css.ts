@@ -208,6 +208,123 @@ export const SETTINGS_BENTO_CSS = String.raw`
   position: relative;
   z-index: 1;
 }
+.shiin-bento .sb-combo-art-stage {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+.shiin-bento .sb-combo-art-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.shiin-bento .sb-combo-art-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.shiin-bento .sb-combo-art-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sb-muted-strong);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .02em;
+}
+.shiin-bento .sb-combo-art-badge i {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--sb-primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--sb-primary) 16%, transparent);
+}
+.shiin-bento .sb-combo-art-hint {
+  color: var(--sb-muted);
+  font-size: 10.5px;
+}
+.shiin-bento .sb-combo-art-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  min-height: 30px;
+  padding: 0 9px 0 7px;
+  border: 1px solid var(--sb-outline);
+  border-radius: 999px;
+  background: var(--sb-surface-low);
+  color: var(--sb-muted-strong);
+  font-size: 10.5px;
+  font-weight: 700;
+  transition: background-color 180ms var(--sb-effects), color 180ms var(--sb-effects), transform 180ms var(--sb-spring-fast);
+}
+.shiin-bento .sb-combo-art-switch:active { transform: scale(.96); }
+.shiin-bento .sb-combo-art-switch-track {
+  position: relative;
+  width: 24px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--sb-outline);
+  transition: background-color 180ms var(--sb-effects);
+}
+.shiin-bento .sb-combo-art-switch-track i {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--sb-surface-lowest);
+  transition: transform 220ms var(--sb-spring-default), background-color 180ms var(--sb-effects);
+}
+.shiin-bento .sb-combo-art-switch[aria-checked="true"] {
+  background: var(--sb-primary-container);
+  color: var(--sb-on-primary-container);
+}
+.shiin-bento .sb-combo-art-switch[aria-checked="true"] .sb-combo-art-switch-track { background: var(--sb-primary); }
+.shiin-bento .sb-combo-art-switch[aria-checked="true"] .sb-combo-art-switch-track i {
+  transform: translateX(10px);
+  background: var(--sb-on-primary);
+}
+.shiin-bento .sb-combo-art-collapsed {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid var(--sb-outline-soft);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--sb-surface-low) 78%, transparent);
+}
+.shiin-bento .sb-combo-art-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px 0 8px;
+  border: 1px solid var(--sb-outline);
+  border-radius: 999px;
+  background: var(--sb-surface);
+  color: var(--sb-text);
+  font: 800 11px/1 ui-monospace, monospace;
+}
+.shiin-bento .sb-combo-art-token i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sb-outline);
+}
+.shiin-bento .sb-combo-art-token.is-live {
+  border-color: var(--sb-primary);
+  background: var(--sb-primary-container);
+  color: var(--sb-on-primary-container);
+}
+.shiin-bento .sb-combo-art-token.is-live i { background: var(--sb-primary); }
+.shiin-bento .sb-combo-art-empty { color: var(--sb-muted); font-size: 11px; }
+.shiin-bento .sb-combo-art-svg { display: block; width: 100%; height: auto; overflow: visible; }
 .shiin-bento .sb-combo-ghost {
   position: absolute;
   width: 220px;
@@ -647,6 +764,69 @@ export const SETTINGS_BENTO_CSS = String.raw`
 .shiin-bento .sb-icon-button:hover { border-radius: 50%; color: var(--sb-primary); }
 
 .shiin-bento .sb-output-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.shiin-bento .sb-quality-block {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.shiin-bento .sb-quality-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.shiin-bento .sb-quality-header .sb-field-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sb-muted);
+}
+.shiin-bento .sb-quality-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.shiin-bento .sb-lossless-toggle {
+  min-height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--sb-outline-soft);
+  border-radius: 999px;
+  background: var(--sb-surface-low);
+  color: var(--sb-muted-strong);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 180ms var(--sb-effects), color 180ms var(--sb-effects), border-color 180ms var(--sb-effects);
+}
+.shiin-bento .sb-lossless-toggle:hover {
+  background: var(--sb-surface-high);
+  border-color: var(--sb-outline);
+  color: var(--sb-text);
+}
+.shiin-bento .sb-lossless-toggle[aria-pressed="true"] {
+  background: var(--sb-secondary);
+  border-color: transparent;
+  color: var(--sb-on-secondary);
+}
+.shiin-bento .sb-quality-output {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: var(--sb-surface-high);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--sb-text);
+  font-variant-numeric: tabular-nums;
+}
+.shiin-bento .sb-quality-slider-wrap {
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
 .shiin-bento .sb-chip-group {
   display: inline-flex;
   gap: 2px;
@@ -2417,6 +2597,69 @@ export const SETTINGS_BENTO_CSS = String.raw`
 .shiin-bento .sb-icon-button:hover { border-radius: 50%; color: var(--sb-primary); }
 
 .shiin-bento .sb-output-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.shiin-bento .sb-quality-block {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.shiin-bento .sb-quality-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.shiin-bento .sb-quality-header .sb-field-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sb-muted);
+}
+.shiin-bento .sb-quality-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.shiin-bento .sb-lossless-toggle {
+  min-height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--sb-outline-soft);
+  border-radius: 999px;
+  background: var(--sb-surface-low);
+  color: var(--sb-muted-strong);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 180ms var(--sb-effects), color 180ms var(--sb-effects), border-color 180ms var(--sb-effects);
+}
+.shiin-bento .sb-lossless-toggle:hover {
+  background: var(--sb-surface-high);
+  border-color: var(--sb-outline);
+  color: var(--sb-text);
+}
+.shiin-bento .sb-lossless-toggle[aria-pressed="true"] {
+  background: var(--sb-secondary);
+  border-color: transparent;
+  color: var(--sb-on-secondary);
+}
+.shiin-bento .sb-quality-output {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: var(--sb-surface-high);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--sb-text);
+  font-variant-numeric: tabular-nums;
+}
+.shiin-bento .sb-quality-slider-wrap {
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
 .shiin-bento .sb-chip-group {
   display: inline-flex;
   gap: 2px;

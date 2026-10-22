@@ -376,16 +376,19 @@ export const EXPRESSIVE_CSS = String.raw`
   font: 800 9px/1 var(--shiin-font);
 }
 
-/* Desktop Integrated Segmented Navigation Pill (visible >=1200px) */
+/* Desktop Integrated Segmented Navigation Pill (Rhythm-inspired Dynamic Pill, visible >=1200px) */
 .shiin-desktop-nav {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 4px;
-  margin-left: 8px;
+  padding: 3px;
+  margin-left: 10px;
   border-radius: var(--md-sys-shape-corner-full);
-  background: var(--shiin-surface-low);
+  background: color-mix(in srgb, var(--shiin-surface-low) 88%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--shiin-line-soft);
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   -webkit-app-region: no-drag;
 }
 .shiin-desktop-nav > button {
@@ -394,33 +397,80 @@ export const EXPRESSIVE_CSS = String.raw`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
   height: 32px;
-  padding: 0 16px;
+  min-width: 32px;
+  padding: 0 8px;
   border: 0;
   border-radius: var(--md-sys-shape-corner-full);
   background: transparent;
   color: var(--shiin-muted);
   font-size: 13px;
   font-weight: 700;
-  transition: color var(--shiin-effects), transform var(--shiin-spatial);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  transition: background-color 0.22s cubic-bezier(0.2, 0, 0, 1),
+              color 0.18s cubic-bezier(0.2, 0, 0, 1),
+              padding 0.24s cubic-bezier(0.2, 0, 0, 1),
+              transform 0.12s cubic-bezier(0.2, 0, 0, 1),
+              box-shadow 0.22s cubic-bezier(0.2, 0, 0, 1);
 }
 .shiin-desktop-nav > button:hover:not([aria-selected="true"]) {
   color: var(--shiin-ink);
+  background: color-mix(in srgb, var(--shiin-ink) 8%, transparent);
 }
 .shiin-desktop-nav > button:active {
-  transform: scale(0.96);
+  transform: scale(0.92);
 }
 .shiin-desktop-nav > button[aria-selected="true"] {
+  padding: 0 13px 0 9px;
   color: var(--shiin-on-olive);
-  font-weight: 800;
-}
-.shiin-desktop-nav__pill {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
   background: var(--shiin-olive);
+  font-weight: 800;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--shiin-olive) 42%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.shiin-desktop-nav__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  pointer-events: none;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+.shiin-desktop-nav > button[aria-selected="true"] .shiin-desktop-nav__icon {
+  transform: scale(1.06);
+}
+.shiin-desktop-nav__label {
+  display: inline-grid;
+  grid-template-columns: 0fr;
+  transition: grid-template-columns 0.24s cubic-bezier(0.2, 0, 0, 1),
+              opacity 0.18s cubic-bezier(0.2, 0, 0, 1);
+  opacity: 0;
+  pointer-events: none;
+  vertical-align: middle;
+}
+.shiin-desktop-nav > button[aria-selected="true"] .shiin-desktop-nav__label {
+  grid-template-columns: 1fr;
+  opacity: 1;
+}
+.shiin-desktop-nav__label-inner {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  padding-left: 6px;
+  padding-right: 2px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shiin-desktop-nav > button,
+  .shiin-desktop-nav__icon,
+  .shiin-desktop-nav__label {
+    transition: none !important;
+  }
 }
 
 .shiin-titlebar__center {
@@ -515,6 +565,15 @@ export const EXPRESSIVE_CSS = String.raw`
 }
 .shiin-titlebar-button[data-tone="danger"] {
   color: var(--shiin-red);
+}
+.shiin-titlebar-button[data-tone="accent"] {
+  background: var(--shiin-olive);
+  color: var(--shiin-on-olive);
+  border-radius: 22px;
+}
+.shiin-titlebar-button[data-tone="accent"]:hover {
+  background: color-mix(in srgb, var(--shiin-olive) 88%, var(--shiin-ink));
+  color: var(--shiin-on-olive);
 }
 .shiin-alert-dot {
   position: absolute;
@@ -2061,41 +2120,54 @@ export const EXPRESSIVE_CSS = String.raw`
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     width: 100%;
-    padding: 4px 0;
+    padding: 6px 0;
     border: 0;
+    border-radius: 16px;
     background: transparent;
     color: var(--shiin-muted);
     font-size: 11.5px;
     font-weight: 700;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), color 0.18s cubic-bezier(0.2, 0, 0, 1);
+  }
+  .shiin-tablet-rail__nav > button:active {
+    transform: scale(0.92);
   }
   .shiin-tablet-rail__nav > button[aria-selected="true"] {
     color: var(--shiin-ink);
-    font-weight: 800;
+    font-weight: 850;
   }
   .shiin-tablet-rail__indicator {
     position: relative;
     isolation: isolate;
     width: 56px;
-    height: 34px;
+    height: 32px;
     display: grid;
     place-items: center;
     border-radius: 999px;
-    transition: background var(--shiin-effects);
+    background: transparent;
+    color: var(--shiin-muted);
+    transition: background-color 0.22s cubic-bezier(0.2, 0, 0, 1),
+                color 0.18s cubic-bezier(0.2, 0, 0, 1),
+                transform 0.2s cubic-bezier(0.2, 0, 0, 1),
+                box-shadow 0.22s cubic-bezier(0.2, 0, 0, 1);
   }
   .shiin-tablet-rail__nav > button:hover:not([aria-selected="true"]) .shiin-tablet-rail__indicator {
-    background: var(--shiin-sand);
+    background: color-mix(in srgb, var(--shiin-ink) 8%, transparent);
+    color: var(--shiin-ink);
   }
   .shiin-tablet-rail__nav > button[aria-selected="true"] .shiin-tablet-rail__indicator {
-    color: var(--shiin-on-olive);
-  }
-  .shiin-tablet-rail__pill {
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
     background: var(--shiin-olive);
+    color: var(--shiin-on-olive);
+    transform: scale(1.04);
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--shiin-olive) 42%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+  .shiin-tablet-rail__label {
+    letter-spacing: -0.01em;
+    line-height: 1.1;
   }
 
   .shiin-tablet-rail__actions {
@@ -2312,46 +2384,92 @@ export const EXPRESSIVE_CSS = String.raw`
   }
   .shiin-dock-navigation {
     flex: 1;
-    display: flex;
+    display: inline-flex;
     align-items: center;
+    justify-content: space-evenly;
     gap: 4px;
-    padding: 6px;
+    padding: 4px 6px;
+    height: 52px;
     min-width: 0;
     border-radius: var(--md-sys-shape-corner-full);
-    background: color-mix(in srgb, var(--shiin-surface-high) 94%, transparent);
-    backdrop-filter: blur(18px);
+    background: color-mix(in srgb, var(--shiin-surface-high) 90%, transparent);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--shiin-line-soft);
-    box-shadow: var(--shiin-shadow-2);
+    box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
   .shiin-dock-navigation > button {
     position: relative;
     isolation: isolate;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    height: 58px;
-    min-width: 0;
+    height: 42px;
+    min-width: 42px;
     padding: 0 10px;
     border: 0;
     border-radius: var(--md-sys-shape-corner-full);
     background: transparent;
     color: var(--shiin-muted);
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 700;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.22s cubic-bezier(0.2, 0, 0, 1),
+                color 0.18s cubic-bezier(0.2, 0, 0, 1),
+                padding 0.24s cubic-bezier(0.2, 0, 0, 1),
+                transform 0.12s cubic-bezier(0.2, 0, 0, 1),
+                box-shadow 0.22s cubic-bezier(0.2, 0, 0, 1);
+  }
+  .shiin-dock-navigation > button:hover:not([aria-selected="true"]) {
+    color: var(--shiin-ink);
+    background: color-mix(in srgb, var(--shiin-ink) 8%, transparent);
+  }
+  .shiin-dock-navigation > button:active {
+    transform: scale(0.92);
   }
   .shiin-dock-navigation > button[aria-selected="true"] {
+    padding: 0 16px 0 12px;
     color: var(--shiin-on-olive);
-    font-weight: 800;
-  }
-  .shiin-dock-selection {
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
     background: var(--shiin-olive);
+    font-weight: 800;
+    box-shadow: 0 2px 12px color-mix(in srgb, var(--shiin-olive) 42%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+  .shiin-dock-navigation__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    pointer-events: none;
+    transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+  }
+  .shiin-dock-navigation > button[aria-selected="true"] .shiin-dock-navigation__icon {
+    transform: scale(1.06);
+  }
+  .shiin-dock-navigation__label {
+    display: inline-grid;
+    grid-template-columns: 0fr;
+    transition: grid-template-columns 0.24s cubic-bezier(0.2, 0, 0, 1),
+                opacity 0.18s cubic-bezier(0.2, 0, 0, 1);
+    opacity: 0;
+    pointer-events: none;
+    vertical-align: middle;
+  }
+  .shiin-dock-navigation > button[aria-selected="true"] .shiin-dock-navigation__label {
+    grid-template-columns: 1fr;
+    opacity: 1;
+  }
+  .shiin-dock-navigation__label-inner {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    padding-left: 6px;
+    padding-right: 2px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
   }
   .shiin-dock-shutter {
     position: relative;
@@ -2524,6 +2642,336 @@ export const EXPRESSIVE_CSS = String.raw`
   .shiin-permission-row > button {
     grid-column: 2;
     justify-self: start;
+  }
+}
+
+/* ============================================================
+   WORKSPACE WIDGET GRID
+   The workbench runs on the same discrete widget framework as the analytics
+   dashboard, but its chrome stays out of the way: one faint pencil reveals the
+   per-card placement tools, and nothing changes until you ask for it.
+   ============================================================ */
+.shiin-node .shiin-bento .shiin-ws-grid {
+  /* Cards keep their own height: a short card next to a tall one must not
+     stretch into a mostly-empty surface. */
+  align-items: start;
+}
+
+.shiin-node .shiin-bento .shiin-ws-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  grid-column: span var(--ws-span, 12);
+  container-type: inline-size;
+  container-name: ws-cell;
+  transition: opacity 180ms var(--shiin-effects);
+}
+
+.shiin-node .shiin-bento .shiin-ws-cell__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.shiin-node .shiin-bento .shiin-ws-cell__body > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Editing: a hairline of intent, never a full editor skin */
+.shiin-node .shiin-bento .shiin-ws-cell.is-editing {
+  padding-top: 34px;
+  border-radius: 34px;
+  outline: 1.5px dashed color-mix(in srgb, var(--shiin-accent) 52%, transparent);
+  outline-offset: 4px;
+}
+
+.shiin-node .shiin-bento .shiin-ws-cell.is-editing .shiin-ws-cell__body {
+  cursor: grab;
+}
+
+.shiin-node .shiin-bento .shiin-ws-cell.is-dragging {
+  opacity: 0.5;
+}
+
+.shiin-ws-cell__chrome {
+  position: absolute;
+  inset: 0 4px auto 4px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--shiin-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  min-width: 0;
+}
+
+.shiin-ws-cell__grip {
+  display: inline-flex;
+  opacity: 0.6;
+}
+
+.shiin-ws-cell__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.shiin-ws-cell__sizes {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--shiin-surface-low);
+}
+
+.shiin-ws-cell__unit {
+  display: grid;
+  place-items: center;
+  padding: 0 4px 0 2px;
+  color: var(--shiin-muted);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  opacity: 0.7;
+}
+
+.shiin-ws-cell__size {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  min-height: 18px;
+  padding: 1px 5px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--shiin-muted);
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 160ms var(--shiin-effects), color 160ms var(--shiin-effects);
+}
+
+.shiin-ws-cell__size:hover {
+  color: var(--shiin-ink);
+}
+
+.shiin-ws-cell__size.is-active {
+  background: var(--shiin-olive);
+  color: var(--shiin-on-olive);
+}
+
+.shiin-ws-cell__actions {
+  display: flex;
+  gap: 2px;
+}
+
+.shiin-ws-cell__ctrl {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--shiin-muted);
+  cursor: pointer;
+}
+
+.shiin-ws-cell__ctrl:hover {
+  background: var(--shiin-surface-low);
+  color: var(--shiin-ink);
+}
+
+.shiin-ws-cell__ctrl.is-danger:hover {
+  background: color-mix(in srgb, var(--md-sys-color-error) 14%, transparent);
+  color: var(--md-sys-color-error);
+}
+
+/* Edit-mode tool cluster — the pencil itself lives in the title bar */
+.shiin-node .shiin-bento .shiin-ws-tools {
+  position: sticky;
+  top: 8px;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin: 0;
+  padding: 0 10px 10px 0;
+  pointer-events: none;
+}
+
+.shiin-node .shiin-bento .shiin-ws-tools > * {
+  pointer-events: auto;
+}
+
+.shiin-ws-tool {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--shiin-surface) 60%, transparent);
+  backdrop-filter: blur(12px);
+  color: var(--shiin-muted);
+  opacity: 0.4;
+  cursor: pointer;
+  transition: opacity 180ms var(--shiin-effects), background 180ms var(--shiin-effects),
+    color 180ms var(--shiin-effects), border-color 180ms var(--shiin-effects),
+    transform 180ms var(--shiin-effects);
+}
+
+.shiin-ws-tool:hover,
+.shiin-ws-tool:focus-visible {
+  opacity: 1;
+  background: var(--shiin-surface);
+  color: var(--shiin-ink);
+  border-color: var(--shiin-line-soft);
+}
+
+.shiin-ws-tools:hover .shiin-ws-tool,
+.shiin-ws-tools:focus-within .shiin-ws-tool {
+  opacity: 0.85;
+}
+
+.shiin-ws-tools[data-editing] .shiin-ws-tool {
+  opacity: 1;
+  background: var(--shiin-surface);
+  border-color: var(--shiin-line-soft);
+}
+
+.shiin-ws-tool.is-active {
+  background: var(--shiin-olive);
+  color: var(--shiin-on-olive);
+  border-color: transparent;
+}
+
+.shiin-ws-tool__count {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  display: grid;
+  place-items: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--shiin-accent);
+  color: var(--shiin-on-accent);
+  font-size: 9.5px;
+  font-weight: 800;
+}
+
+.shiin-ws-tools__add {
+  position: relative;
+}
+
+.shiin-ws-tools__menu {
+  top: calc(100% + 8px);
+  min-width: 236px;
+}
+
+/* Tablet: the workbench collapses onto a two-column rhythm */
+@media (max-width: 1199px) {
+  .shiin-node .shiin-bento .shiin-ws-cell {
+    grid-column: span var(--ws-span-md, 12);
+  }
+}
+
+/* Mobile: everything stacks, tools stay reachable by touch */
+@media (max-width: 599px) {
+  .shiin-node .shiin-bento .shiin-ws-cell {
+    grid-column: span 12;
+  }
+
+  .shiin-node .shiin-bento .shiin-ws-cell.is-editing {
+    padding-top: 32px;
+  }
+
+  .shiin-ws-cell__chrome {
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .shiin-ws-cell__label {
+    max-width: 34%;
+  }
+
+  .shiin-ws-tool {
+    width: 32px;
+    height: 32px;
+    border-radius: 11px;
+    opacity: 0.72;
+  }
+
+  .shiin-node .shiin-bento .shiin-ws-tools {
+    top: 4px;
+  }
+}
+
+/* A resized card reflows from its own width, not the viewport width */
+@container ws-cell (max-width: 700px) {
+  .shiin-node .shiin-bento .sb-capture-hero {
+    grid-template-columns: minmax(0, 1fr) 156px;
+    gap: 16px;
+    padding: 24px;
+  }
+
+  .shiin-node .shiin-bento .sb-capture-copy h2 {
+    font-size: clamp(28px, 7cqi, 42px);
+  }
+
+  .shiin-node .shiin-bento .shiin-orb-stage {
+    width: 152px;
+    height: 152px;
+  }
+
+  .shiin-node .shiin-bento .sb-capture-orb {
+    width: 132px;
+    height: 132px;
+  }
+
+  .shiin-node .shiin-bento .sb-metric-carousel {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+@container ws-cell (max-width: 560px) {
+  .shiin-node .shiin-bento .sb-capture-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shiin-node .shiin-bento .sb-capture-art {
+    display: none;
+  }
+
+  .shiin-node .shiin-bento .sb-capture-copy h2 {
+    font-size: clamp(26px, 9cqi, 34px);
+  }
+}
+
+@media (hover: none) {
+  .shiin-ws-tool {
+    opacity: 0.75;
+  }
+
+  .shiin-ws-tools:hover .shiin-ws-tool,
+  .shiin-ws-tools:focus-within .shiin-ws-tool {
+    opacity: 0.75;
   }
 }
 

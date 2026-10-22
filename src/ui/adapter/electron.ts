@@ -209,6 +209,7 @@ export class ElectronHostBridge implements IHostBridge {
         id: gp.id,
         name: gp.id || `Gamepad #${idx + 1}`,
         type: 'gamecontroller',
+        inputLayout: 'standard',
       }))
     }
 
@@ -382,10 +383,6 @@ export class ElectronHostBridge implements IHostBridge {
     img?: string,
     options?: { force?: boolean; duration?: number; type?: 'video' | 'text' }
   ): void {
-    if (!options?.force && typeof document !== 'undefined' && document.visibilityState === 'visible' && !document.hidden) {
-      // WebUI 前台处于激活状态时，由内部反馈层负责通知，避免双重弹窗干扰用户
-      return
-    }
     if (this.api.showScreenshotNotification) {
       this.api.showScreenshotNotification({
         title,

@@ -58,6 +58,11 @@ import {
   getDefaultDashboardLayout,
   normalizeDashboardLayout,
 } from './dashboard-layout.js'
+import {
+  type WorkspaceLayoutConfig,
+  getDefaultWorkspaceLayout,
+  normalizeWorkspaceLayout,
+} from './workspace-layout.js'
 import { getButtonDisplayName } from './components/dashboard/dashboard-utils.js'
 
 type Lens = WorkspaceDestination
@@ -163,6 +168,8 @@ export const App: React.FC = () => {
   )
   const [stats, setStats] = React.useState<ActivityStatsData>(createSeedStatsData)
   const [dashboardLayout, setDashboardLayout] = React.useState<DashboardLayoutConfig>(getDefaultDashboardLayout)
+  const [workspaceLayout, setWorkspaceLayout] = React.useState<WorkspaceLayoutConfig>(getDefaultWorkspaceLayout)
+  const [workspaceEditing, setWorkspaceEditing] = React.useState(false)
   const statsRef = React.useRef<ActivityStatsData>(stats)
   statsRef.current = stats
   const edgeDetectorRef = React.useRef<GamepadEdgeDetector>(new GamepadEdgeDetector())
@@ -203,6 +210,10 @@ export const App: React.FC = () => {
       const savedLayout = await bridge.getStore('shiin_dashboard_layout', null)
       if (savedLayout) {
         setDashboardLayout(normalizeDashboardLayout(savedLayout))
+      }
+      const savedWorkspaceLayout = await bridge.getStore('shiin_workspace_layout', null)
+      if (savedWorkspaceLayout) {
+        setWorkspaceLayout(normalizeWorkspaceLayout(savedWorkspaceLayout))
       }
 
       if (bridge.getAutoStart) {
@@ -438,7 +449,7 @@ export const App: React.FC = () => {
             setLiveRecordingKeys([])
             recordingKeysSetRef.current.clear()
             releaseDebounceRef.current = null
-          }, 260)
+          }, 1000)
         }
       }
     }, 60)
@@ -544,11 +555,6 @@ export const App: React.FC = () => {
         void playCaptureSound(config.sound, config.soundPower)
       }
       showScreenshot(result)
-      bridge.showNotification?.(
-        locale.startsWith('zh') ? '截图已保存' : 'Screenshot Saved',
-        result.filePath || (locale.startsWith('zh') ? '已复制至系统剪贴板' : 'Copied to clipboard'),
-        result.filePath || undefined
-      )
     } else {
       if (bridge.isMac) {
         openPermissions()
@@ -558,10 +564,6 @@ export const App: React.FC = () => {
         locale.startsWith('zh')
           ? `截图失败: ${result?.error || '无法截取屏幕'}`
           : `Failed: ${result?.error}`
-      )
-      bridge.showNotification?.(
-        locale.startsWith('zh') ? '截图失败' : 'Capture Failed',
-        result?.error || (locale.startsWith('zh') ? '请检查权限与保存路径' : 'Check permissions and save path')
       )
     }
     } catch (error) {
@@ -637,6 +639,11 @@ export const App: React.FC = () => {
   const handleSaveDashboardLayout = (nextLayout: DashboardLayoutConfig) => {
     setDashboardLayout(nextLayout)
     persistSetting('shiin_dashboard_layout', nextLayout)
+  }
+
+  const handleSaveWorkspaceLayout = (nextLayout: WorkspaceLayoutConfig) => {
+    setWorkspaceLayout(nextLayout)
+    persistSetting('shiin_workspace_layout', nextLayout)
   }
 
   const handleOpenFolder = () => {
@@ -716,6 +723,14 @@ export const App: React.FC = () => {
   const selectLens = (next: Lens) => {
     setSettingsSection('general')
     setLens(next)
+    if (next !== 'workspace') setWorkspaceEditing(false)
+  }
+
+  /** Title-bar pencil: jump to the workbench and open its layout editor. */
+  const toggleWorkspaceEditing = () => {
+    const next = !workspaceEditing
+    if (next && lens !== 'workspace') selectLens('workspace')
+    setWorkspaceEditing(next)
   }
 
   return (
@@ -750,10 +765,10 @@ export const App: React.FC = () => {
           onClose={() => bridge.closeWindow?.()}
           isMac={bridge.isMac}
           isWeb={bridge.isWeb}
-          permissions={macPermissions}
-          onOpenPermissions={openPermissions}
           destination={lens}
           onNavigate={selectLens}
+          layoutEditing={workspaceEditing}
+          onToggleLayoutEdit={toggleWorkspaceEditing}
           onCapture={() => void handleCapture()}
           capturePending={capturePending}
         />
@@ -814,6 +829,10 @@ export const App: React.FC = () => {
                     void bridge.getConnectedGamepads().then((devices) => setGamepads(devices))
                   }}
                   locale={locale}
+                  initialLayout={workspaceLayout}
+                  onSaveLayout={handleSaveWorkspaceLayout}
+                  layoutEditing={workspaceEditing}
+                  onLayoutEditingChange={setWorkspaceEditing}
                 />
               ) : lens === 'analytics' ? (
                 <AnalyticsDashboardView

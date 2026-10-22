@@ -565,7 +565,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   max={100}
                   step={1}
                   value={volumePercent}
-                  style={{ '--sb-progress': `${volumePercent}%` } as React.CSSProperties}
+                  style={
+                    {
+                      '--sb-progress': `calc(9px + (100% - 18px) * ${volumePercent / 100})`,
+                    } as React.CSSProperties
+                  }
                   onChange={(event) => onChange({ soundPower: Number(event.target.value) / 100 })}
                   aria-label={isZh ? '反馈音量' : 'Feedback volume'}
                 />

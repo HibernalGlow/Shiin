@@ -10,8 +10,8 @@ import {
   type WidgetSize,
   WIDGET_REGISTRY,
   getDefaultDashboardLayout,
-  moveWidget,
 } from '../../dashboard-layout.js'
+import { useWidgetLayout } from '../../use-widget-layout.js'
 import type { ActivityStatsData } from '../../../core/stats.js'
 import { MetricCardWidget } from './MetricCardWidget.js'
 import { TopAppsWidget } from './TopAppsWidget.js'
@@ -45,57 +45,39 @@ export const AnalyticsDashboardView: React.FC<AnalyticsDashboardViewProps> = ({
   const reduceMotion = useReducedMotion()
   const { session } = useMd3eShapes()
 
-  const [layout, setLayout] = React.useState<DashboardLayoutConfig>(
-    () => initialLayout || getDefaultDashboardLayout()
-  )
-  const [isEditing, setIsEditing] = React.useState(false)
   const [addMenuOpen, setAddMenuOpen] = React.useState(false)
   const [draggedWidgetId, setDraggedWidgetId] = React.useState<WidgetId | null>(null)
 
-  // Update layout if parent loads an external persisted layout
-  React.useEffect(() => {
-    if (initialLayout) setLayout(initialLayout)
-  }, [initialLayout])
+  const {
+    isEditing,
+    visibleWidgets,
+    hiddenWidgets,
+    setEditing: setIsEditing,
+    setSize,
+    moveBy,
+    reorder,
+    hide,
+    show,
+    reset: resetLayout,
+  } = useWidgetLayout<WidgetSize, WidgetId>({
+    createDefault: getDefaultDashboardLayout,
+    initialLayout,
+    onSave: onSaveLayout,
+  })
 
-  const commitLayout = (nextLayout: DashboardLayoutConfig) => {
-    setLayout(nextLayout)
-    onSaveLayout?.(nextLayout)
-  }
+  const handleResize = (id: WidgetId, nextSize: WidgetSize) => setSize(id, nextSize)
 
-  const handleResize = (id: WidgetId, nextSize: WidgetSize) => {
-    const nextWidgets = layout.widgets.map((w) =>
-      w.id === id ? { ...w, size: nextSize } : w
-    )
-    commitLayout({ ...layout, widgets: nextWidgets })
-  }
+  const handleMove = (id: WidgetId, direction: 'prev' | 'next') =>
+    moveBy(id, direction === 'prev' ? -1 : 1)
 
-  const handleMove = (id: WidgetId, direction: 'prev' | 'next') => {
-    const idx = layout.widgets.findIndex((w) => w.id === id)
-    if (idx < 0) return
-    const targetIdx = direction === 'prev' ? idx - 1 : idx + 1
-    const nextWidgets = moveWidget(layout.widgets, idx, targetIdx)
-    commitLayout({ ...layout, widgets: nextWidgets })
-  }
-
-  const handleRemove = (id: WidgetId) => {
-    const nextWidgets = layout.widgets.map((w) =>
-      w.id === id ? { ...w, visible: false } : w
-    )
-    commitLayout({ ...layout, widgets: nextWidgets })
-  }
+  const handleRemove = (id: WidgetId) => hide(id)
 
   const handleAddWidget = (id: WidgetId) => {
-    const nextWidgets = layout.widgets.map((w) =>
-      w.id === id ? { ...w, visible: true } : w
-    )
-    commitLayout({ ...layout, widgets: nextWidgets })
+    show(id)
     setAddMenuOpen(false)
   }
 
-  const handleResetLayout = () => {
-    const defaultLayout = getDefaultDashboardLayout()
-    commitLayout(defaultLayout)
-  }
+  const handleResetLayout = () => resetLayout()
 
   // Drag and Drop handlers
   const handleDragStart = (id: WidgetId, e: React.DragEvent) => {
@@ -112,17 +94,9 @@ export const AnalyticsDashboardView: React.FC<AnalyticsDashboardViewProps> = ({
   const handleDrop = (targetId: WidgetId, e: React.DragEvent) => {
     e.preventDefault()
     if (!draggedWidgetId || draggedWidgetId === targetId) return
-    const fromIdx = layout.widgets.findIndex((w) => w.id === draggedWidgetId)
-    const toIdx = layout.widgets.findIndex((w) => w.id === targetId)
-    if (fromIdx >= 0 && toIdx >= 0) {
-      const nextWidgets = moveWidget(layout.widgets, fromIdx, toIdx)
-      commitLayout({ ...layout, widgets: nextWidgets })
-    }
+    reorder(draggedWidgetId, targetId)
     setDraggedWidgetId(null)
   }
-
-  // Hidden widgets that can be added back
-  const hiddenWidgets = layout.widgets.filter((w) => !w.visible)
 
   // Render a specific widget instance
   const renderWidget = (item: PlacedWidget) => {
@@ -186,8 +160,6 @@ export const AnalyticsDashboardView: React.FC<AnalyticsDashboardViewProps> = ({
         return null
     }
   }
-
-  const visibleWidgets = layout.widgets.filter((w) => w.visible)
 
   return (
     <div className="shiin-bento shiin-dashboard">

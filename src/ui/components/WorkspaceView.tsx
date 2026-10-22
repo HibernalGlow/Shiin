@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { AppIcon } from './AppIcon.js'
 import { BentoSelect, Md3eMorphShape } from './bento-controls.js'
-import { BUTTON_NAME_MAP, COMMON_COMBO_PRESETS, formatGamepadKey } from '../gamepad-utils.js'
+import { COMMON_COMBO_PRESETS, formatGamepadKey } from '../gamepad-utils.js'
 import {
   CaptureTargetTypeEnum,
   ScreenShotSaveWayEnum,
@@ -13,10 +13,26 @@ import {
 } from '../../core/types.js'
 import type { MacOSPermissionsStatus } from '../adapter/types.js'
 import { useMd3eShapes } from '../md3e-shape-context.js'
-import { EquipmentDeck } from './EquipmentDeck.js'
+import { CaptureHeroTile, MetricStrip, SessionTile } from './EquipmentDeck.js'
 import { WorkspaceTile } from './WorkspaceTile.js'
 import { CaptureHubWidget } from './hub/CaptureHubWidget.js'
-import { ControllerTester } from '@hibernalglow/gamepad-expressive'
+import {
+  WorkspaceCell,
+  WorkspaceGridProvider,
+  WorkspaceLayoutToolbar,
+  WorkspaceSortGrid,
+} from './WorkspaceGrid.js'
+import type { WorkspaceLayoutConfig, WorkspaceWidgetId } from '../workspace-layout.js'
+import {
+  ControllerTester,
+  detectController,
+  GamepadButtonIcon,
+  type ControllerFamily,
+} from '@hibernalglow/gamepad-expressive'
+import {
+  ExpressiveComboStage,
+  getPlatformButtonLabel,
+} from './ExpressiveComboStage.js'
 
 export interface WorkspaceViewProps {
   capturePending?: boolean
@@ -50,6 +66,11 @@ export interface WorkspaceViewProps {
   onOpenPermissions: () => void
   onRefreshGamepads?: () => void
   locale: string
+  initialLayout?: WorkspaceLayoutConfig
+  onSaveLayout?: (layout: WorkspaceLayoutConfig) => void
+  /** Layout edit mode, toggled from the title bar's pencil. */
+  layoutEditing?: boolean
+  onLayoutEditingChange?: (next: boolean) => void
 }
 
 export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
@@ -84,6 +105,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   onOpenPermissions,
   onRefreshGamepads,
   locale,
+  initialLayout,
+  onSaveLayout,
+  layoutEditing,
+  onLayoutEditingChange,
 }) => {
   const { session } = useMd3eShapes()
   const [presetMenuOpen, setPresetMenuOpen] = React.useState(false)
@@ -116,10 +141,25 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   const isFocusedWindow = isWindowMode && config.windowCaptureMode === 'focused'
   const permissionMissing = Boolean(macPermissions?.isMac && !macPermissions.screenCapture)
   const activeDevice = gamepads.find((gamepad) => gamepad._index === selectedGamepadIndex) || gamepads[0]
+  const detection = React.useMemo(() => detectController(activeDevice), [activeDevice])
+  const effectiveFamily: ControllerFamily =
+    detection.family === 'generic' ? 'xbox' : detection.family
 
   const keyName = (key: string) => {
-    const info = formatGamepadKey(key, isZh ? 'zh' : 'en')
-    return { code: info.key, name: info.name }
+    const platformLabel = getPlatformButtonLabel(key, effectiveFamily, isZh)
+    const fallback = formatGamepadKey(key, isZh ? 'zh' : 'en')
+    return {
+      code: platformLabel.short !== key ? platformLabel.short : fallback.key,
+      name: platformLabel.name !== key ? platformLabel.name : fallback.name,
+    }
+  }
+
+  const handleToggleComboKey = (key: string) => {
+    const exists = config.comboKeys.includes(key)
+    const next = exists
+      ? config.comboKeys.filter((item) => item !== key)
+      : [...config.comboKeys, key]
+    onChange({ comboKeys: next })
   }
 
   const targetLabel = isFocusedWindow
@@ -159,46 +199,88 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   }`
 
   const comboSummary = config.comboKeys.length
-    ? config.comboKeys.map((key) => keyName(key).name).join(' + ')
+    ? config.comboKeys.map((key) => keyName(key).code).join(' + ')
     : isZh
       ? '尚未设置组合键'
       : 'No combo configured'
 
+  // Widgets the host currently allows; the capture hub is opt-in from settings.
+  const widgetAvailability = React.useMemo<Partial<Record<WorkspaceWidgetId, boolean>>>(
+    () => ({ ws_hub: Boolean(config.enableCaptureHub) }),
+    [config.enableCaptureHub]
+  )
+
   return (
     <div className="shiin-bento shiin-workspace">
       <div className="sb-page">
-        <div className="sb-grid">
-          <EquipmentDeck
-            locale={locale}
-            listening={listening}
-            pending={capturePending}
-            result={captureResult}
-            activeDevice={activeDevice}
-            target={targetLabel}
-            targetModeLabel={targetModeLabel}
-            output={outputLabel}
-            folder={config.path || ''}
-            comboSummary={comboSummary}
-            comboCount={config.comboKeys.length}
-            autoArchive={Boolean(config.saveByActiveWinTitle)}
-            obsReplay={Boolean(config.obsReplayBufferOnLongPress)}
-            permissionMissing={permissionMissing}
-            onCapture={onCapture}
-            onToggleListen={onToggleListen}
-            onSaveOBS={onSaveOBS}
-            onOpenFolder={onOpenFolder}
-            onOpenPermissions={onOpenPermissions}
-            onRefreshGamepads={onRefreshGamepads}
-          />
+        <WorkspaceGridProvider
+          locale={locale}
+          initialLayout={initialLayout}
+          onSaveLayout={onSaveLayout}
+          isEditing={layoutEditing}
+          onEditingChange={onLayoutEditingChange}
+          availability={widgetAvailability}
+        >
+          <WorkspaceLayoutToolbar />
 
-          {/* Capture Hub & Universal Inbox Entry (span 12 on Desktop, opt-in via Settings) */}
-          {config.enableCaptureHub && <CaptureHubWidget locale={locale} />}
+          <div className="sb-grid shiin-ws-grid" aria-label={isZh ? '工作台模块网格' : 'Workbench widget grid'}>
+            <WorkspaceSortGrid>
+              <WorkspaceCell id="ws_capture_hero">
+                <CaptureHeroTile
+                  locale={locale}
+                  listening={listening}
+                  pending={capturePending}
+                  result={captureResult}
+                  target={targetLabel}
+                  output={outputLabel}
+                  folder={config.path || ''}
+                  permissionMissing={permissionMissing}
+                  onCapture={onCapture}
+                  onToggleListen={onToggleListen}
+                  onSaveOBS={onSaveOBS}
+                  onOpenFolder={onOpenFolder}
+                  onOpenPermissions={onOpenPermissions}
+                />
+              </WorkspaceCell>
 
-          {/* Unified Capture & Output Tile (span 7 on Desktop, Left Pane on Tablet, First on Mobile) */}
-          <section
-            className="sb-tile sb-capture-tile"
-            aria-label={isZh ? '画面捕获与输出' : 'Capture and output'}
-          >
+              <WorkspaceCell id="ws_session">
+                <SessionTile
+                  locale={locale}
+                  listening={listening}
+                  activeDevice={activeDevice}
+                  target={targetLabel}
+                  comboSummary={comboSummary}
+                  folder={config.path || ''}
+                  permissionMissing={permissionMissing}
+                  onOpenPermissions={onOpenPermissions}
+                  onRefreshGamepads={onRefreshGamepads}
+                />
+              </WorkspaceCell>
+
+              <WorkspaceCell id="ws_metric_strip">
+                <MetricStrip
+                  locale={locale}
+                  listening={listening}
+                  target={targetLabel}
+                  targetModeLabel={targetModeLabel}
+                  output={outputLabel}
+                  comboSummary={comboSummary}
+                  comboCount={config.comboKeys.length}
+                  autoArchive={Boolean(config.saveByActiveWinTitle)}
+                  obsReplay={Boolean(config.obsReplayBufferOnLongPress)}
+                />
+              </WorkspaceCell>
+
+              <WorkspaceCell id="ws_hub">
+                {config.enableCaptureHub ? <CaptureHubWidget locale={locale} /> : null}
+              </WorkspaceCell>
+
+              <WorkspaceCell id="ws_capture">
+                {/* Capture & output: span 7 by default, left pane on tablet, first on mobile */}
+                <section
+                  className="sb-tile sb-capture-tile"
+                  aria-label={isZh ? '画面捕获与输出' : 'Capture and output'}
+                >
             <div className="sb-tile-head">
               <div>
                 <h3>{isZh ? '画面捕获与输出' : 'Capture & output'}</h3>
@@ -374,49 +456,55 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             </div>
 
             {config.imageFormat !== 'png' && (
-              <div className="sb-quality-row" style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span className="sb-field-label" style={{ fontSize: 12, minWidth: 70 }}>
-                  {isZh ? '图片质量' : 'Quality'}:{' '}
-                  {config.imageLossless && (config.imageFormat === 'webp' || config.imageFormat === 'avif')
-                    ? isZh
-                      ? '无损'
-                      : 'Lossless'
-                    : `${config.imageQuality ?? 90}%`}
-                </span>
-                <input
-                  className="sb-slider"
-                  type="range"
-                  min={20}
-                  max={100}
-                  step={1}
-                  disabled={Boolean(
-                    config.imageLossless && (config.imageFormat === 'webp' || config.imageFormat === 'avif'),
-                  )}
-                  value={config.imageQuality ?? 90}
-                  style={
-                    {
-                      '--sb-progress': `${config.imageQuality ?? 90}%`,
-                      flex: 1,
-                      opacity:
-                        config.imageLossless && (config.imageFormat === 'webp' || config.imageFormat === 'avif')
-                          ? 0.4
-                          : 1,
-                    } as React.CSSProperties
-                  }
-                  onChange={(e) => onChange({ imageQuality: Number(e.target.value) })}
-                  aria-label={isZh ? '图片质量' : 'Image quality'}
-                />
-                {(config.imageFormat === 'webp' || config.imageFormat === 'avif') && (
-                  <button
-                    type="button"
-                    className="sb-chip"
-                    aria-pressed={Boolean(config.imageLossless)}
-                    onClick={() => onChange({ imageLossless: !config.imageLossless })}
-                    style={{ fontSize: 11, padding: '2px 8px', height: 26 }}
-                    title={isZh ? '启用无损编码模式' : 'Enable lossless compression'}
-                  >
-                    {isZh ? '无损模式' : 'Lossless'}
-                  </button>
+              <div className="sb-quality-block">
+                <div className="sb-quality-header">
+                  <span className="sb-field-label">{isZh ? '图片质量' : 'Quality'}</span>
+                  <div className="sb-quality-actions">
+                    {(config.imageFormat === 'webp' || config.imageFormat === 'avif') && (
+                      <button
+                        type="button"
+                        className="sb-lossless-toggle"
+                        aria-pressed={Boolean(config.imageLossless)}
+                        onClick={() => onChange({ imageLossless: !config.imageLossless })}
+                        title={isZh ? '切换有损 / 无损编码模式' : 'Toggle lossy / lossless compression'}
+                      >
+                        {isZh ? '无损模式' : 'Lossless'}
+                      </button>
+                    )}
+                    <output className="sb-quality-output">
+                      {config.imageLossless && (config.imageFormat === 'webp' || config.imageFormat === 'avif')
+                        ? isZh
+                          ? '无损'
+                          : 'Lossless'
+                        : `${config.imageQuality ?? 90}%`}
+                    </output>
+                  </div>
+                </div>
+
+                {!config.imageLossless || (config.imageFormat !== 'webp' && config.imageFormat !== 'avif') ? (
+                  <div className="sb-quality-slider-wrap">
+                    <input
+                      className="sb-slider"
+                      type="range"
+                      min={20}
+                      max={100}
+                      step={1}
+                      value={config.imageQuality ?? 90}
+                      style={
+                        {
+                          '--sb-progress': `calc(9px + (100% - 18px) * ${((config.imageQuality ?? 90) - 20) / 80})`,
+                        } as React.CSSProperties
+                      }
+                      onChange={(e) => onChange({ imageQuality: Number(e.target.value) })}
+                      aria-label={isZh ? '图片质量' : 'Image quality'}
+                    />
+                  </div>
+                ) : (
+                  <p className="sb-note" style={{ margin: '2px 0 0', fontSize: 11.5 }}>
+                    {isZh
+                      ? '已开启无损压缩：保留 100% 原始像素细节，无需调节质量。'
+                      : 'Lossless mode active: Preserves 100% pixel fidelity without compression loss.'}
+                  </p>
                 )}
               </div>
             )}
@@ -445,16 +533,22 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 {isZh ? '打开目录' : 'Open folder'}
               </button>
             </div>
-          </section>
+                </section>
+              </WorkspaceCell>
 
-          {/* Trigger Combos Tile (span 5 on Desktop) */}
-          <WorkspaceTile
-            className="sb-combos-tile"
-            title={isZh ? '触发组合' : 'Trigger combos'}
-            description={isZh ? '同时按下多个按键即可触发截图。' : 'Press the buttons together to capture.'}
-            summary={comboSummary}
-            badge={<span className="sb-chip">{config.comboKeys.length} {isZh ? '键' : 'keys'}</span>}
-          >
+              <WorkspaceCell id="ws_combos">
+                {/* Trigger combos: span 5 by default */}
+                <WorkspaceTile
+                  className="sb-combos-tile"
+                  title={isZh ? '触发组合' : 'Trigger combos'}
+                  description={
+                    isZh
+                      ? 'MD3 Expressive 输入状态：按住手柄组合键，松开后锁定组合。'
+                      : 'MD3 Expressive input state: hold a gamepad chord, then release to lock it.'
+                  }
+                  summary={comboSummary}
+                  badge={<span className="sb-chip">{config.comboKeys.length} {isZh ? '键' : 'keys'}</span>}
+                >
             <Md3eMorphShape path={session.shapes.control.svgPath} className="sb-combo-ghost" />
             <label className="sb-field" style={{ marginTop: 10 }}>
               <span className="sb-field-label">{isZh ? '目标手柄' : 'Gamepad'}</span>
@@ -475,6 +569,17 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 ariaLabel={isZh ? '目标手柄' : 'Gamepad'}
               />
             </label>
+
+            {/* MD 3 Expressive Abstract Gamepad Key Recognition Stage ("神似而不求形似") */}
+            <ExpressiveComboStage
+              activeDevice={activeDevice}
+              comboKeys={config.comboKeys}
+              liveRecordingKeys={liveRecordingKeys}
+              recordingCombo={recordingCombo}
+              buttons={buttons}
+              axes={axes}
+              locale={locale}
+            />
 
             {recordingCombo ? (
               <div
@@ -501,7 +606,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 <div className="sb-combo-row" style={{ marginTop: 8 }}>
                   {liveRecordingKeys.length === 0 && (
                     <span className="sb-note" style={{ color: 'var(--sb-on-primary-container)' }}>
-                      {isZh ? '等待按键…' : 'Waiting for buttons…'}
+                      {isZh ? '等待按键输入…' : 'Waiting for buttons…'}
                     </span>
                   )}
                   {liveRecordingKeys.map((key) => {
@@ -516,8 +621,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                           color: 'var(--sb-on-primary-container)',
                         }}
                       >
-                        <span className="sb-key-code">{info.code}</span>
-                        <span style={{ fontSize: 10.5, opacity: 0.8 }}>{info.name}</span>
+                        <GamepadButtonIcon button={key} family={effectiveFamily} size={20} active={true} />
+                        <span style={{ fontSize: 11, fontWeight: 700 }}>{info.name}</span>
                       </span>
                     )
                   })}
@@ -526,8 +631,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             ) : config.comboKeys.length === 0 ? (
               <p className="sb-note" style={{ marginTop: 10 }}>
                 {isZh
-                  ? '还没有组合键。点击下方“识别组合键”或选择一个预设。'
-                  : 'No combo yet. Detect a combo or pick a preset.'}
+                  ? '还没有组合键。点击上方抽象键位、下方“识别组合键”或选择一个预设。'
+                  : 'No combo yet. Click abstract keys above, detect a combo, or pick a preset.'}
               </p>
             ) : (
               <div className="sb-combo-row" style={{ marginTop: 10 }}>
@@ -535,8 +640,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                   const info = keyName(key)
                   return (
                     <span key={`${key}-${index}`} className="sb-combo-key">
-                      <span className="sb-key-code">{info.code}</span>
-                      <span style={{ fontSize: 10.5, color: 'var(--sb-muted)' }}>{info.name}</span>
+                      <GamepadButtonIcon button={key} family={effectiveFamily} size={20} active={true} />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--sb-ink)' }}>{info.name}</span>
                       <button
                         type="button"
                         onClick={() => onRemoveKey(index)}
@@ -659,15 +764,17 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 })}
               </div>
             </div>
-          </WorkspaceTile>
+                </WorkspaceTile>
+              </WorkspaceCell>
 
-          {/* Listener & Automation Tile (span 7 on Desktop) */}
-          <WorkspaceTile
-            className="sb-listener-tile"
-            title={isZh ? '监听与自动化' : 'Listener & automation'}
-            description={isZh ? '后台监听、长按回放与自动归档。' : 'Background listening, replay and auto filing.'}
-            summary={listening ? (isZh ? '后台监听已激活' : 'Listener active') : isZh ? '后台监听已暂停' : 'Listener paused'}
-          >
+              <WorkspaceCell id="ws_listener">
+                {/* Listener & automation: span 7 by default */}
+                <WorkspaceTile
+                  className="sb-listener-tile"
+                  title={isZh ? '监听与自动化' : 'Listener & automation'}
+                  description={isZh ? '后台监听、长按回放与自动归档。' : 'Background listening, replay and auto filing.'}
+                  summary={listening ? (isZh ? '后台监听已激活' : 'Listener active') : isZh ? '后台监听已暂停' : 'Listener paused'}
+                >
             <div
               className="sb-toggle-group"
               role="group"
@@ -752,52 +859,50 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 </span>
               </button>
             </div>
-          </WorkspaceTile>
+                </WorkspaceTile>
+              </WorkspaceCell>
 
-          {/* Live Tester Tile (span 5 on Desktop) */}
-          <WorkspaceTile
-            className="sb-tester-tile"
-            title={isZh ? '实时测试器' : 'Live tester'}
-            description={isZh ? '真实手柄可视化与触觉信号监控。' : 'Expressive real controller visualizer & telemetry.'}
-            summary={
-              gamepads.length
-                ? isZh
-                  ? '手柄已连接，支持御三家与国产手柄外观'
-                  : 'Gamepad connected — Xbox, PlayStation & Switch skins'
-                : isZh
-                  ? '连接手柄后查看输入信号'
-                  : 'Connect a gamepad to inspect input'
-            }
-            badge={
-              <span className="sb-chip">
-                {gamepads.length ? (isZh ? '已连接' : 'Connected') : isZh ? '未连接' : 'Disconnected'}
-              </span>
-            }
-          >
-            {gamepads.length > 0 ? (
-              <div style={{ marginTop: 12 }}>
-                <ControllerTester
-                  deviceInfo={gamepads.find((g) => g._index === selectedGamepadIndex) || gamepads[0]}
-                  buttons={buttons}
-                  axes={axes}
-                  locale={isZh ? 'zh' : 'en'}
-                  allowFamilySwitch={true}
-                  showRawInspector={false}
-                />
-              </div>
-            ) : (
-              <div className="sb-tester-empty" style={{ marginTop: 12 }}>
-                <span className="sb-tester-orb" aria-hidden="true">
-                  <Md3eMorphShape path={session.shapes.metric.svgPath} />
-                  <AppIcon name="gamepad" size={20} />
-                </span>
-                <span className="sb-note">
-                  {isZh ? '暂无手柄信号，连接手柄并按键唤醒。' : 'No gamepad signal. Connect and press a button.'}
-                </span>
-              </div>
-            )}
-          </WorkspaceTile>
-        </div>
+              <WorkspaceCell id="ws_tester">
+                {/* Live tester: span 5 by default */}
+                <WorkspaceTile
+                  className="sb-tester-tile"
+                  title={isZh ? '实时测试器' : 'Live tester'}
+                  description={
+                    isZh
+                      ? 'MD3 Expressive 抽象手柄艺术舞台与实时信号监控。'
+                      : 'MD3 Expressive abstract controller art & live signal telemetry.'
+                  }
+                  summary={
+                    gamepads.length
+                      ? isZh
+                        ? '手柄已连接，支持御三家与通用抽象外观'
+                        : 'Gamepad connected — Xbox, PlayStation & Switch expressive skins'
+                      : isZh
+                        ? '支持御三家抽象形态预览，连接手柄即时点亮信号'
+                        : 'Preview Xbox, PlayStation & Switch expressive skins or connect a gamepad'
+                  }
+                  badge={
+                    <span className="sb-chip">
+                      {gamepads.length ? (isZh ? '已连接' : 'Connected') : isZh ? '预览待命' : 'Standby'}
+                    </span>
+                  }
+                >
+                  <div style={{ marginTop: 12 }}>
+                    <ControllerTester
+                      deviceInfo={activeDevice || null}
+                      buttons={buttons}
+                      axes={axes}
+                      locale={isZh ? 'zh' : 'en'}
+                      allowFamilySwitch={true}
+                      showRawInspector={false}
+                      onButtonPress={handleToggleComboKey}
+                    />
+                  </div>
+                </WorkspaceTile>
+              </WorkspaceCell>
+            </WorkspaceSortGrid>
+          </div>
+        </WorkspaceGridProvider>
       </div>
     </div>
   )
