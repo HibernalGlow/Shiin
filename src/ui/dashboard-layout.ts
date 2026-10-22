@@ -1,9 +1,20 @@
 /**
- * Shiin Activity Dashboard Layout & Grid System
+ * Shiin Activity Dashboard Layout (Analytics surface)
  *
- * Implements discrete size constraints (1x1, 2x1, 2x2, 3x2, 4x2),
- * layout reordering, widget visibility management, and persistence serialization.
+ * Declares the analytics widget catalog and its 4-column discrete grid sizes
+ * (1x1, 2x1, 2x2, 3x2, 4x2). The placement / migration mechanics live in the
+ * shared widget layout engine so the workspace workbench can reuse them.
  */
+
+import {
+  type PlacedWidget as BasePlacedWidget,
+  type WidgetLayoutConfig as BaseWidgetLayoutConfig,
+  type WidgetMetaBase,
+  moveInList,
+  normalizeWidgetLayout,
+} from './widget-layout.js'
+
+export type { WidgetMetaBase }
 
 export type WidgetSize = '1x1' | '2x1' | '2x2' | '3x2' | '4x2'
 
@@ -18,15 +29,8 @@ export type WidgetId =
   | 'listener_stats'
   | 'activity_stream'
 
-export interface WidgetMeta {
+export interface WidgetMeta extends WidgetMetaBase<WidgetSize, WidgetId> {
   id: WidgetId
-  titleZh: string
-  titleEn: string
-  descriptionZh: string
-  descriptionEn: string
-  icon: string
-  defaultSize: WidgetSize
-  supportedSizes: WidgetSize[]
   category: 'metric' | 'detail' | 'stream'
 }
 
@@ -132,17 +136,9 @@ export const WIDGET_REGISTRY: Record<WidgetId, WidgetMeta> = {
   },
 }
 
-export interface PlacedWidget {
-  id: WidgetId
-  size: WidgetSize
-  visible: boolean
-}
+export type PlacedWidget = BasePlacedWidget<WidgetSize, WidgetId>
 
-export interface DashboardLayoutConfig {
-  version: 1
-  widgets: PlacedWidget[]
-  gapPx: number
-}
+export type DashboardLayoutConfig = BaseWidgetLayoutConfig<WidgetSize, WidgetId>
 
 export function getDefaultDashboardLayout(): DashboardLayoutConfig {
   return {
@@ -166,49 +162,7 @@ export function getDefaultDashboardLayout(): DashboardLayoutConfig {
  * Validates and migrates stored layout configurations.
  */
 export function normalizeDashboardLayout(input: unknown): DashboardLayoutConfig {
-  const fallback = getDefaultDashboardLayout()
-  if (!input || typeof input !== 'object') return fallback
-
-  const candidate = input as Partial<DashboardLayoutConfig>
-  if (!Array.isArray(candidate.widgets)) return fallback
-
-  const knownIds = new Set<string>(Object.keys(WIDGET_REGISTRY))
-  const seenIds = new Set<string>()
-  const validWidgets: PlacedWidget[] = []
-
-  for (const item of candidate.widgets) {
-    if (
-      item &&
-      typeof item === 'object' &&
-      typeof item.id === 'string' &&
-      knownIds.has(item.id) &&
-      !seenIds.has(item.id)
-    ) {
-      seenIds.add(item.id)
-      const meta = WIDGET_REGISTRY[item.id as WidgetId]
-      const validSize = meta.supportedSizes.includes(item.size as WidgetSize)
-        ? (item.size as WidgetSize)
-        : meta.defaultSize
-      validWidgets.push({
-        id: item.id as WidgetId,
-        size: validSize,
-        visible: item.visible !== false,
-      })
-    }
-  }
-
-  // Ensure any missing widgets are included at the end
-  for (const defaultItem of fallback.widgets) {
-    if (!seenIds.has(defaultItem.id)) {
-      validWidgets.push({ ...defaultItem })
-    }
-  }
-
-  return {
-    version: 1,
-    gapPx: 16,
-    widgets: validWidgets,
-  }
+  return normalizeWidgetLayout(input, WIDGET_REGISTRY, getDefaultDashboardLayout())
 }
 
 /**
@@ -219,17 +173,5 @@ export function moveWidget(
   fromIndex: number,
   toIndex: number
 ): PlacedWidget[] {
-  if (
-    fromIndex < 0 ||
-    fromIndex >= widgets.length ||
-    toIndex < 0 ||
-    toIndex >= widgets.length ||
-    fromIndex === toIndex
-  ) {
-    return widgets
-  }
-  const next = [...widgets]
-  const [removed] = next.splice(fromIndex, 1)
-  next.splice(toIndex, 0, removed)
-  return next
+  return moveInList(widgets, fromIndex, toIndex)
 }
