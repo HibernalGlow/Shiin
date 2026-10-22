@@ -5,7 +5,8 @@ import type {
   StandardGamepadState,
 } from '../types.js'
 import { detectController } from '../detector/rules.js'
-import { mapStandardHardware } from '../db/mapper.js'
+import { findSdlMapping } from '../db/database.js'
+import { mapSdlToStandard, mapStandardHardware } from '../db/mapper.js'
 import { ExpressiveGamepad } from './ExpressiveGamepad.js'
 import { StickCoordinatePlot } from './StickCoordinatePlot.js'
 import { GamepadButtonIcon } from '../icons/GamepadButtonIcon.js'
@@ -16,6 +17,7 @@ export interface ControllerTesterProps {
   state?: StandardGamepadState
   buttons?: boolean[]
   axes?: number[]
+  hats?: string[] | number[]
   locale?: 'zh' | 'en'
   initialFamily?: ControllerFamily | 'auto'
   allowFamilySwitch?: boolean
@@ -31,6 +33,7 @@ export const ControllerTester: React.FC<ControllerTesterProps> = ({
   state: externalState,
   buttons = [],
   axes = [],
+  hats = [],
   locale = 'zh',
   initialFamily = 'auto',
   allowFamilySwitch = true,
@@ -45,10 +48,20 @@ export const ControllerTester: React.FC<ControllerTesterProps> = ({
   const [rawInspectorOpen, setRawInspectorOpen] = React.useState<boolean>(defaultShowRaw)
 
   // Derive standardized state from external state or raw inputs
+  const mapping = React.useMemo(() => {
+    if (!deviceInfo || deviceInfo.inputLayout !== 'raw') return null
+    return findSdlMapping({
+      guid: deviceInfo.guid,
+      vendorId: deviceInfo.vendorId,
+      productId: deviceInfo.productId,
+      name: deviceInfo.name,
+    })
+  }, [deviceInfo])
+
   const standardState: StandardGamepadState = React.useMemo(() => {
     if (externalState) return externalState
-    return mapStandardHardware({ buttons, axes })
-  }, [externalState, buttons, axes])
+    return mapping ? mapSdlToStandard({ buttons, axes, hats }, mapping) : mapStandardHardware({ buttons, axes })
+  }, [externalState, buttons, axes, hats, mapping])
 
   // Detect device characteristics
   const detection = React.useMemo(() => detectController(deviceInfo), [deviceInfo])

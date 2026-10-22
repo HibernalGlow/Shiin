@@ -39,6 +39,26 @@ export function detectController(device: GamepadSourceDeviceInfo | null | undefi
   const name = (device.name || '').trim()
   const guid = device.guid || ''
 
+  if (device.controllerFamily) {
+    const family = device.controllerFamily
+    const labels: Record<ControllerFamily, string> = {
+      xbox: 'Xbox layout',
+      playstation: 'PlayStation layout',
+      nintendo: 'Nintendo layout',
+      generic: 'Generic layout',
+    }
+    return {
+      family,
+      model: family === 'playstation' ? 'ps5' : family === 'nintendo' ? 'switchPro' : family === 'xbox' ? 'xboxSeries' : 'generic',
+      confidence: 'vendor',
+      displayName: name || labels[family],
+      brandLabel: labels[family],
+      guid,
+      hasMapping: Boolean(device.mapping),
+      isDomestic: family === 'generic',
+    }
+  }
+
   // 1. Resolve Vendor ID & Product ID
   let vendorId = device.vendorId
   let productId = device.productId

@@ -98,6 +98,9 @@ export interface GamepadSourceDeviceInfo {
   type?: string
   buttonsCount?: number
   axesCount?: number
+  /** Whether button/axis arrays already use the Web Gamepad / SDL GameController layout. */
+  inputLayout?: 'standard' | 'raw'
+  controllerFamily?: ControllerFamily
 }
 
 /**

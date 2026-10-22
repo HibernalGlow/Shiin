@@ -5,10 +5,7 @@ import type {
   StandardGamepadState,
 } from '../types.js'
 import { detectController } from '../detector/rules.js'
-import { XboxControllerShape } from '../shapes/XboxControllerShape.js'
-import { PlayStationControllerShape } from '../shapes/PlayStationControllerShape.js'
-import { NintendoControllerShape } from '../shapes/NintendoControllerShape.js'
-import { GenericControllerShape } from '../shapes/GenericControllerShape.js'
+import { ExpressiveInputField } from './ExpressiveInputField.js'
 
 export interface ExpressiveGamepadProps extends React.HTMLAttributes<HTMLDivElement> {
   state: StandardGamepadState
@@ -38,59 +35,14 @@ export const ExpressiveGamepad: React.FC<ExpressiveGamepadProps> = ({
     return detectController(deviceInfo).family
   }, [family, deviceInfo])
 
-  const renderShape = () => {
-    switch (effectiveFamily) {
-      case 'playstation':
-        return (
-          <PlayStationControllerShape
-            state={state}
-            interactive={interactive}
-            onButtonPress={onButtonPress}
-            showLabels={showLabels}
-            accentColor={accentColor || '#58a6ff'}
-          />
-        )
-      case 'nintendo':
-        return (
-          <NintendoControllerShape
-            state={state}
-            interactive={interactive}
-            onButtonPress={onButtonPress}
-            showLabels={showLabels}
-            accentColor={accentColor || '#e60012'}
-          />
-        )
-      case 'generic':
-        return (
-          <GenericControllerShape
-            state={state}
-            interactive={interactive}
-            onButtonPress={onButtonPress}
-            showLabels={showLabels}
-            accentColor={accentColor || '#c8f000'}
-          />
-        )
-      case 'xbox':
-      default:
-        return (
-          <XboxControllerShape
-            state={state}
-            interactive={interactive}
-            onButtonPress={onButtonPress}
-            showLabels={showLabels}
-            accentColor={accentColor || '#56c271'}
-          />
-        )
-    }
-  }
-
   return (
     <div
       className={`gp-controller-wrap gp-family-${effectiveFamily} ${className}`}
       style={style}
       {...props}
     >
-      {renderShape()}
+      <ExpressiveInputField state={state} family={effectiveFamily} interactive={interactive}
+        onButtonPress={onButtonPress} showLabels={showLabels} accentColor={accentColor} />
     </div>
   )
 }

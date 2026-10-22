@@ -92,11 +92,13 @@ function resolveButtonBinding(target: string | undefined, input: RawGamepadInput
   // Plain axis as button: 'aN' (e.g. triggers mapped as axes)
   if (target.startsWith('a')) {
     const idx = parseInt(target.slice(1), 10)
-    return (input.axes[idx] ?? 0) > 0.2
+    return (input.axes[idx] ?? 0) >= TRIGGER_PRESS_THRESHOLD
   }
 
   return false
 }
+
+export const TRIGGER_PRESS_THRESHOLD = 0.90
 
 function resolveAxisBinding(target: string | undefined, input: RawGamepadInput): number {
   if (!target) return 0
@@ -125,6 +127,16 @@ function resolveAxisBinding(target: string | undefined, input: RawGamepadInput):
   return 0
 }
 
+export function normalizeTriggerValue(value: number): number {
+  if (typeof value !== 'number' || isNaN(value)) return 0
+  // SDL joystick backends commonly expose triggers as -1..1 while Web
+  // Gamepad and SDL GameController expose them as 0..1.
+  if (value < 0) {
+    return Math.max(0, Math.min(1, (value + 1) / 2))
+  }
+  return Math.max(0, Math.min(1, value))
+}
+
 function resolveTriggerBinding(target: string | undefined, input: RawGamepadInput): { pressed: boolean; value: number } {
   if (!target) return { pressed: false, value: 0 }
 
@@ -136,14 +148,9 @@ function resolveTriggerBinding(target: string | undefined, input: RawGamepadInpu
 
   if (target.startsWith('a') || target.startsWith('+a') || target.startsWith('~a')) {
     const axisVal = resolveAxisBinding(target.replace(/^\+/, ''), input)
-    // SDL triggers are often reported in range 0.0 to 1.0, or -1.0 to 1.0 (where -1.0 is released)
-    let normalized = axisVal
-    if (axisVal < 0 && target.includes('trigger')) {
-      normalized = (axisVal + 1) / 2
-    }
-    const clamped = Math.max(0, Math.min(1, normalized))
+    const clamped = normalizeTriggerValue(axisVal)
     return {
-      pressed: clamped >= 0.15,
+      pressed: clamped >= TRIGGER_PRESS_THRESHOLD,
       value: clamped,
     }
   }
@@ -212,8 +219,8 @@ export function mapStandardHardware(raw: RawGamepadInput): StandardGamepadState 
   const axes = raw.axes || []
 
   // Triggers: check buttons first, then axes
-  const ltValue = axes.length > 4 ? Math.max(0, Math.min(1, axes[4])) : btns[6] ? 1 : 0
-  const rtValue = axes.length > 5 ? Math.max(0, Math.min(1, axes[5])) : btns[7] ? 1 : 0
+  const ltValue = axes.length > 4 ? normalizeTriggerValue(Number(axes[4]) || 0) : btns[6] ? 1 : 0
+  const rtValue = axes.length > 5 ? normalizeTriggerValue(Number(axes[5]) || 0) : btns[7] ? 1 : 0
 
   return {
     south: Boolean(btns[0]),
@@ -223,8 +230,8 @@ export function mapStandardHardware(raw: RawGamepadInput): StandardGamepadState 
 
     l1: Boolean(btns[4]),
     r1: Boolean(btns[5]),
-    l2: Boolean(btns[6]) || ltValue >= 0.15,
-    r2: Boolean(btns[7]) || rtValue >= 0.15,
+    l2: Boolean(btns[6]) || ltValue >= TRIGGER_PRESS_THRESHOLD,
+    r2: Boolean(btns[7]) || rtValue >= TRIGGER_PRESS_THRESHOLD,
     l2Value: ltValue,
     r2Value: rtValue,
 
