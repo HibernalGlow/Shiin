@@ -5,7 +5,7 @@
  * - 工作台：手柄状态、捕获、触发组合、监听与实时测试
  * - 设置：形状、权限、启动、通知、数据
  *
- * 权限诊断不再占用顶级页签，由设置页进入独立诊断面。
+ * 权限在设置中按需处理，不占用顶级目的地。
  */
 import * as React from 'react'
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useReducedMotion } from 'motion/react'
@@ -31,14 +31,13 @@ import {
 } from '../core/types.js'
 import { playCaptureSound } from './audio.js'
 import { UpdateDialog } from './components/UpdateDialog.js'
-import { PermissionsView } from './components/PermissionsView.js'
 import { SettingsView } from './components/SettingsView.js'
 import { WorkspaceView } from './components/WorkspaceView.js'
 import { SETTINGS_BENTO_CSS } from './components/settings-bento-css.js'
 import type { MacOSPermissionsStatus } from './adapter/types.js'
-import { registerOilStyles } from './oil-ui.js'
+import { registerExpressiveStyles } from './expressive-theme.js'
 
-type Lens = 'workspace' | 'permissions' | 'settings'
+type Lens = 'workspace' | 'settings'
 
 export const App: React.FC = () => {
   const reduceMotion = useReducedMotion()
@@ -49,6 +48,13 @@ export const App: React.FC = () => {
   const bridge = React.useMemo(() => new ElectronHostBridge(), [])
 
   const [lens, setLens] = React.useState<Lens>('workspace')
+  const [permissionRequest, setPermissionRequest] = React.useState(0)
+  const [settingsSection, setSettingsSection] = React.useState<'general' | 'permissions'>('general')
+  const [saveState, setSaveState] = React.useState<'saved' | 'saving' | 'error'>('saved')
+  const saveVersion = React.useRef(0)
+  const pendingSettings = React.useRef(new Map<string, { value: unknown; version: number }>())
+  const saveQueue = React.useRef(Promise.resolve())
+  const queuedSaves = React.useRef(0)
 
   const [config, setConfig] = React.useState<ScreenshotConfig>({ ...DEFAULT_CONFIG })
   const [listening, setListening] = React.useState<boolean>(false)
@@ -83,16 +89,19 @@ export const App: React.FC = () => {
   const [hasUpdate, setHasUpdate] = React.useState<boolean>(false)
   const [maximized, setMaximized] = React.useState<boolean>(false)
   const [macPermissions, setMacPermissions] = React.useState<MacOSPermissionsStatus | null>(null)
-  const [lastNotice, setLastNotice] = React.useState<string>('')
+  const [lastNotice, updateLastNotice] = React.useState({ text: '', revision: 0 })
+  const setLastNotice = (text: string) => updateLastNotice(current => ({ text, revision: current.revision + 1 }))
   const localeRef = React.useRef(locale)
   localeRef.current = locale
 
   const openPermissions = React.useCallback(() => {
-    setLens('permissions')
+    setPermissionRequest((request) => request + 1)
+    setSettingsSection('permissions')
+    setLens('settings')
   }, [])
 
   React.useEffect(() => {
-    const unregisterStyles = registerOilStyles()
+    const unregisterStyles = registerExpressiveStyles()
 
     if (typeof document !== 'undefined' && !document.getElementById('shiin-settings-bento-styles')) {
       const style = document.createElement('style')
@@ -116,16 +125,17 @@ export const App: React.FC = () => {
         setConfig((prev) => ({ ...prev, autoStart: auto }))
       }
 
-      if (bridge.isMac && bridge.getMacOSPermissions) {
-        const perms = await bridge.getMacOSPermissions({ activeProbe: false })
-        setMacPermissions(perms)
-        if (!perms.screenCapture) {
-          setLens('permissions')
-          setLastNotice(
-            savedLocale.startsWith('zh')
-              ? '屏幕录制权限尚未授予，已打开权限自检'
-              : 'Screen recording permission not granted'
-          )
+      if (bridge.getMacOSPermissions) {
+        try {
+          const perms = await bridge.getMacOSPermissions({ activeProbe: false })
+          setMacPermissions(perms)
+          if (perms.isMac && !perms.screenCapture) {
+            setLastNotice(savedLocale.startsWith('zh')
+              ? '屏幕录制权限待授权，可在设置中开启'
+              : 'Screen recording permission is required')
+          }
+        } catch {
+          setLastNotice(savedLocale.startsWith('zh') ? '暂时无法检测系统权限，请检查本地服务。' : 'System access could not be checked. Check the local service.')
         }
       }
 
@@ -189,18 +199,18 @@ export const App: React.FC = () => {
       openPermissions()
       if (data?.message) setLastNotice(data.message)
       if (bridge.getMacOSPermissions) {
-        void bridge.getMacOSPermissions({ activeProbe: true }).then((perms) => setMacPermissions(perms))
+        void bridge.getMacOSPermissions({ activeProbe: true }).then((perms) => setMacPermissions(perms)).catch(() => undefined)
       }
     })
 
     const handleWindowFocus = () => {
-      if (bridge.isMac && bridge.getMacOSPermissions) {
+      if (bridge.getMacOSPermissions) {
         void bridge.getMacOSPermissions({ activeProbe: true }).then((perms) => {
           setMacPermissions(perms)
           if (perms?.screenCapture) {
             setLastNotice(localeRef.current.startsWith('zh') ? '屏幕录制权限已就绪' : 'Screen recording permission granted')
           }
-        })
+        }).catch(() => undefined)
       }
     }
     window.addEventListener('focus', handleWindowFocus)
@@ -322,12 +332,36 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', onKey)
   }, [detectingKeyboard, locale])
 
-  const patchConfig = (patch: Partial<ScreenshotConfig>) => {
-    setConfig((prev) => {
-      const next = { ...prev, ...patch }
-      void bridge.setStore('globalConfig', JSON.stringify(next))
-      return next
+  const persistSetting = (key: string, value: unknown) => {
+    const version = ++saveVersion.current
+    pendingSettings.current.set(key, { value, version })
+    queuedSaves.current += 1
+    setSaveState('saving')
+    // Keep writes ordered so quick changes cannot overwrite the latest value.
+    saveQueue.current = saveQueue.current.then(async () => {
+      try {
+        await bridge.setStore(key, value)
+        if (pendingSettings.current.get(key)?.version === version) pendingSettings.current.delete(key)
+      } catch (error) {
+        setLastNotice(localeRef.current.startsWith('zh')
+          ? `设置未保存：${error instanceof Error ? error.message : String(error)}`
+          : `Settings were not saved: ${error instanceof Error ? error.message : String(error)}`)
+      } finally {
+        queuedSaves.current -= 1
+        setSaveState(queuedSaves.current > 0 ? 'saving' : pendingSettings.current.size > 0 ? 'error' : 'saved')
+      }
     })
+  }
+
+  const retrySave = () => {
+    for (const [key, { value }] of pendingSettings.current) persistSetting(key, value)
+  }
+
+  const patchConfig = (patch: Partial<ScreenshotConfig>) => {
+    const next = { ...configRef.current, ...patch }
+    configRef.current = next
+    setConfig(next)
+    persistSetting('globalConfig', JSON.stringify(next))
   }
 
   const handleCapture = async () => {
@@ -453,7 +487,7 @@ export const App: React.FC = () => {
   const handleShapePreferencesChange = (next: Md3eShapePreferences) => {
     const normalized = normalizeShapePreferences(next)
     setShapePreferences(normalized)
-    void bridge.setStore('shapePreferences', normalized)
+    persistSetting('shapePreferences', normalized)
   }
 
   const handleRerollShapeSession = () => {
@@ -484,13 +518,11 @@ export const App: React.FC = () => {
     setRecordingCombo(false)
   }
 
-  const activeDevice = gamepads.find((gamepad) => gamepad._index === selectedGamepadIndex) || gamepads[0]
   const isZh = locale.startsWith('zh')
-  const macMissing = Boolean(macPermissions?.isMac && !macPermissions.allGranted)
 
   const handleSelectLocale = (next: string) => {
     setLocale(next)
-    void bridge.setStore('locale', next)
+    persistSetting('locale', next)
     if ((window as any).electronAPI?.applyLocale) {
       void (window as any).electronAPI.applyLocale(next)
     }
@@ -526,14 +558,6 @@ export const App: React.FC = () => {
         icon: <AppIcon name="monitor" size={19} />,
       },
       {
-        id: 'permissions',
-        label: isZh ? '权限' : 'Permissions',
-        shortLabel: isZh ? '权限' : 'Permissions',
-        title: isZh ? '权限中心' : 'Permissions',
-        icon: <AppIcon name="shield" size={19} />,
-        badge: macMissing ? '!' : undefined,
-      },
-      {
         id: 'settings',
         label: isZh ? '设置' : 'Settings',
         shortLabel: isZh ? '设置' : 'Settings',
@@ -541,10 +565,13 @@ export const App: React.FC = () => {
         icon: <AppIcon name="settings" size={19} />,
       },
     ],
-    [isZh, macMissing]
+    [isZh]
   )
 
-  const selectLens = (next: Lens) => setLens(next)
+  const selectLens = (next: Lens) => {
+    setSettingsSection('general')
+    setLens(next)
+  }
 
   return (
     <MotionConfig reducedMotion="user">
@@ -554,13 +581,13 @@ export const App: React.FC = () => {
       session={shapeSession}
       onPreferencesChange={handleShapePreferencesChange}
     >
-      <div className="oil-shell">
+      <div className="shiin-shell">
         <TitleBar
           listening={listening}
           uiScale={uiScale}
           onSetUiScale={async (scale) => {
             setUiScale(scale)
-            void bridge.setStore('uiScale', scale)
+            persistSetting('uiScale', scale)
             if (bridge.setUiScale) await bridge.setUiScale(scale)
           }}
           locale={locale}
@@ -581,126 +608,33 @@ export const App: React.FC = () => {
           onOpenPermissions={openPermissions}
         />
 
-        <div className="oil-app-layout">
-          <aside className="oil-sidebar" aria-label={isZh ? '主导航' : 'Main navigation'}>
-            <div className="oil-brand">
-              <span className="oil-brand__mark" aria-hidden="true"><AppIcon name="gamepad" size={18} /></span>
-              <div className="oil-brand__copy">
-                <strong>Shiin Studio</strong>
-                <small>{isZh ? '截图与即时回放' : 'Capture & instant replay'}</small>
-              </div>
-            </div>
-            <div className="oil-listening-note" data-listening={listening ? 'true' : 'false'}>
-              <i />
-              {listening ? (isZh ? '正在监听' : 'Listening') : isZh ? '等待输入' : 'Waiting for input'}
-            </div>
-            <nav className="oil-sidebar__nav">
-              {navigationItems.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="oil-nav-item"
-                  data-active={lens === item.id ? 'true' : 'false'}
-                  onClick={() => selectLens(item.id as Lens)}
-                  aria-current={lens === item.id ? 'page' : undefined}
-                >
-                  {lens === item.id && <motion.span className="oil-nav-selection" layoutId="sidebar-selection" transition={{ type: 'spring', stiffness: 380, damping: 29 }} />}
-                  <span className="oil-nav-item__icon" aria-hidden="true">{item.icon}</span>
-                  <span>{item.label}</span>
-                  {item.badge && <span className="oil-nav-item__badge">{item.badge}</span>}
-                </button>
-              ))}
-            </nav>
-            <div className="oil-sidebar__footer">
-              <button type="button" className="oil-action oil-action--primary" disabled={capturePending} onClick={() => void handleCapture()}>
-                <AppIcon name="camera" size={14} />
-                <span>{isZh ? '立即截图' : 'Capture now'}</span>
+        <div className="shiin-app-layout">
+          <nav className="shiin-tabs" role="tablist" aria-label={isZh ? '主导航' : 'Main navigation'}>
+            {navigationItems.map((item, index) => (
+              <button key={item.id} id={`tab-${item.id}`} type="button" role="tab"
+                aria-selected={lens === item.id} aria-controls="shiin-main-panel"
+                tabIndex={lens === item.id ? 0 : -1}
+                onClick={() => selectLens(item.id as Lens)}
+                onKeyDown={(event) => {
+                  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+                  event.preventDefault()
+                  const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index
+                  selectLens(navigationItems[next].id as Lens)
+                  document.getElementById(`tab-${navigationItems[next].id}`)?.focus()
+                }}>
+                {item.icon}<span>{item.label}</span>
+                {lens === item.id && <motion.span className="shiin-tab-indicator" layoutId="primary-tab" transition={{ type: 'spring', stiffness: 420, damping: 32 }} />}
               </button>
-              <button type="button" className="oil-action oil-action--olive" onClick={() => void handleToggleListen()}>
-                <AppIcon name={listening ? 'stop' : 'play'} size={14} />
-                <span>{listening ? (isZh ? '暂停监听' : 'Pause') : isZh ? '开启监听' : 'Listen'}</span>
-              </button>
-              <button type="button" className="oil-action oil-action--red" onClick={() => void handleSaveOBS()}>
-                <AppIcon name="wave" size={14} />
-                <span>{isZh ? '保存回放' : 'Save replay'}</span>
-              </button>
-            </div>
-          </aside>
+            ))}
+          </nav>
 
-          <aside className="oil-rail" aria-label={isZh ? '紧凑导航' : 'Compact navigation'}>
-            <span className="oil-rail__brand" aria-hidden="true"><AppIcon name="gamepad" size={17} /></span>
-            <div className="oil-rail__items">
-              {navigationItems.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="oil-rail__item"
-                  data-active={lens === item.id ? 'true' : 'false'}
-                  onClick={() => selectLens(item.id as Lens)}
-                  title={item.title}
-                  aria-label={item.title}
-                >
-                  {item.icon}
-                </button>
-              ))}
-            </div>
-          </aside>
-
-          <main className="oil-node" data-testid="shiin-oil" data-ui-variant="oil-expressive" data-surface="bento" data-lens={lens}>
+          <main id="shiin-main-panel" role="tabpanel" aria-labelledby={`tab-${lens}`} className="shiin-node" data-testid="shiin-app" data-ui-variant="expressive" data-surface="bento" data-lens={lens}>
             <AnimatePresence mode="wait" initial={false}>
-            <motion.div className="oil-view-transition" key={lens}
+            <motion.div className="shiin-view-transition" key={lens}
+              onAnimationStart={() => { if (settingsSection !== 'permissions') document.getElementById('shiin-main-panel')?.scrollTo({ top: 0 }) }}
               initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }} animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: reduceMotion ? 0 : -8 }} transition={{ duration: reduceMotion ? 0 : 0.18 }}>
-              {lens === 'permissions' ? (
-                <PermissionsView
-                  config={config}
-                  locale={locale}
-                  isMac={bridge.isMac}
-                  permissions={macPermissions}
-                  gamepads={gamepads}
-                  onRefreshPermissions={async (activeProbe) => {
-                    if (bridge.getMacOSPermissions) {
-                      const next = await bridge.getMacOSPermissions({ activeProbe })
-                      setMacPermissions(next)
-                      return next
-                    }
-                    return null
-                  }}
-                  onRequestPermission={async (target, options) => {
-                    if (bridge.requestMacOSPermission) {
-                      const next = await bridge.requestMacOSPermission(target, options)
-                      setMacPermissions(next)
-                      return next
-                    }
-                    return null
-                  }}
-                  onTestScreenshot={async () => {
-                    if (bridge.testScreenshotPermission) {
-                      const result = await bridge.testScreenshotPermission(config)
-                      if (result?.permissions) setMacPermissions(result.permissions)
-                      return result
-                    }
-                    return null
-                  }}
-                  onOpenPreference={async (pane) => {
-                    if (bridge.openMacOSPreference) await bridge.openMacOSPreference(pane)
-                  }}
-                  onOpenFolder={async (customPath) => {
-                    const result = await bridge.openFolder(customPath || config.path || '')
-                    return result && typeof result === 'object'
-                      ? result
-                      : { ok: true, path: customPath || config.path }
-                  }}
-                  onSelectFolder={handleSelectFolder}
-                  onShowItemInFolder={async (path) => {
-                    if (bridge.showItemInFolder) await bridge.showItemInFolder(path)
-                  }}
-                  onRefreshGamepads={async () => {
-                    setGamepads(await bridge.getConnectedGamepads())
-                  }}
-                  onNavigateWorkspace={() => setLens('workspace')}
-                />
-              ) : lens === 'workspace' ? (
+              {lens === 'workspace' ? (
                 <WorkspaceView
                   capturePending={capturePending}
                   captureResult={captureResult}
@@ -734,9 +668,9 @@ export const App: React.FC = () => {
                   onRefreshGamepads={() => {
                     void bridge.getConnectedGamepads().then((devices) => setGamepads(devices))
                   }}
-                  lastNotice={lastNotice}
+                  lastNotice={lastNotice.text}
+                  noticeRevision={lastNotice.revision}
                   locale={locale}
-                  activeDevice={activeDevice}
                 />
               ) : (
                 <SettingsView
@@ -744,12 +678,27 @@ export const App: React.FC = () => {
                   onChange={patchConfig}
                   locale={locale}
                   onSelectLocale={handleSelectLocale}
-                  isMac={bridge.isMac}
+                  isMac={macPermissions?.isMac ?? bridge.isMac}
                   macPermissions={macPermissions}
                   onOpenFolder={handleOpenFolder}
                   onSelectFolder={handleSelectFolder}
-                  onOpenMacPreference={(pane) => bridge.openMacOSPreference?.(pane)}
-                  onOpenPermissionsView={openPermissions}
+                  initialSection={settingsSection}
+                  permissionRequest={permissionRequest}
+                  saveState={saveState}
+                  onRetrySave={retrySave}
+                  onRefreshPermissions={async () => {
+                    const next = await bridge.getMacOSPermissions?.({ activeProbe: true })
+                    if (next) setMacPermissions(next)
+                  }}
+                  onRequestPermission={async (target) => {
+                    const next = await bridge.requestMacOSPermission?.(target, { openSettingsIfDenied: true })
+                    if (next) setMacPermissions(next)
+                  }}
+                  onTestScreenshot={async () => {
+                    const result = await bridge.testScreenshotPermission?.(config)
+                    if (result?.permissions) setMacPermissions(result.permissions)
+                    return result ?? null
+                  }}
                   onToggleAutoStart={(enable) => {
                     patchConfig({ autoStart: enable })
                     if (bridge.setAutoStart) void bridge.setAutoStart(enable)
@@ -773,19 +722,19 @@ export const App: React.FC = () => {
             </AnimatePresence>
           </main>
 
-          <nav className="oil-dock" aria-label={isZh ? '底部导航' : 'Bottom navigation'}>
-            {navigationItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                data-active={lens === item.id ? 'true' : 'false'}
-                onClick={() => selectLens(item.id as Lens)}
-              >
-                {item.icon}
-                <span>{item.shortLabel}</span>
-              </button>
-            ))}
-          </nav>
+          {lens === 'workspace' && <div className="shiin-mobile-toolbar" role="toolbar" aria-label={isZh ? '截图操作' : 'Capture actions'}>
+            <motion.button type="button" className="shiin-mobile-capture" disabled={capturePending} aria-busy={capturePending}
+              whileTap={reduceMotion ? undefined : { scale: 0.96 }} onClick={() => void handleCapture()}>
+              <AppIcon name={capturePending ? 'clock' : 'camera'} size={22} />
+              {capturePending ? (isZh ? '正在截图…' : 'Capturing…') : (isZh ? '立即截图' : 'Capture now')}
+            </motion.button>
+            <button type="button" aria-pressed={listening} onClick={() => void handleToggleListen()}>
+              <AppIcon name={listening ? 'stop' : 'play'} size={20} />
+              <span>{listening ? (isZh ? '暂停' : 'Pause') : (isZh ? '监听' : 'Listen')}</span>
+            </button>
+            <button type="button" onClick={() => void handleSaveOBS()}><AppIcon name="wave" size={20} /><span>{isZh ? '回放' : 'Replay'}</span></button>
+          </div>}
+
         </div>
 
         <UpdateDialog open={updateDialogOpen} onClose={() => setUpdateDialogOpen(false)} />

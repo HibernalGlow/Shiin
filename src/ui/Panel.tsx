@@ -1,7 +1,7 @@
 /** Xaihi command panel: the same equipment palette and controls as the desktop. */
 import * as React from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
-import { registerOilStyles } from './oil-ui.js'
+import { registerExpressiveStyles } from './expressive-theme.js'
 import { AppIcon } from './components/AppIcon.js'
 
 export const Probe = { react: React, version: React.version }
@@ -27,7 +27,7 @@ export default function Panel({ contribution, locale = 'zh', host }: XaihiPanelP
   const [busy, setBusy] = React.useState<string | null>(null)
   const [failed, setFailed] = React.useState(false)
   const busyRef = React.useRef(false)
-  React.useEffect(registerOilStyles, [])
+  React.useEffect(registerExpressiveStyles, [])
 
   const runAction = async (action: typeof PANEL_ACTIONS[number]) => {
     if (busyRef.current) return
@@ -44,18 +44,18 @@ export default function Panel({ contribution, locale = 'zh', host }: XaihiPanelP
     } finally { busyRef.current = false; setBusy(null) }
   }
 
-  return <MotionConfig reducedMotion="user"><section className="oil-panel" data-testid="shiin-panel-oil" data-ui-variant="oil-expressive">
-    <div className="oil-panel__heading"><span className="oil-brand__mark"><AppIcon name="gamepad" size={25} /></span>
-      <div><p className="oil-kicker">Shiin / Xaihi</p><h2>{isZh ? contribution.title.zh : contribution.title.en}</h2>
+  return <MotionConfig reducedMotion="user"><section className="shiin-panel" data-testid="shiin-panel" data-ui-variant="expressive">
+    <div className="shiin-panel__heading"><span className="shiin-brand__mark"><AppIcon name="gamepad" size={25} /></span>
+      <div><p className="shiin-kicker">Shiin / Xaihi</p><h2>{isZh ? contribution.title.zh : contribution.title.en}</h2>
         <p>{isZh ? '从手柄输入，到这一帧的交付。' : 'From controller input to a frame worth keeping.'}</p></div>
     </div>
-    <div className="oil-panel__actions">{PANEL_ACTIONS.map(action => <motion.button type="button" key={action.line}
-      className={`oil-action oil-action--${action.tone}`} disabled={busy !== null} aria-busy={busy === action.line}
+    <div className="shiin-panel__actions">{PANEL_ACTIONS.map(action => <motion.button type="button" key={action.line}
+      className={`shiin-action shiin-action--${action.tone}`} disabled={busy !== null} aria-busy={busy === action.line}
       whileTap={{ scale: 0.96 }} onClick={() => void runAction(action)}>
       <AppIcon name={busy === action.line ? 'clock' : action.icon} size={17} />
       {busy === action.line ? (isZh ? '执行中…' : 'Running…') : isZh ? action.zh : action.en}
     </motion.button>)}</div>
-    <div className="oil-panel__console" data-error={failed}>
+    <div className="shiin-panel__console" data-error={failed}>
       <div><span>{isZh ? '命令反馈' : 'Command response'}</span><span>DSH</span></div>
       <AnimatePresence mode="wait" initial={false}><motion.pre key={output} role="status" aria-live="polite"
         initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>

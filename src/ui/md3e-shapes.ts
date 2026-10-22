@@ -75,11 +75,11 @@ export interface Md3eShapeRoleMeta {
 }
 
 export const MD3E_SHAPE_ROLE_META: Record<Md3eShapeRole, Md3eShapeRoleMeta> = {
-  hero: { id: 'hero', name: '主视觉', nameEn: 'Hero artwork', description: '截图球与权限主图形' },
-  device: { id: 'device', name: '会话头像', nameEn: 'Session artwork', description: '本次会话与设备头像' },
-  control: { id: 'control', name: '操作控件', nameEn: 'Controls', description: '主操作与组合控件' },
-  icon: { id: 'icon', name: '图标', nameEn: 'Icon seats', description: '导航、标题栏与图标座' },
-  metric: { id: 'metric', name: '指标', nameEn: 'Metrics', description: '指标卡与状态贴片' },
+  hero: { id: 'hero', name: '截图快门', nameEn: 'Capture shutter', description: '工作台的大快门按钮' },
+  device: { id: 'device', name: '设置徽记', nameEn: 'Settings emblem', description: '形状策略中的会话标记' },
+  control: { id: 'control', name: '组合键按钮', nameEn: 'Combo button', description: '识别组合键的图标背景' },
+  icon: { id: 'icon', name: '来源图标', nameEn: 'Source icon', description: '显示器与窗口的图标背景' },
+  metric: { id: 'metric', name: '测试器图标', nameEn: 'Tester icon', description: '未连接手柄时的提示图标' },
 }
 
 export type Md3eRoleShapes = Record<Md3eShapeRole, Md3eExpressiveShapeId>

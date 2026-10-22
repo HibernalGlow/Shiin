@@ -1,0 +1,323 @@
+[
+  {
+    "file": "page-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-1024x900.png",
+    "state": null,
+    "size": "1024x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-720x900.png",
+    "state": null,
+    "size": "720x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-480x844.png",
+    "state": null,
+    "size": "480x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-1440x900-@2x.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 2,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-1024x900-@2x.png",
+    "state": null,
+    "size": "1024x900",
+    "zoom": 2,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-720x900-@2x.png",
+    "state": null,
+    "size": "720x900",
+    "zoom": 2,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-480x844-@2x.png",
+    "state": null,
+    "size": "480x844",
+    "zoom": 2,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-390x844-@2x.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 2,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "motion-probe-capture",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "capture",
+    "motion": {
+      "load": {
+        "elements": 0,
+        "loops": 0,
+        "maxMove": 0,
+        "maxSize": 0,
+        "maxOpacity": 0,
+        "top": []
+      },
+      "steps": {
+        "elements": 6,
+        "loops": 1,
+        "maxMove": 18,
+        "maxSize": 6.309,
+        "maxOpacity": 0.78,
+        "top": [
+          {
+            "el": "div.shiin-capture-feedback",
+            "move": 0,
+            "size": 6.309,
+            "opacity": 0.78,
+            "loop": false,
+            "sources": [
+              "js:style",
+              "waapi"
+            ]
+          },
+          {
+            "el": "path",
+            "move": 7,
+            "size": 1.643,
+            "opacity": 0,
+            "loop": false,
+            "sources": [
+              "js:d"
+            ]
+          },
+          {
+            "el": "path",
+            "move": 9,
+            "size": 0.478,
+            "opacity": 0,
+            "loop": false,
+            "sources": [
+              "js:d"
+            ]
+          },
+          {
+            "el": "svg",
+            "move": 11,
+            "size": 0.395,
+            "opacity": 0,
+            "loop": false,
+            "sources": [
+              "css:shiin-capture-spin"
+            ]
+          },
+          {
+            "el": "button.shiin-shutter",
+            "move": 18,
+            "size": 0.149,
+            "opacity": 0.45,
+            "loop": true,
+            "sources": [
+              "js:style"
+            ]
+          },
+          {
+            "el": "path",
+            "move": 15,
+            "size": 0.132,
+            "opacity": 0,
+            "loop": false,
+            "sources": [
+              "js:d"
+            ]
+          }
+        ]
+      },
+      "hero": {
+        "elements": 0,
+        "loops": 0,
+        "maxMove": 0,
+        "maxSize": 0,
+        "maxOpacity": 0,
+        "top": [],
+        "layers": 0
+      },
+      "scroll": {
+        "elements": 0,
+        "loops": 0,
+        "maxMove": 0,
+        "maxSize": 0,
+        "maxOpacity": 0,
+        "top": [],
+        "scrollable": false
+      }
+    },
+    "issues": [
+      "首次进入：没有检测到动画"
+    ]
+  },
+  {
+    "file": "motion-probe-permissions",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "permissions",
+    "motion": {
+      "load": {
+        "elements": 0,
+        "loops": 0,
+        "maxMove": 0,
+        "maxSize": 0,
+        "maxOpacity": 0,
+        "top": []
+      },
+      "steps": {
+        "elements": 3,
+        "loops": 0,
+        "maxMove": 155,
+        "maxSize": 0,
+        "maxOpacity": 0.92,
+        "top": [
+          {
+            "el": "span.shiin-tab-indicator",
+            "move": 155,
+            "size": 0,
+            "opacity": 0,
+            "loop": false,
+            "sources": [
+              "js:style"
+            ]
+          },
+          {
+            "el": "div.shiin-view-transition",
+            "move": 15,
+            "size": 0,
+            "opacity": 0.92,
+            "loop": false,
+            "sources": [
+              "js:style",
+              "waapi"
+            ]
+          },
+          {
+            "el": "div.shiin-view-transition",
+            "move": 7,
+            "size": 0,
+            "opacity": 0.82,
+            "loop": false,
+            "sources": [
+              "js:style",
+              "waapi"
+            ]
+          }
+        ]
+      },
+      "hero": {
+        "elements": 0,
+        "loops": 0,
+        "maxMove": 0,
+        "maxSize": 0,
+        "maxOpacity": 0,
+        "top": [],
+        "layers": 0
+      },
+      "scroll": {
+        "elements": 0,
+        "loops": 0,
+        "maxMove": 0,
+        "maxSize": 0,
+        "maxOpacity": 0,
+        "top": [],
+        "scrollable": false
+      }
+    },
+    "issues": [
+      "首次进入：没有检测到动画"
+    ]
+  },
+  {
+    "file": "motion-entry-end.jpg",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "entry",
+    "issues": [],
+    "frames": {
+      "start": {
+        "file": "motion-entry-start.jpg",
+        "source": "Page.screencastFrame",
+        "timeMs": 145
+      },
+      "mid": {
+        "file": "motion-entry-mid.jpg",
+        "source": "Page.screencastFrame",
+        "timeMs": 544
+      },
+      "end": {
+        "file": "motion-entry-end.jpg",
+        "source": "Page.captureScreenshot",
+        "timeMs": 2739
+      }
+    },
+    "sampling": {
+      "mode": "entry"
+    },
+    "durationMs": 2739,
+    "consistency": {
+      "status": "matched",
+      "reference": "motion-entry-end.jpg",
+      "different": false,
+      "changedPixels": 0,
+      "maxTilePixels": 0,
+      "pixelRatio": 0
+    }
+  },
+  {
+    "file": "browser",
+    "failed": true,
+    "issues": [
+      "motion-capture-end.jpg：浏览器连接出错，已停止执行；同时开了很多个任务时会变慢；可先单独重跑：node '/Users/glow/.skills-manager/skills/oil-ui/scripts/shoot.mjs' 'http://127.0.0.1:3817' --timeout-scale 2 --out '/Users/glow/Base/Code/Prometheus/Shiin/design/expressive-refinement/evidence' --size '1440x900' --zoom 1 --steps 'capture: click .shiin-shutter, .shiin-mobile-capture; waitfor .shiin-capture-feedback' --record"
+    ]
+  }
+]

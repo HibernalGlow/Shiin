@@ -1,0 +1,97 @@
+[
+  {
+    "file": "page-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（正文低于 4.5:1，大字低于 3:1）",
+        "count": 2,
+        "examples": [
+          "small「按住 1 秒保存」（3.35:1）",
+          "small「未设置按键」（4.41:1）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-1024x900.png",
+    "state": null,
+    "size": "1024x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（正文低于 4.5:1，大字低于 3:1）",
+        "count": 2,
+        "examples": [
+          "small「按住 1 秒保存」（3.35:1）",
+          "small「未设置按键」（4.41:1）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-720x900.png",
+    "state": null,
+    "size": "720x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（正文低于 4.5:1，大字低于 3:1）",
+        "count": 2,
+        "examples": [
+          "small「按住 1 秒保存」（3.35:1）",
+          "small「未设置按键」（4.41:1）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-480x900.png",
+    "state": null,
+    "size": "480x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（正文低于 4.5:1，大字低于 3:1）",
+        "count": 2,
+        "examples": [
+          "small「按住 1 秒保存」（3.35:1）",
+          "small「未设置按键」（4.41:1）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（正文低于 4.5:1，大字低于 3:1）",
+        "count": 2,
+        "examples": [
+          "small「按住 1 秒保存」（3.35:1）",
+          "small「未设置按键」（4.41:1）"
+        ]
+      }
+    ]
+  }
+]

@@ -175,6 +175,7 @@ export class ElectronHostBridge implements IHostBridge {
 
   public async setStore<T>(key: string, value: T): Promise<void> {
     const res = await fetchLocalApi<{ ok: boolean }>('/api/store/set', { key, value })
+    if (!res?.ok) throw new Error('Local service did not save the setting')
     if (key === 'globalConfig') {
       try {
         const parsed = typeof value === 'string' ? JSON.parse(value) : (value as any)
@@ -407,22 +408,7 @@ export class ElectronHostBridge implements IHostBridge {
     const endpoint = options?.activeProbe ? '/api/permissions?activeProbe=1' : '/api/permissions'
     const apiRes = await fetchLocalApi<MacOSPermissionsStatus>(endpoint)
     if (apiRes) return apiRes
-    return {
-      isMac: this.isMac,
-      platform: this.isMac ? 'darwin' : 'unknown',
-      screenCapture: true,
-      screenCaptureStatus: 'granted',
-      accessibility: true,
-      inputMonitoring: true,
-      folderAccess: true,
-      resolvedSavePath: './screenshots',
-      windowRecognition: true,
-      detectedWindowsCount: 0,
-      gamepadAccess: true,
-      detectedGamepadsCount: 0,
-      allGranted: true,
-      checkedAt: Date.now(),
-    }
+    throw new Error('Permission service unavailable')
   }
 
   public async requestMacOSPermission(

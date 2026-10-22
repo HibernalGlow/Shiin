@@ -14,9 +14,10 @@ import {
   type Md3eShapeRole,
   type Md3eShapeSession,
 } from '../md3e-shapes.js'
-import { BentoSelect, BentoWavyProgress, Md3eMorphShape } from './bento-controls.js'
+import { BentoSelect, Md3eMorphShape } from './bento-controls.js'
 import { ScreenshotSoundEnum, type ScreenshotConfig } from '../../core/types.js'
-import type { MacOSPermissionsStatus, MacPermissionPane } from '../adapter/types.js'
+import type { MacOSPermissionsStatus, PermissionTargetType, ScreenshotPermissionTestResult } from '../adapter/types.js'
+import { PermissionSettings } from './PermissionSettings.js'
 
 export interface SettingsViewProps {
   config: ScreenshotConfig
@@ -31,8 +32,13 @@ export interface SettingsViewProps {
   locale?: string
   isMac?: boolean
   macPermissions?: MacOSPermissionsStatus | null
-  onOpenMacPreference?: (pane: MacPermissionPane) => void
-  onOpenPermissionsView?: () => void
+  initialSection?: 'general' | 'permissions'
+  permissionRequest?: number
+  saveState?: 'saved' | 'saving' | 'error'
+  onRetrySave?: () => void
+  onRefreshPermissions: () => Promise<void>
+  onRequestPermission: (target: PermissionTargetType) => Promise<void>
+  onTestScreenshot: () => Promise<ScreenshotPermissionTestResult | null>
   onToggleAutoStart?: (enable: boolean) => void
   onEnterLightweightMode?: () => void
   shapePreferences: Md3eShapePreferences
@@ -54,8 +60,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   locale = 'zh',
   isMac = false,
   macPermissions,
-  onOpenMacPreference,
-  onOpenPermissionsView,
+  initialSection = 'general',
+  permissionRequest,
+  saveState = 'saved',
+  onRetrySave,
+  onRefreshPermissions,
+  onRequestPermission,
+  onTestScreenshot,
   onToggleAutoStart,
   onEnterLightweightMode,
   shapePreferences,
@@ -72,67 +83,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const textShape = shapeSession.text
   const volumePercent = Math.round((config.soundPower ?? 1) * 100)
   const notifyOn = (config.overlayNotify || 'show') === 'show'
-
-  const screenGranted = Boolean(macPermissions?.screenCapture)
-  const accessibilityGranted = Boolean(macPermissions?.accessibility)
-  const inputGranted = Boolean(macPermissions?.inputMonitoring ?? macPermissions?.accessibility)
-  const folderGranted = macPermissions ? (macPermissions.folderAccess ?? !macPermissions.folderError) : false
-  const permissionCount = isMac
-    ? [screenGranted, accessibilityGranted, inputGranted, folderGranted].filter(Boolean).length
-    : 4
-  const permissionPercent = (permissionCount / 4) * 100
-  const missingCount = 4 - permissionCount
-
-  const permissionItems = [
-    {
-      id: 'screen',
-      label: isZh ? '屏幕录制' : 'Screen recording',
-      granted: isMac ? screenGranted : true,
-      state: isMac
-        ? macPermissions
-          ? screenGranted
-            ? isZh ? '已授权' : 'Granted'
-            : isZh ? '未授权' : 'Denied'
-          : isZh ? '检测中' : 'Checking'
-        : isZh ? '平台直通' : 'Platform',
-    },
-    {
-      id: 'accessibility',
-      label: isZh ? '辅助功能' : 'Accessibility',
-      granted: isMac ? accessibilityGranted : true,
-      state: isMac
-        ? macPermissions
-          ? accessibilityGranted
-            ? isZh ? '已授权' : 'Granted'
-            : isZh ? '未授权' : 'Denied'
-          : isZh ? '检测中' : 'Checking'
-        : isZh ? '平台直通' : 'Platform',
-    },
-    {
-      id: 'input',
-      label: isZh ? '输入监控' : 'Input monitoring',
-      granted: isMac ? inputGranted : true,
-      state: isMac
-        ? macPermissions
-          ? inputGranted
-            ? isZh ? '已就绪' : 'Ready'
-            : isZh ? '待授权' : 'Pending'
-          : isZh ? '检测中' : 'Checking'
-        : isZh ? '平台直通' : 'Platform',
-    },
-    {
-      id: 'folder',
-      label: isZh ? '截图目录' : 'Screenshot folder',
-      granted: isMac ? folderGranted : true,
-      state: isMac
-        ? macPermissions
-          ? folderGranted
-            ? isZh ? '可读写' : 'Writable'
-            : isZh ? '异常' : 'Blocked'
-          : isZh ? '检测中' : 'Checking'
-        : isZh ? '可读写' : 'Writable',
-    },
-  ]
 
   const updateMode = (mode: Md3eShapePreferences['mode']) => {
     onShapePreferencesChange({ ...shapePreferences, mode, preset: mode === 'random' ? 'custom' : shapePreferences.preset })
@@ -235,20 +185,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <div className="sb-page">
         <header className="sb-masthead">
           <div>
-            <p className="sb-eyebrow">PREFERENCES</p>
             <h2>{isZh ? '设置' : 'Settings'}</h2>
             <p className="sb-lede">
               {isZh
-                ? '形状、权限和启动行为都在这一页完成。改动即时生效，并只保存在这台设备。'
-                : 'Shape, permissions and startup behavior live on one page. Changes apply instantly and stay on this device.'}
+                ? '调整外观、系统访问与后台行为。'
+                : 'Appearance, system access and background behavior.'}
             </p>
           </div>
-          <span className="sb-save-state" role="status" aria-live="polite">
+          <span className="sb-save-state" data-state={saveState} role="status" aria-live="polite">
             <i />
-            {isZh ? '本机设置 · 自动保存' : 'Local settings · Auto-saved'}
+            {saveState === 'error' ? (isZh ? '尚未保存' : 'Not saved') : saveState === 'saving' ? (isZh ? '正在保存…' : 'Saving…') : (isZh ? '自动保存到本机' : 'Saved on this device')}
+            {saveState === 'error' && <button type="button" onClick={onRetrySave}>{isZh ? '重试保存' : 'Retry save'}</button>}
           </span>
         </header>
 
+        <PermissionSettings locale={locale} isMac={isMac} permissions={macPermissions} initialSection={initialSection} revealRequest={permissionRequest}
+          folder={config.path} onRefresh={onRefreshPermissions} onRequest={onRequestPermission}
+          onTest={onTestScreenshot} onSelectFolder={onSelectFolder} onOpenFolder={onOpenFolder} />
         <div className="sb-grid">
           <section className="sb-tile sb-shape-tile" id="settings-shape" aria-label={isZh ? '形状实验室' : 'Shape lab'}>
             <div className="sb-tile-head">
@@ -256,11 +209,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <h3>{isZh ? '形状实验室' : 'Shape lab'}</h3>
                 <p>
                   {isZh
-                    ? '不同控件类别各取一形；同类控件保持一致。'
-                    : 'Each control class draws its own shape; controls of one class stay consistent.'}
+                    ? '选择界面中的对象，调整它的轮廓。'
+                    : 'Choose an interface object and adjust its silhouette.'}
                 </p>
               </div>
-              <span className="sb-chip tertiary">{isZh ? '35 档' : '35 shapes'}</span>
+              <span className="sb-chip tertiary">{isZh ? '35 种轮廓' : '35 shapes'}</span>
             </div>
             <div className="sb-shape-lab">
               <div className="sb-stage" aria-hidden="true">
@@ -270,17 +223,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <AppIcon name={selectedRole === 'metric' ? 'sliders' : selectedRole === 'icon' ? 'shield' : 'gamepad'} size={46} />
                 </div>
                 <span className="sb-stage-label">
-                  {selectedRoleMeta.nameEn.toUpperCase()} · {isZh ? roleShape.name : roleShape.nameEn}
+                  {isZh ? selectedRoleMeta.name : selectedRoleMeta.nameEn} · {isZh ? roleShape.name : roleShape.nameEn}
                 </span>
-                <span className="sb-stage-role">{selectedRoleMeta.description}</span>
               </div>
               <div className="sb-shape-controls">
                 <div className="sb-role-picker">
                   <div className="sb-picker-head">
-                    <span className="sb-ribbon-label">{isZh ? '按角色编辑' : 'EDIT BY ROLE'}</span>
-                    <span className="sb-readout-pill">{MD3E_SHAPE_ROLES.length}</span>
+                    <span className="sb-ribbon-label">{isZh ? '调整对象' : 'Interface object'}</span>
                   </div>
-                  <div className="sb-role-list" role="group" aria-label={isZh ? '形状角色' : 'Shape roles'}>
+                  <div className="sb-role-list" role="group" aria-label={isZh ? '调整对象' : 'Interface object'}>
                     {MD3E_SHAPE_ROLES.map((role) => {
                       const meta = MD3E_SHAPE_ROLE_META[role]
                       return (
@@ -308,9 +259,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div>
                   <div className="sb-picker-head">
                     <span className="sb-ribbon-label">
-                      {isZh ? `${selectedRoleMeta.name}形状` : `${selectedRoleMeta.nameEn.toUpperCase()} SHAPE`}
+                      {isZh ? '选择轮廓' : 'Choose a silhouette'}
                     </span>
-                    <span className="sb-readout-pill">{MD3E_ICON_SHAPES.length}</span>
                   </div>
                   <div className="sb-shape-picker">
                     <button
@@ -386,11 +336,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="sb-tile-head">
               <div>
                 <h3>{isZh ? '形状策略' : 'Shape strategy'}</h3>
-                <p>
-                  {isZh
-                    ? '启动时按类别独立取形，使用中不重抽。'
-                    : 'Each class is drawn independently at launch and stays stable while in use.'}
-                </p>
               </div>
               <span className={`sb-chip ${isRandom ? 'tertiary' : ''}`}>
                 {isRandom ? (isZh ? '每次启动' : 'At launch') : isZh ? '固定组合' : 'Fixed set'}
@@ -410,8 +355,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <span className="sb-strategy-note">
                 {isRandom
                   ? isZh
-                    ? '每次启动为每个角色重新抽取，同类控件共享同一轮廓。'
-                    : 'Each launch redraws every role; controls of one class share a silhouette.'
+                    ? '每次启动更换轮廓，使用时保持稳定。'
+                    : 'New silhouettes at launch, stable while in use.'
                   : isZh
                     ? '保持当前各类轮廓，下次启动不变。'
                     : 'Keeps every class silhouette across launches.'}
@@ -420,7 +365,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="sb-preset-section">
               <div className="sb-picker-head">
                 <span className="sb-ribbon-label">{isZh ? '快速预设' : 'QUICK PRESETS'}</span>
-                <span className="sb-readout-pill">{MD3E_SHAPE_PRESETS.length}</span>
               </div>
               <div className="sb-preset-cards">
                 {MD3E_SHAPE_PRESETS.slice(0, 4).map((preset) => (
@@ -456,7 +400,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <strong>
                   {isZh ? deviceShape.name : deviceShape.nameEn} · {isZh ? textShape.name : textShape.nameEn}
                 </strong>
-                <small>{isZh ? '会话头像 · 文字形态' : 'Session artwork · Text buttons'}</small>
+                <small>{isZh ? '设置徽记 · 文字按钮' : 'Settings emblem · Text buttons'}</small>
               </div>
             </div>
             <div className="sb-session-actions">
@@ -468,62 +412,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <AppIcon name="dice" size={15} />
                 {isZh ? '模拟下次启动' : 'Next launch'}
               </button>
-            </div>
-          </section>
-
-          <section
-            className="sb-tile sb-permission-tile"
-            id="settings-permission"
-            aria-label={isZh ? '权限与环境' : 'Permissions'}
-          >
-            <div className="sb-tile-head">
-              <div>
-                <h3>{isZh ? '权限与环境' : 'Permissions & environment'}</h3>
-                <p>{isZh ? '截图、窗口识别与目录读写。' : 'Capture, window recognition and folder access.'}</p>
-              </div>
-              <span className={`sb-chip ${missingCount > 0 ? 'warn' : 'tertiary'}`}>
-                {missingCount > 0
-                  ? isZh
-                    ? `${missingCount} 项待处理`
-                    : `${missingCount} pending`
-                  : isZh
-                    ? '已就绪'
-                    : 'Ready'}
-              </span>
-            </div>
-            <div className="sb-permission-grid">
-              <div className="sb-permission-big">
-                {permissionCount}
-                <small> / 4 {isZh ? '已授予' : 'granted'}</small>
-              </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  className="sb-secondary-button"
-                  onClick={isMac ? onOpenPermissionsView : onOpenFolder}
-                  disabled={isMac ? !onOpenPermissionsView : !onOpenFolder}
-                >
-                  <AppIcon name={isMac ? 'shield' : 'folder'} size={14} />
-                  {isMac ? (isZh ? '处理权限' : 'Resolve') : isZh ? '打开截图目录' : 'Open folder'}
-                </button>
-                {isMac && onOpenMacPreference && !screenGranted && (
-                  <button type="button" className="sb-secondary-button" onClick={() => onOpenMacPreference('screen')}>
-                    {isZh ? '系统设置' : 'System settings'}
-                  </button>
-                )}
-              </div>
-              <div className="sb-wavy">
-                <BentoWavyProgress value={permissionPercent} />
-              </div>
-              <ul className="sb-permission-list">
-                {permissionItems.map((item) => (
-                  <li key={item.id}>
-                    <i className={`sb-dot ${item.granted ? '' : 'bad'}`} />
-                    {item.label}
-                    <span className={`sb-state ${item.granted ? '' : 'bad'}`}>{item.state}</span>
-                  </li>
-                ))}
-              </ul>
             </div>
           </section>
 

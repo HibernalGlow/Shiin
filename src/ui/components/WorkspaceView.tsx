@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { AppIcon } from './AppIcon.js'
-import { BentoSelect, BentoWavyProgress, Md3eMorphShape } from './bento-controls.js'
+import { BentoSelect, Md3eMorphShape } from './bento-controls.js'
 import { BUTTON_NAME_MAP, COMMON_COMBO_PRESETS, formatGamepadKey } from '../gamepad-utils.js'
 import {
   CaptureTargetTypeEnum,
@@ -47,8 +47,8 @@ export interface WorkspaceViewProps {
   onOpenPermissions: () => void
   onRefreshGamepads?: () => void
   lastNotice?: string
+  noticeRevision?: number
   locale: string
-  activeDevice?: GamepadDeviceInfo
 }
 
 export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
@@ -83,35 +83,56 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   onOpenPermissions,
   onRefreshGamepads,
   lastNotice,
+  noticeRevision,
   locale,
-  activeDevice,
 }) => {
   const { session } = useMd3eShapes()
   const [presetMenuOpen, setPresetMenuOpen] = React.useState(false)
+  const presetWrapRef = React.useRef<HTMLDivElement>(null)
+  const presetTriggerRef = React.useRef<HTMLButtonElement>(null)
+  React.useEffect(() => {
+    if (!presetMenuOpen) return
+    presetWrapRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()
+    const onPointerDown = (event: PointerEvent) => {
+      if (!presetWrapRef.current?.contains(event.target as Node)) setPresetMenuOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setPresetMenuOpen(false)
+        presetTriggerRef.current?.focus()
+      }
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [presetMenuOpen])
   const isZh = locale.startsWith('zh')
   const isWindowMode = config.captureTargetType === CaptureTargetTypeEnum.Window
   const isFocusedWindow = isWindowMode && config.windowCaptureMode === 'focused'
-  const permissionMissing = Boolean(macPermissions?.isMac && !macPermissions.allGranted)
+  const permissionMissing = Boolean(macPermissions?.isMac && !macPermissions.screenCapture)
   const keyName = (key: string) => {
     const info = formatGamepadKey(key, isZh ? 'zh' : 'en')
     return { code: info.key, name: info.name }
   }
 
   return (
-    <div className="shiin-bento oil-workspace">
+    <div className="shiin-bento shiin-workspace">
       <div className="sb-page">
         <div className="sb-grid">
           <EquipmentDeck locale={locale} listening={listening} pending={capturePending} result={captureResult}
-            device={activeDevice?.name}
             target={isFocusedWindow ? (isZh ? '当前聚焦窗口' : 'Focused window') : isWindowMode
               ? (windows.find(window => String(window.id) === String(config.windowSourceId))?.title || (isZh ? '指定窗口' : 'Pinned window'))
               : (screens.find(screen => String(screen.id) === String(config.screenSourceId))?.name || (isZh ? '全屏捕获' : 'Full desktop'))}
             output={`${config.imageFormat.toUpperCase()} · ${config.screenShotSaveWay === ScreenShotSaveWayEnum.CilpboardOnly
               ? (isZh ? '剪贴板' : 'Clipboard') : config.screenShotSaveWay === ScreenShotSaveWayEnum.FileAndCilpboard
                 ? (isZh ? '文件 + 剪贴板' : 'File + clipboard') : (isZh ? '文件' : 'File')}`}
-            folder={config.path || ''} permissionMissing={permissionMissing}
+            permissionMissing={permissionMissing}
             onCapture={onCapture} onToggleListen={onToggleListen} onSaveOBS={onSaveOBS}
-            onOpenFolder={onOpenFolder} onOpenPermissions={onOpenPermissions} notice={lastNotice} />
+            onOpenFolder={onOpenFolder} onOpenPermissions={onOpenPermissions} notice={lastNotice} noticeRevision={noticeRevision} />
 
           <section className="sb-tile sb-capture-tile" aria-label={isZh ? '画面捕获与输出' : 'Capture and output'}>
             <div className="sb-tile-head">
@@ -119,14 +140,14 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 <h3>{isZh ? '画面捕获与输出' : 'Capture & output'}</h3>
                 <p>
                   {isZh
-                    ? '全屏、指定某一扇窗口，或每次触发时自动跟随当前聚焦窗口。'
-                    : 'Full desktop, one pinned window, or follow whichever window is focused when the trigger fires.'}
+                    ? '选择来源、格式与保存位置。'
+                    : 'Choose a source, format and destination.'}
                 </p>
               </div>
               <span className="sb-chip">{macPermissions?.isMac ? 'macOS' : (isZh ? '画面来源' : 'Capture source')}</span>
             </div>
             <div className="sb-field" style={{ marginTop: 12 }}>
-              <span className="sb-field-label">{isZh ? '捕获目标' : 'CAPTURE TARGET'}</span>
+              <span className="sb-field-label">{isZh ? '捕获目标' : 'Capture target'}</span>
               <div className="sb-target-group" role="group" aria-label={isZh ? '捕获目标' : 'Capture target'}>
                 <button
                   type="button"
@@ -134,7 +155,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                   onClick={() => onChange({ captureTargetType: CaptureTargetTypeEnum.Screen })}
                 >
                   <AppIcon name="monitor" size={14} />
-                  {isZh ? '全屏 / 无边框' : 'Full desktop'}
+                  {isZh ? '全屏' : 'Desktop'}
                 </button>
                 <button
                   type="button"
@@ -166,11 +187,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             </div>
             <div className="sb-source-row">
               <span className="sb-source-icon" aria-hidden="true">
+                <Md3eMorphShape path={session.shapes.icon.svgPath} className="sb-source-shape" />
                 <AppIcon name={isFocusedWindow ? 'target' : isWindowMode ? 'appWindow' : 'monitor'} size={18} />
               </span>
               <div className="sb-source-copy">
                 <span className="sb-field-label">
-                  {isFocusedWindow ? (isZh ? '跟随焦点' : 'FOLLOW FOCUS') : isWindowMode ? (isZh ? '目标窗口' : 'TARGET WINDOW') : isZh ? '显示器' : 'DISPLAY'}
+                  {isFocusedWindow ? (isZh ? '跟随焦点' : 'Follow focus') : isWindowMode ? (isZh ? '目标窗口' : 'Target window') : isZh ? '显示器' : 'Display'}
                 </span>
                 {isFocusedWindow ? (
                   <span className="sb-source-value">{isZh ? '当前聚焦窗口' : 'Focused window'}</span>
@@ -210,7 +232,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             {isFocusedWindow && (
               <p className="sb-note" style={{ marginTop: 10 }}>
                 {isZh
-                  ? '每次截图 / 手柄触发都会捕获当时聚焦的前台窗口，切换焦点即可换窗口。'
+                  ? '每次触发时，自动跟随当前前台窗口。'
                   : 'Each capture grabs whichever window is focused at that moment.'}
               </p>
             )}
@@ -236,30 +258,28 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 onChange={(next) => onChange({ screenShotSaveWay: next as ScreenshotConfig['screenShotSaveWay'] })}
                 ariaLabel={isZh ? '保存方式' : 'Save as'}
               />
-              <input
-                className="sb-chip-input"
-                value={config.fileNameTemplate}
-                onChange={(event) => onChange({ fileNameTemplate: event.target.value })}
-                aria-label={isZh ? '文件名模板' : 'Filename template'}
-                placeholder={isZh ? '文件名模板' : 'Filename template'}
-              />
             </div>
+            <label className="sb-filename-field">
+              <span className="sb-field-label">{isZh ? '文件名模板' : 'Filename template'}</span>
+              <input className="sb-chip-input" value={config.fileNameTemplate}
+                onChange={(event) => onChange({ fileNameTemplate: event.target.value })}
+                placeholder={isZh ? '文件名模板' : 'Filename template'} />
+            </label>
             <div className="sb-folder-row">
               <span className="sb-path-chip" title={config.path || ''}>
                 <AppIcon name="folder" size={13} />
                 <span>{config.path || (isZh ? '系统默认截图目录' : 'System default folder')}</span>
               </span>
-              <button type="button" className="sb-icon-button" onClick={onSelectFolder} aria-label={isZh ? '更换目录' : 'Change folder'}>
-                <AppIcon name="save" size={15} />
+              <button type="button" className="sb-folder-action" onClick={onSelectFolder}>
+                <AppIcon name="folder" size={16} />{isZh ? '更换目录' : 'Change folder'}
               </button>
-              <button type="button" className="sb-icon-button" onClick={onOpenFolder} aria-label={isZh ? '打开目录' : 'Open folder'}>
-                <AppIcon name="external" size={15} />
+              <button type="button" className="sb-folder-action" onClick={onOpenFolder}>
+                <AppIcon name="external" size={16} />{isZh ? '打开目录' : 'Open folder'}
               </button>
             </div>
           </section>
 
           <section className="sb-tile sb-combos-tile" aria-label={isZh ? '触发组合' : 'Trigger combos'}>
-            <Md3eMorphShape path={session.shapes.control.svgPath} className="sb-combo-ghost" />
             <div className="sb-tile-head">
               <div>
                 <h3>{isZh ? '触发组合' : 'Trigger combos'}</h3>
@@ -268,7 +288,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               <span className="sb-chip">{config.comboKeys.length > 0 ? `${config.comboKeys.length} 键` : '—'}</span>
             </div>
             <label className="sb-field" style={{ marginTop: 10 }}>
-              <span className="sb-field-label">{isZh ? '目标手柄' : 'GAMEPAD'}</span>
+              <span className="sb-field-label">{isZh ? '目标手柄' : 'Gamepad'}</span>
               <BentoSelect
                 className="sb-gamepad-select"
                 value={String(gamepads.length > 0 ? selectedGamepadIndex : -1)}
@@ -326,19 +346,22 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 })}
               </div>
             )}
-            <div className="sb-split-wrap">
+            <div className="sb-split-wrap" ref={presetWrapRef}>
               <div className="sb-split-button">
                 <button
                   type="button"
                   className="sb-split-main"
                   onClick={recordingCombo ? onCancelComboRecording : onStartComboRecording}
                 >
-                  <AppIcon name="target" size={16} />
+                  <span className="sb-control-seat" aria-hidden="true"><Md3eMorphShape path={session.shapes.control.svgPath} /><AppIcon name="target" size={16} /></span>
                   {recordingCombo ? (isZh ? '取消识别' : 'Cancel') : isZh ? '识别组合键' : 'Detect combo'}
                 </button>
                 <button
                   type="button"
                   className="sb-split-trail"
+                  ref={presetTriggerRef}
+                  aria-haspopup="menu"
+                  aria-controls={presetMenuOpen ? 'combo-presets-menu' : undefined}
                   aria-expanded={presetMenuOpen}
                   aria-label={isZh ? '组合预设' : 'Combo presets'}
                   onClick={() => setPresetMenuOpen((open) => !open)}
@@ -347,7 +370,15 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 </button>
               </div>
               {presetMenuOpen && (
-                <div className="sb-menu" role="menu">
+                <div className="sb-menu" role="menu" id="combo-presets-menu" onKeyDown={(event) => {
+                  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+                  event.preventDefault()
+                  const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+                  const index = items.indexOf(document.activeElement as HTMLButtonElement)
+                  const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
+                    : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+                  items[next]?.focus()
+                }}>
                   {COMMON_COMBO_PRESETS.map((preset, index) => (
                     <button
                       key={index}
@@ -389,7 +420,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               )}
             </div>
             <div className="sb-preset-strip">
-              <span className="sb-ribbon-label">{isZh ? '常用预设' : 'QUICK PRESETS'}</span>
+              <span className="sb-ribbon-label">{isZh ? '常用预设' : 'Quick presets'}</span>
               <div className="sb-preset-chips">
                 {COMMON_COMBO_PRESETS.slice(0, 4).map((preset, index) => {
                   const active =
@@ -503,10 +534,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 <h3>{isZh ? '实时测试器' : 'Live tester'}</h3>
                 <p>{isZh ? '按下按键或转动摇杆，实时查看信号。' : 'Press buttons or tilt sticks to inspect live input.'}</p>
               </div>
-              <span className="sb-chip">{isZh ? '实时' : 'LIVE'}</span>
+              <span className="sb-chip">{gamepads.length > 0 ? (isZh ? '已连接' : 'Connected') : (isZh ? '未连接' : 'Disconnected')}</span>
             </div>
             <div className="sb-test-grid" style={{ marginTop: 12 }}>
-              {buttons.map((pressed, index) => {
+              {gamepads.length > 0 && buttons.map((pressed, index) => {
                 const alias = BUTTON_NAME_MAP[`Button${index}`]
                 const shortName = alias ? alias.name.split('/')[0].split('(')[0].trim() : pressed ? 'ON' : 'OFF'
                 return (
@@ -516,7 +547,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                   </div>
                 )
               })}
-              {buttons.length === 0 && (
+              {(gamepads.length === 0 || buttons.length === 0) && (
                 <div className="sb-tester-empty">
                   <span className="sb-tester-orb" aria-hidden="true">
                     <Md3eMorphShape path={session.shapes.metric.svgPath} />
@@ -528,15 +559,17 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 </div>
               )}
             </div>
-            {axes.length > 0 && (
+            {gamepads.length > 0 && axes.length > 0 && (
               <>
                 <div className="sb-divider" />
                 <div style={{ display: 'grid', gap: 7 }}>
                   {axes.map((value, index) => (
                     <div key={index} className="sb-axis-row">
                       <span>Axis {index}</span>
-                      <span className="sb-wavy-axis">
-                        <BentoWavyProgress value={(value + 1) * 50} />
+                      <span className="sb-axis-signal" data-active={Math.abs(value) > 0.03}>
+                        <span className="sb-axis-center" />
+                        <span className="sb-axis-signal-fill" style={{ left: `${Math.min(50, (value + 1) * 50)}%`, width: `${Math.abs(value) * 50}%` }} />
+                        <span className="sb-axis-marker" style={{ left: `${(value + 1) * 50}%` }} />
                       </span>
                       <span className="sb-readout-pill sb-axis-readout">{value.toFixed(2)}</span>
                     </div>

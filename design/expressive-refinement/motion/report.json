@@ -1,0 +1,42 @@
+[
+  {
+    "file": "motion-capture-end.jpg",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "capture",
+    "issues": [],
+    "frames": {
+      "start": {
+        "file": "motion-capture-start.jpg",
+        "source": "Page.captureScreenshot",
+        "timeMs": 1662
+      },
+      "mid": {
+        "file": "motion-capture-mid.jpg",
+        "source": "Page.screencastFrame",
+        "timeMs": 2139
+      },
+      "end": {
+        "file": "motion-capture-end.jpg",
+        "source": "Page.captureScreenshot",
+        "timeMs": 3323
+      }
+    },
+    "sampling": {
+      "mode": "action",
+      "step": 1,
+      "action": "click",
+      "raw": "click .shiin-shutter"
+    },
+    "durationMs": 3323,
+    "consistency": {
+      "status": "matched",
+      "reference": "motion-capture-end.jpg",
+      "different": false,
+      "changedPixels": 0,
+      "maxTilePixels": 0,
+      "pixelRatio": 0
+    }
+  }
+]
