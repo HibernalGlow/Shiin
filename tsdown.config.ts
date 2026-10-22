@@ -17,6 +17,7 @@ export default defineConfig({
   target: 'node22',
   dts: true,
   clean: true,
+  copy: ['src/screenshot-notification.html', 'src/screenshot-notification-preload.cjs'],
   deps: {
     neverBundle: [
       '@deepseek-ai/cordis',

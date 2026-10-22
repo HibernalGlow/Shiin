@@ -32,6 +32,7 @@
   "files": [
     "lib/**",
     "src/screenshot-notification.html",
+    "src/screenshot-notification-preload.cjs",
     "dist/**",
     "cordis.patch.yml",
     "icon.svg",
@@ -241,7 +242,7 @@
     }
   },
   "scripts": {
-    "build:node": "tsdown && node -e \"const fs = require('fs'); fs.copyFileSync('src/screenshot-notification.html', 'lib/screenshot-notification.html');\"",
+    "build:node": "tsdown",
     "build:plugin-ui": "rspack build",
     "build:app-ui": "cross-env BUILD_TARGET=app rspack build",
     "build:plugin": "pnpm build:node && rspack build",

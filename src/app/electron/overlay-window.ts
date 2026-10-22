@@ -5,7 +5,7 @@
  * 在尺寸、位置、置顶层级和图片预览上与桌面端完全一致。
  */
 
-import { BrowserWindow, screen } from 'electron'
+import { BrowserWindow, screen, shell } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -46,16 +46,19 @@ const BASE_HEIGHT = 210
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 let overlayWindow: BrowserWindow | null = null
-let overlayTimeout: NodeJS.Timeout | null = null
 
-/** 构建产物里 HTML 与 main/overlay 同级，源码目录里在上一级。 */
-export function resolveOverlayHtmlPath(): string {
+/** 构建产物优先使用同目录资源，源码调试时回到 src。 */
+function resolveOverlayResourcePath(filename: string): string {
   const candidates = [
-    path.join(__dirname, '../src/screenshot-notification.html'),
-    path.join(__dirname, 'screenshot-notification.html'),
-    path.join(process.cwd(), 'src/screenshot-notification.html'),
+    path.join(__dirname, filename),
+    path.join(__dirname, '../src', filename),
+    path.join(process.cwd(), 'src', filename),
   ]
   return candidates.find((candidate) => fs.existsSync(candidate)) ?? candidates[0]
+}
+
+export function resolveOverlayHtmlPath(): string {
+  return resolveOverlayResourcePath('screenshot-notification.html')
 }
 
 export function showScreenshotNotification(
@@ -80,11 +83,6 @@ export function showScreenshotNotification(
     } catch {}
     overlayWindow = null
   }
-  if (overlayTimeout) {
-    clearTimeout(overlayTimeout)
-    overlayTimeout = null
-  }
-
   const primaryDisplay = screen.getPrimaryDisplay()
   const scale = normalizeOverlayScale(options.scale ?? config.overlayNotifySize)
   const overlayWidth = Math.round(BASE_WIDTH * scale)
@@ -94,10 +92,10 @@ export function showScreenshotNotification(
   const isRight = corner === 'top-right' || corner === 'bottom-right'
   const isBottom = corner === 'bottom-left' || corner === 'bottom-right'
 
-  const x = isRight ? Math.max(0, primaryDisplay.bounds.width - overlayWidth - 24) : 24
-  const y = isBottom ? Math.max(0, primaryDisplay.bounds.height - overlayHeight - 32) : 32
+  const x = primaryDisplay.bounds.x + (isRight ? Math.max(0, primaryDisplay.bounds.width - overlayWidth - 24) : 24)
+  const y = primaryDisplay.bounds.y + (isBottom ? Math.max(0, primaryDisplay.bounds.height - overlayHeight - 32) : 32)
 
-  overlayWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: overlayWidth,
     height: overlayHeight,
     x,
@@ -113,14 +111,64 @@ export function showScreenshotNotification(
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
+      preload: resolveOverlayResourcePath('screenshot-notification-preload.cjs'),
     },
   })
+  overlayWindow = window
 
   overlayWindow.setAlwaysOnTop(true, 'screen-saver')
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  overlayWindow.setIgnoreMouseEvents(true)
+  // 透明边缘透传鼠标；移到卡片上时由 preload 切为可点击。
+  window.setIgnoreMouseEvents(true, { forward: true })
 
-  void overlayWindow.loadFile(resolveOverlayHtmlPath(), {
+  let closeTimer: NodeJS.Timeout | undefined
+  let remaining = duration + 350
+  let timerStartedAt = 0
+  let hovered = false
+  let ready = false
+  let opening = false
+  const scheduleClose = () => {
+    if (!ready || hovered || window.isDestroyed()) return
+    timerStartedAt = Date.now()
+    closeTimer = setTimeout(() => {
+      if (!window.isDestroyed()) window.close()
+    }, remaining)
+  }
+
+  window.webContents.on('ipc-message', (_event, channel, value) => {
+    if (window.isDestroyed()) return
+    if (channel === 'shiin-overlay:hover') {
+      const nextHovered = value === true
+      window.setIgnoreMouseEvents(!nextHovered, { forward: true })
+      if (hovered === nextHovered) return
+      hovered = nextHovered
+      if (hovered && closeTimer) {
+        clearTimeout(closeTimer)
+        closeTimer = undefined
+        remaining = Math.max(0, remaining - (Date.now() - timerStartedAt))
+      } else if (!hovered) {
+        scheduleClose()
+      }
+    } else if (channel === 'shiin-overlay:close') {
+      window.close()
+    } else if (channel === 'shiin-overlay:activate') {
+      const imageUrl = toImageUrl(img)
+      if (type === 'text' || !imageUrl.startsWith('file:')) {
+        window.close()
+        return
+      }
+      if (opening) return
+      opening = true
+      void shell.openPath(fileURLToPath(imageUrl)).then((error) => {
+        if (error) console.error('[overlay] could not open screenshot:', error)
+        else if (!window.isDestroyed()) window.close()
+      }).catch((error) => console.error('[overlay] could not open screenshot:', error))
+        .finally(() => { opening = false })
+    }
+  })
+
+  void window.loadFile(resolveOverlayHtmlPath(), {
     query: {
       img: toImageUrl(img),
       title,
@@ -131,28 +179,22 @@ export function showScreenshotNotification(
       duration: String(duration),
       theme: options.theme || '',
     },
+  }).catch((error) => {
+    console.error('[overlay] page failed to load:', error)
+    if (!window.isDestroyed()) window.close()
   })
 
-  overlayWindow.once('ready-to-show', () => {
-    overlayWindow?.showInactive()
+  window.once('ready-to-show', () => {
+    if (window.isDestroyed()) return
+    window.showInactive()
+    ready = true
+    scheduleClose()
   })
 
-  overlayWindow.on('closed', () => {
-    overlayWindow = null
-    if (overlayTimeout) {
-      clearTimeout(overlayTimeout)
-      overlayTimeout = null
-    }
+  window.on('closed', () => {
+    if (closeTimer) clearTimeout(closeTimer)
+    if (overlayWindow === window) overlayWindow = null
   })
 
-  overlayTimeout = setTimeout(() => {
-    if (overlayWindow && !overlayWindow.isDestroyed()) {
-      try {
-        overlayWindow.close()
-      } catch {}
-      overlayWindow = null
-    }
-  }, duration + 350)
-
-  return overlayWindow
+  return window
 }

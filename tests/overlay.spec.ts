@@ -49,6 +49,13 @@ describe('overlay payload', () => {
     expect(parseOverlayPayload(null)).toEqual({})
   })
 
+  it('keeps the configured corner, duration and theme for automatic captures', () => {
+    const payload = buildOverlayPayload({ img: '/tmp/a.png' }, {
+      overlayNotifyPosition: 'top-left', overlayNotifyDuration: 2, theme: 'dark',
+    })
+    expect(parseOverlayPayload(payload)).toMatchObject({ position: 'top-left', duration: 2000, theme: 'dark' })
+  })
+
   it('accepts a lower-case duration and scale from JSON', () => {
     expect(parseOverlayPayload({ duration: '2500', scale: '1.25' })).toMatchObject({ duration: 2500, scale: 1.25 })
   })
@@ -113,8 +120,8 @@ describe('overlay switches', () => {
     expect(overlayDisabledByEnv({})).toBe(false)
   })
 
-  it('does not spawn anything when the config says hide', () => {
-    expect(showOverlayNotification({ title: 'x' }, { overlayNotify: 'hide' })).toEqual({
+  it('does not spawn anything when the config says hide', async () => {
+    expect(await showOverlayNotification({ title: 'x' }, { overlayNotify: 'hide' })).toEqual({
       shown: false,
       backend: 'none',
       reason: 'disabled',

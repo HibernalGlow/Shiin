@@ -152,13 +152,41 @@
       display: flex;
       align-items: center;
       gap: 16px;
-      padding: 14px 18px;
+      padding: 14px 38px 14px 18px;
       color: var(--color-text);
       box-shadow: var(--shadow-card);
       overflow: hidden;
-      cursor: default;
+      cursor: pointer;
       user-select: none;
       transform-origin: center center;
+    }
+
+    .card:focus-visible {
+      outline: 2px solid var(--color-accent);
+      outline-offset: -3px;
+    }
+
+    .close-button {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      display: grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--color-desc);
+      font: inherit;
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .close-button:hover, .close-button:focus-visible {
+      background: var(--badge-bg);
+      color: var(--color-title);
     }
 
     /* 预览图容器 */
@@ -363,7 +391,8 @@
 </head>
 <body>
   <div class="stage" id="notification">
-    <div class="card" id="zoomer">
+    <div class="card" id="zoomer" role="button" tabindex="0">
+      <button class="close-button" id="close-button" type="button" aria-label="关闭通知" title="关闭通知">×</button>
       <div class="preview-box" id="preview-box">
         <img class="preview" id="preview" src="" alt="截图预览">
         <div class="camera-fallback" id="camera-fallback" aria-hidden="true">
@@ -398,6 +427,31 @@
     const badgeEl = document.getElementById('badge');
     const zoomerEl = document.getElementById('zoomer');
     const progressFill = document.getElementById('progress-fill');
+    const closeButton = document.getElementById('close-button');
+    const overlay = window.shiinOverlay;
+
+    const canOpenImage = (params.get('img') || '').startsWith('file:') && params.get('type') !== 'text';
+    zoomerEl.setAttribute('aria-label', canOpenImage ? '打开截图' : '关闭通知');
+    zoomerEl.title = canOpenImage ? '点击打开截图，悬停暂停倒计时' : '点击关闭，悬停暂停倒计时';
+    const closeNotification = () => {
+      if (overlay) overlay.close();
+      else window.close();
+    };
+    const activateNotification = () => {
+      if (overlay) overlay.activate();
+      else closeNotification();
+    };
+    zoomerEl.addEventListener('click', activateNotification);
+    zoomerEl.addEventListener('keydown', (event) => {
+      if (event.target === zoomerEl && (event.key === 'Enter' || event.key === ' ')) {
+        event.preventDefault();
+        activateNotification();
+      }
+    });
+    closeButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      closeNotification();
+    });
 
     // 图片处理
     if (params.has('img') && params.get('img')) {
@@ -470,7 +524,7 @@
       closeTimeout = setTimeout(() => {
         stageEl.classList.add('fade-out');
         setTimeout(() => {
-          try { window.close(); } catch (e) {}
+          try { closeNotification(); } catch (e) {}
         }, 300);
       }, ms);
     }
@@ -478,16 +532,18 @@
     scheduleClose(duration);
 
     zoomerEl.addEventListener('mouseenter', () => {
+      overlay?.setHovered(true);
       if (closeTimeout) {
         clearTimeout(closeTimeout);
         closeTimeout = null;
       }
       const elapsed = Date.now() - timerStart;
-      remainingTime = Math.max(500, remainingTime - elapsed);
+      remainingTime = Math.max(0, remainingTime - elapsed);
       isPaused = true;
     });
 
     zoomerEl.addEventListener('mouseleave', () => {
+      overlay?.setHovered(false);
       if (isPaused) {
         isPaused = false;
         timerStart = Date.now();
